@@ -30,5 +30,18 @@ app.get("/api/health", (_req: Request, res: Response) => {
 //   -> on failure, respond 500 with a safe message (no internal details)
 // TODO(Issue 4): implement the route here.
 // ---------------------------------------------------------------------------
+app.get("/api/categories", async (req, res) => {
+  try {
+    const prisma = getPrisma();
+    const categories = await prisma.category.findMany({
+      orderBy: { id: 'asc' }, // เรียงลำดับตาม ID
+      select: { id: true, name: true } // ส่งกลับไปแค่ ID และ Name ตาม Criteria
+    });
+    res.json(categories);
+  } catch (error) {
+    console.error("Error fetching categories:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
 
 export default app;
