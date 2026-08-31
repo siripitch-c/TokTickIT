@@ -496,3 +496,6 @@ HTTP status summary (full detail per-endpoint in `api-spec.md`):
   and were chosen so the smallest option (10) keeps the desktop table and
   mobile card view both comfortably on one screen without scrolling, while
   50 caps how much data one request can return.
+- Read-only field background uses the "soft gray-green" option
+  (not warm-ivory) to keep visual contrast against the pale-green
+  success/selected token (`--zg-pale`) in ui-spec.md §1.1.
