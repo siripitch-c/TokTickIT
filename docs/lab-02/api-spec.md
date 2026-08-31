@@ -1,49 +1,255 @@
 # Lab 2 API Contract
 
-## Conventions
+This document is the authoritative, exact contract for every Lab 2 endpoint.
+`specification.md` §8 is only a summary; this file is what the implementation
+and tests must match verbatim — field names, param names, and status codes
+here are final unless changed here first.
 
-All responses are JSON except downloads. Requester-scoped calls require header `X-Requester-Id: <positive integer>`; missing/invalid context is `400`. The server applies it, never a client-side ownership check. Safe errors use `{ "error": { "code": "...", "message": "safe user-facing text", "fields": { "field": "message" } } }`; omit `fields` when not applicable. Never expose storage filenames/paths. All timestamps are ISO-8601 UTC.
+## 1. Conventions
 
-## Reference data
+- **Base path:** `/api`
+- **Requester context header:** every Requester-scoped endpoint requires
+  `X-Requester-Id: <integer>` on the request. This is the Lab 2 Development
+  Requester testing mechanism (BR-04), **not real authentication** — see
+  specification.md BR-40 and the README note required by the Definition of
+  Done. There is no session; the header must be sent on every request.
+- **Content type:** `application/json` for all bodies except attachment
+  upload, which is `multipart/form-data`.
+- **Timestamps:** ISO 8601 UTC strings (e.g. `2026-05-12T09:14:00.000Z`).
+- **Error envelope** (used for every non-2xx response):
+  ```json
+  {
+    "error": {
+      "code": "VALIDATION_ERROR",
+      "message": "Summary must be between 5 and 150 characters.",
+      "field": "summary"
+    }
+  }
+  ```
+  `field` is omitted when the error isn't tied to one request field (e.g. a
+  404 or 500). `code` is a stable machine-readable string; `message` is
+  human-readable and safe to show directly in the UI.
+- **Pagination envelope** (used by the ticket list endpoint):
+  ```json
+  {
+    "data": [ /* array of items */ ],
+    "pagination": {
+      "page": 1,
+      "pageSize": 10,
+      "totalItems": 42,
+      "totalPages": 5
+    }
+  }
+  ```
 
-`GET /api/categories`, `GET /api/related-systems`, `GET /api/requesters` return `200 {items:[{id,name,...}]}` and active records only. Requesters contain `id,name,email`; inactive records are excluded. `500` returns a safe generic error.
+## 2. Enums
 
-## Tickets
+- `RequestedPriority`: `LOW` | `MEDIUM` | `HIGH`
+- `ITPriority`: `LOW` | `MEDIUM` | `HIGH` | `null` (always `null` in Lab 2 —
+  set only by IT Staff in a later sprint, per BR-02)
+- `CurrentStatus`: `NEW` (the only value ever produced in Lab 2, per BR-02;
+  the column is an enum so later sprints can add more without a migration
+  that changes column type)
 
-### POST /api/tickets
+## 3. Reference Data Endpoints
 
-Requires requester header. JSON body: `{categoryId,relatedSystemId,requestedPriority,summary,description}`. Trim summary/description server-side; validate active references, priority and lengths from BR-16. Ignore/reject client-supplied ticketNumber, requesterId, IT priority, status and timestamps (`400`). Return `201 {ticket:{id,ticketNumber,requesterId,category,relatedSystem,summary,description,requestedPriority,itPriority:null,currentStatus:"NEW",createdAt,updatedAt}}`. Validation is `400` with field messages; unexpected persistence failure is `500` and persists no Ticket. Attachments are uploaded separately after this response.
+### `GET /api/categories`
+- Requester context: not required (public reference data).
+- Query params: none.
+- 200 response:
+  ```json
+  { "data": [ { "id": 1, "name": "Hardware" }, ... ] }
+  ```
+- Only `isActive: true` Categories are returned; `isActive` itself is not
+  included in the response (irrelevant to the client).
 
-### GET /api/tickets
+### `GET /api/related-systems`
+- Requester context: not required.
+- Query params: none.
+- 200 response: same shape as Categories:
+  ```json
+  { "data": [ { "id": 1, "name": "VPN" }, ... ] }
+  ```
+- Only active Related Systems returned (BR list includes `Other / Not
+  Listed` as a normal seeded row — no special client handling needed).
 
-Requires requester header. Query: `search`, `categoryId`, `requestedPriority=LOW|MEDIUM|HIGH`, `itPriority=LOW|MEDIUM|HIGH|UNSET`, `currentStatus=NEW`, `sortBy=ticketNumber|createdAt|updatedAt`, `sortDir=asc|desc`, `page`, `pageSize`.
+### `GET /api/requesters`
+- Requester context: not required (this endpoint is what powers the
+  Development Requester Selection screen itself).
+- Query params: none.
+- 200 response:
+  ```json
+  { "data": [ { "id": 3, "name": "Jennifer Anderson" }, ... ] }
+  ```
+- Only `isActive: true` Requesters are returned (BR-05, BR-35). `email` is
+  intentionally omitted from this public list response.
+- 500 response: safe generic error envelope; the Requester Selection
+  screen shows BR-08's failure state on any non-2xx response here.
+- Empty `data: []` array (not an error) is the trigger for BR-09's empty
+  state — the client checks array length, not a special status code.
 
-Invalid/unknown query values are ignored and defaulted: sort `createdAt desc` then `ticketNumber desc`; page `1`; pageSize `10` (allowed 10/25/50). Filter comparison is AND. `UNSET` maps to `itPriority IS NULL`. Return `200 {items:[TicketListItem],pagination:{page,pageSize,totalCount,totalPages,hasPreviousPage,hasNextPage}}`; beyond last page returns `items:[]` with correct metadata. A malformed query encoding/request is `400`; unexpected error is `500`.
+## 4. Ticket Endpoints
 
-### GET /api/tickets/:id
+### `POST /api/tickets`
+- Requester context: **required** (`X-Requester-Id`). The authenticated —
+  in Lab 2, selected — Requester becomes `requesterId` on the created
+  Ticket; the client never sends `requesterId` in the body.
+- Request body:
+  ```json
+  {
+    "categoryId": 2,
+    "relatedSystemId": 7,
+    "summary": "Laptop battery drains quickly",
+    "description": "The battery drains much faster than usual...",
+    "requestedPriority": "MEDIUM"
+  }
+  ```
+- Validation (400 on failure, per BR-19–BR-23):
+  - `categoryId`: required, must reference an active Category → else 400
+    `INVALID_CATEGORY`
+  - `relatedSystemId`: required, must reference an active RelatedSystem →
+    else 400 `INVALID_RELATED_SYSTEM`
+  - `summary`: required, trimmed, 5–150 chars → else 400 `VALIDATION_ERROR`
+    (`field: "summary"`)
+  - `description`: required, trimmed, 10–2000 chars → else 400
+    `VALIDATION_ERROR` (`field: "description"`)
+  - `requestedPriority`: required, one of the enum values → else 400
+    `VALIDATION_ERROR` (`field: "requestedPriority"`)
+- 201 response:
+  ```json
+  {
+    "data": {
+      "id": 118,
+      "ticketNumber": "TKT-2026-000118",
+      "requesterId": 3,
+      "categoryId": 2,
+      "relatedSystemId": 7,
+      "summary": "Laptop battery drains quickly",
+      "description": "The battery drains much faster than usual...",
+      "requestedPriority": "MEDIUM",
+      "itPriority": null,
+      "currentStatus": "NEW",
+      "createdAt": "2026-05-12T09:14:00.000Z",
+      "updatedAt": "2026-05-12T09:14:00.000Z",
+      "attachments": []
+    }
+  }
+  ```
+- This endpoint does **not** accept attachments in the same request.
+  Attachments are uploaded afterward via `POST /api/tickets/:id/attachments`
+  (BR-25, BR-34) — the client calls Create Ticket first, then fires 0–5
+  attachment uploads against the returned `id`, each independently
+  best-effort per BR-25/BR-34.
+- 500 response: safe generic error, no partial Ticket persisted (BR-24).
 
-Requires requester header and a positive numeric path ID. Return owned detail and all attachment metadata (including removed records) in `200 {ticket:{...,attachments:[Attachment]}}`. Invalid ID is `400`; absent/foreign ticket is indistinguishable `404`; server failure `500`.
+### `GET /api/tickets`
+- Requester context: **required**. Only Tickets where `requesterId`
+  matches the header value are ever considered (BR-11).
+- Query params (all optional; every one is lenient per BR-18 — invalid or
+  unrecognized values fall back to defaults, never a 400):
 
-## Attachments
+  | Param | Type | Default | Notes |
+  |---|---|---|---|
+  | `search` | string | — (no filter) | matches `ticketNumber` or `summary`, case-insensitive partial (BR-13) |
+  | `category` | integer (Category id) | — | BR-14 |
+  | `requestedPriority` | `LOW`\|`MEDIUM`\|`HIGH` | — | BR-14 |
+  | `itPriority` | `LOW`\|`MEDIUM`\|`HIGH` | — | BR-14 |
+  | `status` | `NEW` | — | BR-14 |
+  | `sortBy` | `ticketNumber`\|`createdAt`\|`updatedAt` | `createdAt` | BR-15 |
+  | `sortDir` | `asc`\|`desc` | `desc` | BR-15 |
+  | `page` | integer ≥ 1 | `1` | BR-17 |
+  | `pageSize` | `10`\|`25`\|`50` | `10` | BR-16 |
 
-`Attachment` response fields are `id,ticketId,originalFilename,mimeType,sizeBytes,uploadedAt,removedAt,removedReason,isRemoved`. `storedFilename` is never public.
+  Filters combine with AND logic (BR-14). Ties on `sortBy` break by
+  `ticketNumber desc` (BR-15's secondary sort).
+- 200 response: the pagination envelope (§1) with `data` = array of Ticket
+  summaries (same shape as the create response's `data`, minus the
+  `attachments` array — My Tickets doesn't need attachment detail per row).
+- `page` beyond the last page returns `data: []` with accurate `pagination`
+  metadata, not an error (BR-17).
 
-### POST /api/tickets/:id/attachments
+### `GET /api/tickets/:id`
+- Requester context: **required**.
+- If the Ticket doesn't exist, or exists but `requesterId` doesn't match
+  the header value: **404** `TICKET_NOT_FOUND` (BR-12 — identical response
+  for both cases, no way to distinguish them from the response).
+- 200 response: full Ticket object (same shape as Create Ticket's `data`),
+  with `attachments` populated as an array of Attachment metadata objects
+  (§5) — including soft-removed ones, per BR-29 (metadata visible, file
+  not downloadable).
 
-Requires requester header, owned positive ticket ID and `multipart/form-data` field `file` (one file per request). Validate type by MIME plus extension/signature as feasible, <= 5 MiB, and fewer than five active attachments before writing. Store with generated filename. Return `201 {attachment}`. Invalid/missing file `400`; foreign/missing ticket `404`; sixth active file `409`; oversized `413`; unsupported type `415`; unexpected upload failure `500` with no attachment row/file retained.
+## 5. Attachment Endpoints
 
-### GET /api/attachments/:id
+Attachment metadata object shape (used in Ticket Detail's `attachments`
+array and in the two attachment-specific GETs below):
+```json
+{
+  "id": 44,
+  "ticketId": 118,
+  "originalFilename": "screenshot.png",
+  "mimeType": "image/png",
+  "sizeBytes": 214532,
+  "uploadedAt": "2026-05-12T09:20:00.000Z",
+  "removedAt": null,
+  "removedReason": null
+}
+```
+`storedFilename` is never included in any API response (internal only, per
+BR-32).
 
-Requires requester header. Return owned attachment metadata even after soft removal: `200 {attachment}`. Invalid ID `400`; absent/foreign `404`; `500` safe error.
+### `POST /api/tickets/:id/attachments`
+- Requester context: **required**; must own the Ticket at `:id` or **404**
+  `TICKET_NOT_FOUND` (BR-11, same ownership rule as above).
+- Request: `multipart/form-data` with a single `file` field.
+- Validation:
+  - Type not in JPG/JPEG/PNG/WEBP/PDF → **415** `UNSUPPORTED_FILE_TYPE`
+  - Size > 5 MB → **413** `FILE_TOO_LARGE`
+  - Ticket already has 5 active attachments → **409** `ATTACHMENT_LIMIT_REACHED`
+    (BR-28)
+- 201 response: `{ "data": <attachment metadata object> }`
+- 500 response on upload failure: no attachment record stored, existing
+  attachments and the Ticket itself are unaffected (BR-33).
 
-### GET /api/attachments/:id/download
+### `GET /api/attachments/:id`
+- Requester context: **required**; must own the parent Ticket or **404**
+  `ATTACHMENT_NOT_FOUND` (BR-11).
+- 200 response: `{ "data": <attachment metadata object> }` — returned even
+  if `removedAt` is set (metadata stays visible per BR-29).
 
-Requires requester header. For an owned active attachment, return `200` file bytes with safe `Content-Type` and `Content-Disposition: attachment; filename="<original filename>"`. Missing, foreign, soft-removed or unavailable-on-disk resource returns `404`; no preview route is provided. Never return removed content.
+### `GET /api/attachments/:id/download`
+- Requester context: **required**; ownership check as above → 404 if not
+  owned.
+- If `removedAt` is set (soft-removed): **404** `ATTACHMENT_NOT_FOUND`
+  regardless of ownership — a removed attachment is never downloadable by
+  anyone, including its owner (BR-30). This is the one case where an
+  *owned* resource still 404s; it is intentional.
+- 200 response: the raw file bytes with `Content-Type` set to the stored
+  `mimeType` and `Content-Disposition: attachment; filename="<originalFilename>"`.
 
-### DELETE /api/attachments/:id
+### `DELETE /api/attachments/:id`
+- Requester context: **required**; must own the parent Ticket or **404**
+  `ATTACHMENT_NOT_FOUND` (same rule as `GET /api/attachments/:id`).
+- Request body:
+  ```json
+  { "removalReason": "Uploaded the wrong screenshot by mistake" }
+  ```
+- Validation: `removalReason` required, trimmed, 5–200 chars (BR-31) → else
+  400 `VALIDATION_ERROR` (`field: "removalReason"`).
+- Already-removed attachment (`removedAt` already set) → **409**
+  `ALREADY_REMOVED` (idempotency guard; removal is not repeatable).
+- 200 response: `{ "data": <attachment metadata object with removedAt and
+  removedReason now populated> }` — this is a soft update, never a hard
+  delete (BR-29), so the HTTP verb is DELETE but the row is never removed.
 
-Requires requester header. Body `{reason}`; trim and require 5-200 characters. Return `200 {attachment}` after setting `removedAt` and `removedReason`, never deleting the row/file record. Invalid reason/ID `400`; foreign/missing/already-removed `404`; failure `500`. Client must present a confirmation step before this call.
+## 6. Status Code Reference
 
-## Status matrix
-
-`200` retrieval/update; `201` ticket/attachment creation; `400` invalid input/context; `404` missing or failed ownership/removal-content lookup; `409` active attachment cap; `413` oversized upload; `415` unsupported type; `500` safe unexpected error. No endpoint uses `403` for requester ownership.
+| Status | Code strings used | Meaning |
+|---|---|---|
+| 200 | — | Successful retrieval or soft-update |
+| 201 | — | Ticket or Attachment created |
+| 400 | `VALIDATION_ERROR`, `INVALID_CATEGORY`, `INVALID_RELATED_SYSTEM` | Request body failed validation |
+| 404 | `TICKET_NOT_FOUND`, `ATTACHMENT_NOT_FOUND` | Missing resource, ownership failure (BR-12), or removed-attachment download attempt |
+| 409 | `ATTACHMENT_LIMIT_REACHED`, `ALREADY_REMOVED` | Conflicting state |
+| 413 | `FILE_TOO_LARGE` | Attachment exceeds 5 MB |
+| 415 | `UNSUPPORTED_FILE_TYPE` | Attachment type not allowed |
+| 500 | `INTERNAL_ERROR` | Unexpected server error; message is always generic, never a raw stack trace or DB error string |
