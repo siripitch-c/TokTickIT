@@ -41,13 +41,48 @@ describe("GET /api/requesters", () => {
     }
   });
 
-  it("API-REQ-03: an inactive Requester is excluded, even if their Tickets still exist in the DB", async () => {
+  it("API-REQ-03 / BR-36: an inactive Requester's existing Tickets remain in the database and are excluded from /api/requesters", async () => {
     const prisma = getPrisma();
-    const inactive = await prisma.requester.findFirst({ where: { isActive: false } });
-    expect(inactive).not.toBeNull();
 
-    const response = await request(app).get("/api/requesters");
-    const ids = response.body.data.map((r: { id: number }) => r.id);
-    expect(ids).not.toContain(inactive!.id);
+    const category = await prisma.category.findFirstOrThrow({ where: { isActive: true } });
+    const relatedSystem = await prisma.relatedSystem.findFirstOrThrow({ where: { isActive: true } });
+
+    // A fresh, temporarily-active Requester, so this test doesn't depend on
+    // (or disturb) the permanently-inactive seeded Requester.
+    const requester = await prisma.requester.create({
+      data: {
+        name: "Temp BR-36 Requester",
+        email: `br36-${Date.now()}@example.edu`,
+        isActive: true,
+      },
+    });
+
+    const ticket = await prisma.ticket.create({
+      data: {
+        ticketNumber: `TKT-TEST-${Date.now()}`,
+        requesterId: requester.id,
+        categoryId: category.id,
+        relatedSystemId: relatedSystem.id,
+        summary: "BR-36 regression check",
+        description: "Created directly via Prisma to verify inactive-Requester behavior.",
+        requestedPriority: "LOW",
+      },
+    });
+
+    try {
+      // The Requester becomes inactive AFTER the Ticket already exists.
+      await prisma.requester.update({ where: { id: requester.id }, data: { isActive: false } });
+
+      const response = await request(app).get("/api/requesters");
+      const ids = response.body.data.map((r: { id: number }) => r.id);
+      expect(ids).not.toContain(requester.id);
+
+      const stillThere = await prisma.ticket.findUnique({ where: { id: ticket.id } });
+      expect(stillThere).not.toBeNull();
+      expect(stillThere?.requesterId).toBe(requester.id);
+    } finally {
+      await prisma.ticket.delete({ where: { id: ticket.id } });
+      await prisma.requester.delete({ where: { id: requester.id } });
+    }
   });
 });

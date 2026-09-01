@@ -3,17 +3,17 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import RequesterSelection from "../../src/components/RequesterSelection.js";
 
-global.fetch = vi.fn();
+globalThis.fetch = vi.fn();
 
 function mockRequesters(data: { id: number; name: string }[]) {
-  (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+  (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
     ok: true,
     json: async () => ({ data }),
   });
 }
 
 function mockFailure() {
-  (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({ ok: false });
+  (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({ ok: false });
 }
 
 describe("RequesterSelection", () => {
@@ -37,7 +37,7 @@ describe("RequesterSelection", () => {
   });
 
   it("UI-CTX-02: shows the loading state before requesters resolve", () => {
-    (global.fetch as ReturnType<typeof vi.fn>).mockReturnValue(new Promise(() => {})); // never resolves
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockReturnValue(new Promise(() => {})); // never resolves
     render(<RequesterSelection onContinue={vi.fn()} />);
     expect(screen.getByTestId("zg-state-loading")).toBeInTheDocument();
   });
