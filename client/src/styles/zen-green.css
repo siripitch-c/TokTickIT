@@ -1,0 +1,339 @@
+/* Zen Green Theme — implements docs/lab-02/ui-spec.md §1 (Design Tokens)
+   and §2 (Shared Components and States). Import this AFTER bootstrap.min.css
+   in main.tsx so these rules can override Bootstrap defaults where needed. */
+
+:root {
+  /* §1.1 Color */
+  --zg-primary: #006B3C;
+  --zg-secondary: #0B7A46;
+  --zg-pale: #EAF6EF;
+  --zg-bg: #F5F7F6;
+  --zg-surface: #FFFFFF;
+  --zg-border: #DDE5E1;
+  --zg-text: #1E2A24;
+  --zg-text-muted: #5B6B63;
+  --zg-editable-bg: #FFFFFF;
+  --zg-editable-border: #C7D2CC;
+  --zg-readonly-bg: #EEF1EE;
+  --zg-readonly-border: #CDD6D0;
+  --zg-error: #8A1F1F;
+  --zg-error-bg: #FBEAEA;
+  --zg-warning: #8A5B00;
+  --zg-warning-bg: #FFF3DC;
+  --zg-success: #0B7A46;
+  --zg-disabled-bg: #EDEFED;
+  --zg-disabled-text: #9AA5A0;
+
+  /* §1.2 Typography */
+  --zg-font: -apple-system, "Segoe UI", Roboto, sans-serif;
+  --zg-text-xs: 12px;
+  --zg-text-sm: 14px;
+  --zg-text-base: 16px;
+  --zg-text-lg: 20px;
+  --zg-text-xl: 28px;
+
+  /* §1.3 Spacing */
+  --zg-space-1: 4px;
+  --zg-space-2: 8px;
+  --zg-space-3: 16px;
+  --zg-space-4: 24px;
+  --zg-space-5: 32px;
+  --zg-space-6: 48px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--zg-font);
+  color: var(--zg-text);
+  background: var(--zg-bg);
+  margin: 0;
+}
+
+/* ---------- Page / layout ---------- */
+
+.zg-page {
+  min-height: 100vh;
+  background: var(--zg-bg);
+  display: flex;
+  flex-direction: column;
+}
+
+.zg-header {
+  background: var(--zg-primary);
+  color: #fff;
+  padding: var(--zg-space-3) var(--zg-space-4);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--zg-space-2);
+}
+
+.zg-header-title {
+  font-size: var(--zg-text-lg);
+  font-weight: 700;
+  color: #fff;
+}
+
+.zg-header-requester {
+  font-size: var(--zg-text-sm);
+  color: #fff;
+  opacity: 0.9;
+}
+
+/* ---------- Card / surface ---------- */
+
+.zg-card {
+  background: var(--zg-surface);
+  border: 1px solid var(--zg-border);
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  padding: var(--zg-space-4);
+  max-width: 480px;
+  margin: var(--zg-space-5) auto;
+}
+
+@media (max-width: 767px) {
+  .zg-card {
+    padding: var(--zg-space-3);
+    margin: var(--zg-space-3);
+  }
+}
+
+.zg-icon-badge {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--zg-pale);
+  color: var(--zg-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto var(--zg-space-3);
+  font-size: var(--zg-text-lg);
+}
+
+/* ---------- Typography helpers ---------- */
+
+.zg-text-xs { font-size: var(--zg-text-xs); }
+.zg-text-sm { font-size: var(--zg-text-sm); }
+.zg-text-base { font-size: var(--zg-text-base); }
+.zg-text-lg { font-size: var(--zg-text-lg); font-weight: 600; }
+.zg-text-xl { font-size: var(--zg-text-xl); font-weight: 700; text-align: center; }
+.zg-text-muted { color: var(--zg-text-muted); }
+
+/* ---------- Field control (§2.1) ---------- */
+
+.zg-field-label {
+  display: block;
+  font-weight: 600;
+  font-size: var(--zg-text-sm);
+  margin-bottom: var(--zg-space-1);
+}
+
+.zg-field--editable,
+.zg-field--readonly,
+.zg-field--invalid,
+.zg-field--disabled,
+select.zg-field--editable {
+  width: 100%;
+  height: 40px;
+  border-radius: 6px;
+  padding: 0 var(--zg-space-2);
+  font-size: var(--zg-text-base);
+  font-family: var(--zg-font);
+  color: var(--zg-text);
+}
+
+.zg-field--editable {
+  background: var(--zg-editable-bg);
+  border: 1px solid var(--zg-editable-border);
+}
+
+.zg-field--editable:focus,
+.zg-field--focus {
+  outline: none;
+  border-color: var(--zg-secondary);
+  box-shadow: 0 0 0 2px var(--zg-secondary);
+}
+
+.zg-field--readonly {
+  background: var(--zg-readonly-bg);
+  border: 1px solid var(--zg-readonly-border);
+  cursor: not-allowed;
+}
+
+.zg-field--invalid {
+  background: var(--zg-editable-bg);
+  border: 2px solid var(--zg-error);
+}
+
+.zg-field--disabled {
+  background: var(--zg-disabled-bg);
+  color: var(--zg-disabled-text);
+  border: 1px solid var(--zg-border);
+  cursor: not-allowed;
+}
+
+textarea.zg-field--editable {
+  height: auto;
+  min-height: 120px;
+  resize: vertical;
+  padding: var(--zg-space-2);
+}
+
+.zg-required-marker {
+  color: var(--zg-error);
+  margin-left: 2px;
+}
+
+.zg-validation-message {
+  color: var(--zg-error);
+  font-size: var(--zg-text-sm);
+  margin-top: var(--zg-space-1);
+}
+
+/* ---------- Buttons (§2.2) ---------- */
+
+.zg-btn--primary,
+.zg-btn--secondary,
+.zg-btn--tertiary,
+.zg-btn--destructive,
+.zg-btn--disabled {
+  height: 40px;
+  padding: 0 var(--zg-space-3);
+  border-radius: 6px;
+  font-size: var(--zg-text-base);
+  font-family: var(--zg-font);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.zg-btn--primary {
+  background: var(--zg-primary);
+  color: #fff;
+  border: 1px solid var(--zg-primary);
+}
+.zg-btn--primary:hover { background: var(--zg-secondary); }
+
+.zg-btn--secondary {
+  background: #fff;
+  color: var(--zg-secondary);
+  border: 1px solid var(--zg-secondary);
+}
+.zg-btn--secondary:hover { background: var(--zg-pale); }
+
+.zg-btn--tertiary {
+  background: transparent;
+  color: var(--zg-secondary);
+  border: none;
+  padding: 0;
+  height: auto;
+}
+.zg-btn--tertiary:hover { text-decoration: underline; }
+
+.zg-btn--destructive {
+  background: #fff;
+  color: var(--zg-error);
+  border: 1px solid var(--zg-error);
+}
+.zg-btn--destructive:hover { background: var(--zg-error); color: #fff; }
+
+.zg-btn--disabled,
+.zg-btn--primary:disabled,
+.zg-btn--secondary:disabled {
+  background: var(--zg-disabled-bg);
+  color: var(--zg-disabled-text);
+  border: 1px solid var(--zg-border);
+  cursor: not-allowed;
+}
+
+.zg-btn--busy {
+  opacity: 0.85;
+  cursor: progress;
+}
+
+.zg-actions-row {
+  display: flex;
+  gap: var(--zg-space-2);
+  justify-content: flex-end;
+  margin-top: var(--zg-space-4);
+  flex-wrap: wrap;
+}
+
+/* ---------- Badges (§2.3) ---------- */
+
+.zg-badge {
+  display: inline-block;
+  padding: 2px var(--zg-space-2);
+  border-radius: 999px;
+  font-size: var(--zg-text-xs);
+  font-weight: 600;
+}
+.zg-badge--low { background: var(--zg-pale); color: var(--zg-secondary); }
+.zg-badge--medium { background: var(--zg-warning-bg); color: var(--zg-warning); }
+.zg-badge--high { background: var(--zg-error-bg); color: var(--zg-error); }
+
+/* ---------- Callouts ---------- */
+
+.zg-callout--info {
+  background: var(--zg-pale);
+  color: var(--zg-text);
+  border: 1px solid var(--zg-secondary);
+  border-radius: 6px;
+  padding: var(--zg-space-2) var(--zg-space-3);
+  font-size: var(--zg-text-sm);
+  margin: var(--zg-space-3) 0;
+}
+
+.zg-callout--neutral {
+  background: var(--zg-bg);
+  color: var(--zg-text-muted);
+  border: 1px solid var(--zg-border);
+  border-radius: 6px;
+  padding: var(--zg-space-2) var(--zg-space-3);
+  font-size: var(--zg-text-sm);
+  margin: var(--zg-space-3) 0;
+}
+
+.zg-callout--error {
+  background: var(--zg-error-bg);
+  color: var(--zg-error);
+  border: 1px solid var(--zg-error);
+  border-radius: 6px;
+  padding: var(--zg-space-2) var(--zg-space-3);
+  font-size: var(--zg-text-sm);
+  margin: var(--zg-space-3) 0;
+}
+
+/* ---------- States ---------- */
+
+.zg-state--loading,
+.zg-state--empty,
+.zg-state--error {
+  text-align: center;
+  padding: var(--zg-space-5) var(--zg-space-3);
+  color: var(--zg-text-muted);
+  font-size: var(--zg-text-sm);
+}
+
+.zg-state--error { color: var(--zg-error); }
+
+.zg-skeleton-bar {
+  height: 40px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--zg-border) 25%, var(--zg-pale) 50%, var(--zg-border) 75%);
+  background-size: 200% 100%;
+  animation: zg-skeleton-shimmer 1.2s ease-in-out infinite;
+  margin: var(--zg-space-2) auto;
+  max-width: 240px;
+}
+
+@keyframes zg-skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
