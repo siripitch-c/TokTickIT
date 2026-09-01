@@ -23,5 +23,89 @@ datasource db {
 model Category {
   id        Int      @id @default(autoincrement())
   name      String   @unique
+  isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
+
+  tickets Ticket[]
+}
+
+// ---------------------------------------------------------------------------
+// Issue #12 — Data model foundation & Requester context
+// All four new models below are introduced together in a single migration
+// (specification.md §7), even though only Requester's API/UI is implemented
+// in this issue. Ticket/Attachment routes come in later issues (#13, #15).
+// ---------------------------------------------------------------------------
+
+model Requester {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  tickets Ticket[]
+}
+
+model RelatedSystem {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  tickets Ticket[]
+}
+
+enum RequestedPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum ITPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum CurrentStatus {
+  NEW
+}
+
+model Ticket {
+  id                Int               @id @default(autoincrement())
+  ticketNumber      String            @unique
+  requesterId       Int
+  categoryId        Int
+  relatedSystemId   Int
+  summary           String
+  description       String
+  requestedPriority RequestedPriority
+  itPriority        ITPriority?
+  currentStatus     CurrentStatus     @default(NEW)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  requester     Requester     @relation(fields: [requesterId], references: [id])
+  category      Category      @relation(fields: [categoryId], references: [id])
+  relatedSystem RelatedSystem @relation(fields: [relatedSystemId], references: [id])
+  attachments   Attachment[]
+
+  @@index([requesterId, createdAt])
+  @@index([createdAt])
+}
+
+model Attachment {
+  id               Int       @id @default(autoincrement())
+  ticketId         Int
+  originalFilename String
+  storedFilename   String
+  mimeType         String
+  sizeBytes        Int
+  uploadedAt       DateTime  @default(now())
+  removedAt        DateTime?
+  removedReason    String?
+
+  ticket Ticket @relation(fields: [ticketId], references: [id])
+
+  @@index([ticketId])
 }

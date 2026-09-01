@@ -12,11 +12,12 @@ describe("GET /api/categories", () => {
     const response = await request(app).get("/api/categories");
     
     expect(response.status).toBe(200);
-    
-    expect(Array.isArray(response.body)).toBe(true);
-    expect(response.body.length).toBe(4);
 
-    const categoryNames = response.body.map((category: { id: number, name: string }) => category.name);
+    // Issue #12: response is now wrapped as { data: [...] } per api-spec.md §3
+    expect(Array.isArray(response.body.data)).toBe(true);
+    expect(response.body.data.length).toBe(4);
+
+    const categoryNames = response.body.data.map((category: { id: number, name: string }) => category.name);
     
     expect(categoryNames).toEqual([
       "Account and Access",

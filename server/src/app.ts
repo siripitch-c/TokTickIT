@@ -34,13 +34,35 @@ app.get("/api/categories", async (req, res) => {
   try {
     const prisma = getPrisma();
     const categories = await prisma.category.findMany({
-      orderBy: { id: 'asc' }, // เรียงลำดับตาม ID
-      select: { id: true, name: true } // ส่งกลับไปแค่ ID และ Name ตาม Criteria
+      where: { isActive: true },
+      orderBy: { id: "asc" },
+      select: { id: true, name: true }, // isActive itself is never returned to the client (api-spec.md §3)
     });
-    res.json(categories);
+    res.json({ data: categories });
   } catch (error) {
     console.error("Error fetching categories:", error);
-    res.status(500).json({ error: "Internal Server Error" });
+    res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Something went wrong. Please try again." } });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Issue #12 — Data model foundation & Requester context
+// GET /api/requesters — api-spec.md §3. No requester context header needed;
+// this endpoint powers the Selection screen itself (BR-05, BR-35).
+// Only active Requesters are returned; email is intentionally omitted.
+// ---------------------------------------------------------------------------
+app.get("/api/requesters", async (req, res) => {
+  try {
+    const prisma = getPrisma();
+    const requesters = await prisma.requester.findMany({
+      where: { isActive: true },
+      orderBy: { id: "asc" },
+      select: { id: true, name: true }, // email intentionally omitted (api-spec.md §3)
+    });
+    res.json({ data: requesters });
+  } catch (error) {
+    console.error("Error fetching requesters:", error);
+    res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Something went wrong. Please try again." } });
   }
 });
 
