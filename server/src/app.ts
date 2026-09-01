@@ -18,7 +18,6 @@ app.use(express.json());
 // It must return HTTP 200 with JSON: { status: "ok", service: "TokTickIT API" }
 // ---------------------------------------------------------------------------
 app.get("/api/health", (_req: Request, res: Response) => {
-  // TODO(Issue 2): replace this stub with the required 200 response.
   res.status(200).json({ status: "ok", service: "TokTickIT API" });
 });
 
@@ -28,7 +27,6 @@ app.get("/api/health", (_req: Request, res: Response) => {
 //   -> read categories from PostgreSQL via getPrisma().category.findMany(...)
 //   -> return each { id, name } in a predictable (id) order
 //   -> on failure, respond 500 with a safe message (no internal details)
-// TODO(Issue 4): implement the route here.
 // ---------------------------------------------------------------------------
 app.get("/api/categories", async (req, res) => {
   try {
