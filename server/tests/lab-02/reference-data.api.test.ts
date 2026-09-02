@@ -38,22 +38,26 @@ describe("Reference data endpoints (API-REF-01)", () => {
 
   it("excludes inactive rows from both endpoints", async () => {
     const prisma = getPrisma();
-    const system = await prisma.relatedSystem.findFirst({ where: { isActive: true } });
-    const category = await prisma.category.findFirst({ where: { isActive: true } });
-    if (!system || !category) throw new Error("Seed data missing — run npm run prisma:seed");
-
-    await prisma.relatedSystem.update({ where: { id: system.id }, data: { isActive: false } });
-    await prisma.category.update({ where: { id: category.id }, data: { isActive: false } });
+    // Rows are created inactive for this test rather than deactivating seeded
+    // ones: every API test file shares one database, so flipping a row that
+    // another file already depends on makes both tests depend on timing.
+    const suffix = Date.now();
+    const category = await prisma.category.create({
+      data: { name: `Inactive category ${suffix}`, isActive: false },
+    });
+    const system = await prisma.relatedSystem.create({
+      data: { name: `Inactive system ${suffix}`, isActive: false },
+    });
 
     try {
-      const systems = await request(app).get("/api/related-systems");
       const categories = await request(app).get("/api/categories");
+      const systems = await request(app).get("/api/related-systems");
 
-      expect((systems.body.data as { id: number }[]).map((r) => r.id)).not.toContain(system.id);
       expect((categories.body.data as { id: number }[]).map((r) => r.id)).not.toContain(category.id);
+      expect((systems.body.data as { id: number }[]).map((r) => r.id)).not.toContain(system.id);
     } finally {
-      await prisma.relatedSystem.update({ where: { id: system.id }, data: { isActive: true } });
-      await prisma.category.update({ where: { id: category.id }, data: { isActive: true } });
+      await prisma.category.delete({ where: { id: category.id } });
+      await prisma.relatedSystem.delete({ where: { id: system.id } });
     }
   });
 });
