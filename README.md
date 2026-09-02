@@ -4,7 +4,9 @@ TokTickIT is an IT service desk application being built through the CPE334 indiv
 
 ## Current branch scope
 
-This branch contains the Issue 1 foundation, Issue 2 API health check, Issue 3 category seed, and Issue 4 category list:
+This branch contains everything through **Issue #12 — Data model foundation
+& Requester context**, on top of the Lab 1 foundation (Issues 1–4):
+
 * React + TypeScript + Vite frontend with Bootstrap styling
 * Node.js + Express + TypeScript backend
 * PostgreSQL database
@@ -12,12 +14,33 @@ This branch contains the Issue 1 foundation, Issue 2 API health check, Issue 3 c
 * Vitest and Supertest test commands
 * Environment and repository safety templates
 * GET `/api/health` with a Supertest verification
-* React health status, loading state, and backend-unavailable error state
 * Prisma Category model, migration, and idempotent seed for four IT request categories
 * GET `/api/categories` backed by Prisma with predictable ID ordering
-* React category list loaded from the API with loading and error states
+* Prisma `Requester`, `RelatedSystem`, `Ticket`, and `Attachment` models
+  (the latter two are schema-only in this issue; their routes/screens land
+  in Issues #13–#15)
+* Idempotent seed for ≥4 active Requesters, 1 inactive Requester, and 8
+  Related Systems (including "Other / Not Listed")
+* GET `/api/requesters` — active Requesters only, no `email` in the response
+* Development Requester Selection screen (loading/empty/error states),
+  session-persisted selection, and a Change Requester action — this is now
+  the app's real entry point, replacing the Lab 1 "Check System" demo page
 
-No later application features are implemented on this branch.
+No later application features (Create Ticket, My Tickets, Ticket Detail,
+attachments) are implemented on this branch.
+
+## About the Development Requester selector
+
+The Development Requester selector — the Selection screen, `GET
+/api/requesters`, and the `X-Requester-Id` header that later ticket/
+attachment endpoints will require — is a **Lab 2 testing mechanism only**.
+It is **not authentication** and provides no real security: any client can
+claim to be any Requester simply by sending a different id. Any `404`
+returned by a ticket or attachment endpoint when the id in that header
+doesn't own the requested resource (per `docs/lab-02/specification.md`
+BR-12) is an ownership check performed against this testing header, not
+proof of an authorization system that would resist a determined attacker.
+Real authentication is planned to replace this mechanism entirely in Lab 3.
 
 ## Prerequisites
 
@@ -37,9 +60,13 @@ cp client/.env.example client/.env
 cd server
 npm install
 npx prisma generate
-npx prisma migrate dev --name init
+npx prisma migrate dev
 npx prisma db seed
 ```
+`prisma migrate dev` applies both existing migrations on a fresh clone (the
+Lab 1 `Category` migration and the Lab 2 `Requester`/`Ticket`/`Attachment`
+migration); it only prompts for a new migration name if you've changed
+`schema.prisma` yourself and there's new drift to capture.
 
 # Setup Frontend
 ```bash
@@ -47,9 +74,14 @@ cd ../client
 npm install
 ```
 
-The local database is PostgreSQL at localhost:5432. The migration creates the Category table and the seed creates Account and Access, Hardware, Software, and Network without duplicates when rerun. The client reads VITE_API_BASE_URL from client/.env; its development value is http://localhost:3000. The database credentials are development-only values from .env.example; never commit either .env file or any real credentials.
+The local database is PostgreSQL at localhost:5432. The seed is idempotent —
+rerunning `npx prisma db seed` never creates duplicate Categories, Related
+Systems, or Requesters. The client reads `VITE_API_URL` from `client/.env`;
+its development value is `http://localhost:3000`. The database credentials
+are development-only values from `.env.example`; never commit either `.env`
+file or any real credentials.
 
-## Run the foundation and health check
+## Run the app
 Backend:
 ```bash
 cd server
@@ -62,7 +94,13 @@ cd client
 npm run dev
 ```
 
-Open the Vite URL shown in the client terminal. The page should show the TokTickIT heading, a Bootstrap-styled foundation card, the live backend API status, and the seeded IT request categories.
+Open the Vite URL shown in the client terminal. You should see the
+Development Requester Selection screen first; after choosing a Requester
+and continuing, the app shows a minimal shell with your selected
+Requester's name and a "Change Requester" action. Refreshing the page keeps
+you signed in as the same Requester for the rest of the browser session
+(sessionStorage); Change Requester clears that and returns you to the
+selector.
 
 ## Test
 Backend Tests (Supertest):

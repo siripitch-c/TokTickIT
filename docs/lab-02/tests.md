@@ -96,7 +96,7 @@
 
 | ID | What it tests | Expected result | File |
 |---|---|---|---|
-| UI-CTX-01 | Selector screen initial render | Shows testing-only notice, dropdown, disabled Continue until a value is chosen | `client/src/tests/lab-02/RequesterSelection.test.tsx` |
+| UI-CTX-01 | Selector screen initial render | Shows testing-only notice, dropdown, disabled Continue until a value is chosen | `client/tests/lab-02/RequesterSelection.test.tsx` |
 | UI-CTX-02 | Loading/empty/error states | Correct state rendered for each mocked API outcome | same file |
 | UI-CTX-03 | Selecting a Requester and navigating away/back | Selection persists (client storage) | same file |
 | UI-CTX-04 | Change Requester action | Returns to selector; after new selection, My Tickets/Create Ticket reload with new context, no stale data | same file |
@@ -106,7 +106,7 @@
 
 | ID | What it tests | Expected result | File |
 |---|---|---|---|
-| UI-CREATE-01 | Reference data (categories/related systems) loading/error | Correct loading and safe-error states | `client/src/tests/lab-02/CreateTicket.test.tsx` |
+| UI-CREATE-01 | Reference data (categories/related systems) loading/error | Correct loading and safe-error states | `client/tests/lab-02/CreateTicket.test.tsx` |
 | UI-CREATE-02..05 | Empty/invalid Summary, Description, Category, Related System, Priority | Field-level message shown, no API call made | same file |
 | UI-CREATE-06 | Valid submission | API called with correct payload; success view shows Ticket Number | same file |
 | UI-CREATE-07 | Rapid double-click Submit | Button disabled/busy after first click; only one API call fires | same file |
@@ -118,7 +118,7 @@
 
 | ID | What it tests | Expected result | File |
 |---|---|---|---|
-| UI-LIST-01 | Loading/API-error states | Correct state shown | `client/src/tests/lab-02/MyTickets.test.tsx` |
+| UI-LIST-01 | Loading/API-error states | Correct state shown | `client/tests/lab-02/MyTickets.test.tsx` |
 | UI-LIST-02 | Zero owned tickets | Empty state with Create Ticket CTA | same file |
 | UI-LIST-03 | Search/filter producing zero matches on a non-empty list | Distinct no-results state (not the empty state from UI-LIST-02) | same file |
 | UI-LIST-04 | Search, each filter, and Clear Filters | List updates correctly; Clear Filters resets to unfiltered | same file |
@@ -130,9 +130,9 @@
 
 | ID | What it tests | Expected result | File |
 |---|---|---|---|
-| UI-DETAIL-01 | Owned ticket load | Read-only fields render correctly, including local-format Ticket Date | `client/src/tests/lab-02/RequesterTicketDetail.test.tsx` |
+| UI-DETAIL-01 | Owned ticket load | Read-only fields render correctly, including local-format Ticket Date | `client/tests/lab-02/RequesterTicketDetail.test.tsx` |
 | UI-DETAIL-02 | Not-found/foreign ticket | Safe not-found state, no data flash | same file |
-| UI-DETAIL-03 | Add attachment: busy/success/error states | Correct state transitions per BR-33 | `client/src/tests/lab-02/AttachmentSection.test.tsx` |
+| UI-DETAIL-03 | Add attachment: busy/success/error states | Correct state transitions per BR-33 | `client/tests/lab-02/AttachmentSection.test.tsx` |
 | UI-DETAIL-04 | Download an active attachment | Triggers download with correct filename | same file |
 | UI-DETAIL-05 | Remove without reason / with valid reason | Blocked vs. succeeds; confirmation step required before either | same file |
 | UI-DETAIL-06 | 6th attachment attempted from Detail screen | Blocked client-side, matches API-ATT-03 | same file |

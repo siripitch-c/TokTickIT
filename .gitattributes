@@ -1,0 +1,11 @@
+# Normalize line endings to LF in the repository regardless of the
+# committing machine's OS/editor settings, so PR diffs only ever show real
+# content changes — not CRLF/LF churn across unrelated files.
+* text=auto eol=lf
+
+# Binary-ish files some tools might otherwise try to text-normalize.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.pdf binary
