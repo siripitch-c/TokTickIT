@@ -84,7 +84,7 @@ body {
   color: #fff;
   display: flex;
   align-items: center;
-  gap: var(--zg-space-2);
+  gap: var(--zg-space-3);
 }
 
 /* ---------- Card / surface ---------- */
@@ -111,6 +111,10 @@ body {
   height: 48px;
   border-radius: 50%;
   background: var(--zg-pale);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--zg-primary);
   color: var(--zg-secondary);
   display: flex;
   align-items: center;
@@ -206,6 +210,13 @@ textarea.zg-field--editable {
 .zg-btn--tertiary,
 .zg-btn--destructive,
 .zg-btn--disabled {
+  /* A button may be rendered as a router <Link>, i.e. an <a>. Without these
+     it arrives underlined and inline, which §2.2 does not describe: only the
+     tertiary variant underlines, and only on hover. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
   height: 40px;
   padding: 0 var(--zg-space-3);
   border-radius: 6px;

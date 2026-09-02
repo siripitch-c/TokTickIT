@@ -405,7 +405,9 @@ export default function CreateTicket() {
                   e.target.value = "";
                 }}
               />
-              <p className="zg-text-sm zg-text-muted">{ATTACHMENT_HELP}</p>
+              <p className="zg-text-sm zg-text-muted">
+                Drag files here, or choose them above. {ATTACHMENT_HELP}
+              </p>
             </div>
 
             {attachmentNotice && (
