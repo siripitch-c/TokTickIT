@@ -180,8 +180,14 @@ generic "something went wrong" fallback covering more than one meaning.
   `zg-nav-item--active` (white bottom border 3px + slightly bolder text —
   not color alone, since both are already white-on-green).
 - Right: current Requester name + a "Change Requester" `zg-btn--tertiary`
-  (rendered in white/`--zg-pale` text on the green header), inside a
-  `Profile ▾` disclosure per the approved mockup.
+  (rendered in white/`--zg-pale` text on the green header), both rendered
+  inline rather than behind the mockup's `Profile ▾` disclosure. Decision:
+  the Requester name is the one piece of context that proves which testing
+  identity is active (handout §8), so hiding it behind a disclosure would
+  cost a click on every screen to answer "who am I right now?", and it
+  would put the Lab 2 identity switch one keyboard step further away for
+  no benefit. The disclosure returns in Lab 3, when a real account menu
+  has more than two things in it.
 - Mobile (<768px): wordmark + hamburger icon only; tapping the hamburger
   opens a full-width `zg-mobile-nav` panel (slide-down) containing My
   Tickets, Create Ticket, current Requester name, and Change Requester,

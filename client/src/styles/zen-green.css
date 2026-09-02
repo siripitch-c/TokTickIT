@@ -81,7 +81,9 @@ body {
 .zg-header-requester {
   font-size: var(--zg-text-sm);
   color: #fff;
-  opacity: 0.9;
+  display: flex;
+  align-items: center;
+  gap: var(--zg-space-2);
 }
 
 /* ---------- Card / surface ---------- */
@@ -92,7 +94,7 @@ body {
   border-radius: 8px;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
   padding: var(--zg-space-4);
-  max-width: 480px;
+  max-width: 840px;
   margin: var(--zg-space-5) auto;
 }
 
@@ -336,4 +338,232 @@ textarea.zg-field--editable {
 @keyframes zg-skeleton-shimmer {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
+}
+
+/* ---------- Application shell: navigation (ui-spec.md §3) ---------- */
+
+.zg-header-glyph {
+  margin-right: var(--zg-space-1);
+}
+
+.zg-header-nav {
+  display: flex;
+  gap: var(--zg-space-3);
+}
+
+/* Both states are already white-on-green, so the active item is marked by a
+   bottom border and weight, never by color alone (ui-spec.md §3). */
+.zg-nav-item {
+  color: #fff;
+  text-decoration: none;
+  padding: var(--zg-space-2) var(--zg-space-1);
+  border-bottom: 3px solid transparent;
+  font-size: var(--zg-text-base);
+}
+
+.zg-nav-item--active {
+  border-bottom-color: #fff;
+  font-weight: 700;
+}
+
+.zg-btn--on-header {
+  color: var(--zg-pale);
+}
+
+.zg-hamburger {
+  display: none;
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: var(--zg-text-lg);
+  min-width: 44px;
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.zg-mobile-nav {
+  display: none;
+}
+
+.zg-main {
+  flex: 1;
+  width: 100%;
+}
+
+.zg-breadcrumb {
+  font-size: var(--zg-text-sm);
+  color: var(--zg-text-muted);
+  margin-bottom: var(--zg-space-2);
+}
+
+/* ---------- Form layout (ui-spec.md §5.1) ---------- */
+
+.zg-field {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: var(--zg-space-3);
+  min-width: 0;
+}
+
+.zg-field-row {
+  display: grid;
+  gap: var(--zg-space-3);
+}
+
+.zg-field-row--3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/* §2.1: Description is the one documented exception to the 40px control
+   height — it starts taller and may only be resized taller, never shorter. */
+.zg-field--textarea {
+  min-height: 120px;
+  height: 120px;
+  resize: vertical;
+  padding: var(--zg-space-2);
+}
+
+.zg-char-counter {
+  align-self: flex-end;
+}
+
+.zg-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ---------- Attachments (ui-spec.md §2.5, §5.1) ---------- */
+
+.zg-section {
+  margin-top: var(--zg-space-4);
+  padding-top: var(--zg-space-3);
+  border-top: 1px solid var(--zg-border);
+}
+
+.zg-dropzone {
+  border: 2px dashed var(--zg-editable-border);
+  border-radius: 8px;
+  padding: var(--zg-space-3);
+  background: var(--zg-surface);
+  min-height: 44px;
+}
+
+.zg-attachment-list {
+  list-style: none;
+  padding: 0;
+  margin: var(--zg-space-2) 0 0;
+}
+
+.zg-attachment-row--pending,
+.zg-attachment-row--invalid {
+  display: flex;
+  align-items: center;
+  gap: var(--zg-space-2);
+  padding: var(--zg-space-2);
+  border: 1px solid var(--zg-border);
+  border-radius: 6px;
+  margin-bottom: var(--zg-space-2);
+}
+
+.zg-attachment-row--invalid {
+  border-color: var(--zg-error);
+  background: var(--zg-error-bg);
+}
+
+.zg-attachment-name {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* ---------- Success and warning states (ui-spec.md §2.4, §5.4) ---------- */
+
+.zg-state--success {
+  background: var(--zg-pale);
+  border: 1px solid var(--zg-success);
+  border-radius: 8px;
+  padding: var(--zg-space-4);
+  text-align: center;
+}
+
+.zg-ticket-number {
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: var(--zg-text-xl);
+  font-weight: 700;
+  color: var(--zg-primary);
+}
+
+.zg-callout--warning {
+  background: var(--zg-warning-bg);
+  border-left: 4px solid var(--zg-warning);
+  color: var(--zg-warning);
+  padding: var(--zg-space-3);
+  border-radius: 6px;
+  margin-top: var(--zg-space-3);
+}
+
+/* ---------- Responsive (ui-spec.md §5.2, §5.3, §8) ---------- */
+
+@media (max-width: 991px) {
+  /* Tablet: the 3-column rows collapse to 2, last field full-width below. */
+  .zg-field-row--3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 767px) {
+  .zg-header-nav {
+    display: none;
+  }
+
+  .zg-hamburger {
+    display: block;
+  }
+
+  .zg-header-requester {
+    display: none;
+  }
+
+  .zg-mobile-nav {
+    display: flex;
+    flex-direction: column;
+    background: var(--zg-surface);
+    border-bottom: 1px solid var(--zg-border);
+  }
+
+  .zg-mobile-nav .zg-nav-item,
+  .zg-mobile-nav-requester,
+  .zg-mobile-nav .zg-btn--tertiary {
+    color: var(--zg-text);
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    padding: var(--zg-space-2) var(--zg-space-3);
+    border-bottom: none;
+    text-align: left;
+  }
+
+  .zg-mobile-nav .zg-nav-item--active {
+    color: var(--zg-secondary);
+    font-weight: 700;
+  }
+
+  /* Every field group stacks to a single column (ui-spec.md §5.3). */
+  .zg-field-row--3 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Submit above Cancel, both full-width and touch-sized. */
+  .zg-actions-row {
+    flex-direction: column-reverse;
+  }
+
+  .zg-actions-row > * {
+    width: 100%;
+    min-height: 44px;
+  }
 }
