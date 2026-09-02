@@ -3,6 +3,17 @@ import cors from "cors";
 import { getPrisma } from "./prisma.js";
 import { nextTicketNumber } from "./ticketNumber.js";
 import { readRequesterId, sendError, sendInternalError } from "./requesterContext.js";
+import {
+  ATTACHMENT_TYPE_HELP,
+  allowedExtensionFor,
+  attachmentUpload,
+  deleteStoredFile,
+  storeAttachmentFile,
+  toDisplayFilename,
+} from "./uploads.js";
+import type { Attachment } from "@prisma/client";
+import type { NextFunction } from "express";
+import { MulterError } from "multer";
 // getPrisma() is your lazy database handle. Call it INSIDE a route when you
 // need the DB (Issue 4). It is intentionally unused until then.
 void getPrisma;
@@ -201,5 +212,118 @@ async function createTicketWithNumber(prisma: ReturnType<typeof getPrisma>, data
   }
   throw new Error("unreachable");
 }
+
+// ---------------------------------------------------------------------------
+// Issue #13 — Attachment upload
+// POST /api/tickets/:id/attachments — api-spec.md §5. Ownership is re-checked
+// here exactly as it is on the Ticket itself (BR-11): an attachment inherits
+// its parent Ticket's owner, so a Requester who cannot see the Ticket cannot
+// add to it either. Download and soft removal arrive with Issue #15.
+// ---------------------------------------------------------------------------
+const MAX_ACTIVE_ATTACHMENTS = 5;
+
+// storedFilename is internal and must never reach a client (BR-32, api-spec.md §5).
+function toAttachmentResponse(attachment: Attachment) {
+  return {
+    id: attachment.id,
+    ticketId: attachment.ticketId,
+    originalFilename: attachment.originalFilename,
+    mimeType: attachment.mimeType,
+    sizeBytes: attachment.sizeBytes,
+    uploadedAt: attachment.uploadedAt,
+    removedAt: attachment.removedAt,
+    removedReason: attachment.removedReason,
+  };
+}
+
+// multer reports an over-limit file as an error while reading the request, so
+// it is translated here rather than in the route body (BR-27 -> 413).
+function receiveAttachment(req: Request, res: Response, next: NextFunction) {
+  attachmentUpload.single("file")(req, res, (error: unknown) => {
+    if (error instanceof MulterError) {
+      if (error.code === "LIMIT_FILE_SIZE") {
+        return sendError(res, 413, "FILE_TOO_LARGE", "Each attachment must be 5 MB or smaller.", "file");
+      }
+      return sendError(res, 400, "VALIDATION_ERROR", "The uploaded file could not be read.", "file");
+    }
+    if (error) {
+      console.error("Error receiving attachment:", error);
+      return sendInternalError(res);
+    }
+    next();
+  });
+}
+
+app.post("/api/tickets/:id/attachments", receiveAttachment, async (req, res) => {
+  const requesterId = readRequesterId(req);
+  if (requesterId === null) {
+    return sendError(res, 400, "VALIDATION_ERROR", "A valid X-Requester-Id header is required.");
+  }
+
+  const ticketId = Number(req.params.id);
+  if (!Number.isInteger(ticketId) || ticketId < 1) {
+    return sendError(res, 404, "TICKET_NOT_FOUND", "Ticket not found.");
+  }
+
+  const file = req.file;
+  if (!file) {
+    return sendError(res, 400, "VALIDATION_ERROR", "Please choose a file to attach.", "file");
+  }
+
+  try {
+    const prisma = getPrisma();
+
+    // BR-12: a Ticket owned by someone else is reported as missing, so ticket
+    // existence never leaks across Requesters.
+    const ticket = await prisma.ticket.findFirst({
+      where: { id: ticketId, requesterId },
+      select: { id: true },
+    });
+    if (!ticket) {
+      return sendError(res, 404, "TICKET_NOT_FOUND", "Ticket not found.");
+    }
+
+    const originalFilename = toDisplayFilename(file.originalname);
+    const extension = allowedExtensionFor(file.mimetype, originalFilename);
+    if (extension === null) {
+      return sendError(res, 415, "UNSUPPORTED_FILE_TYPE", `That file type is not allowed. ${ATTACHMENT_TYPE_HELP}`, "file");
+    }
+
+    // BR-28 counts active attachments only — a soft-removed one has given its
+    // slot back even though its row and metadata remain (BR-29).
+    const activeCount = await prisma.attachment.count({ where: { ticketId, removedAt: null } });
+    if (activeCount >= MAX_ACTIVE_ATTACHMENTS) {
+      return sendError(
+        res,
+        409,
+        "ATTACHMENT_LIMIT_REACHED",
+        `A ticket can have at most ${MAX_ACTIVE_ATTACHMENTS} attachments. Remove one before adding another.`,
+        "file",
+      );
+    }
+
+    const storedFilename = storeAttachmentFile(file.buffer, extension);
+    try {
+      const attachment = await prisma.attachment.create({
+        data: {
+          ticketId,
+          originalFilename,
+          storedFilename,
+          mimeType: file.mimetype,
+          sizeBytes: file.size,
+        },
+      });
+      res.status(201).json({ data: toAttachmentResponse(attachment) });
+    } catch (error) {
+      // BR-33: a failed upload stores nothing at all — not a row, and not the
+      // file that would otherwise be left orphaned on disk.
+      deleteStoredFile(storedFilename);
+      throw error;
+    }
+  } catch (error) {
+    console.error("Error uploading attachment:", error);
+    sendInternalError(res);
+  }
+});
 
 export default app;
