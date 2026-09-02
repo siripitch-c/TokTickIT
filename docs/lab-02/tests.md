@@ -250,9 +250,10 @@ after the fact:
 
 | Date | Commit SHA | Command | Result | Notes |
 |---|---|---|---|---|
-| 2026-09-03 | `a009afa` | `cd server && npm test` | 31 passed / 31 (5 consecutive runs) |
-| 2026-09-03 | `8f73ad4` | `cd server && npm test` | 34 passed / 34 | adds API-ERR-01 after the ui-spec §9 / api-spec §1 conformance fixes | UNIT-01, API-REQ-01..03, API-REF-01, API-CREATE-01..10, API-ATT-01..05, API-ATT-06 (upload), API-ATT-12, plus the Lab 1 tests |
+| 2026-09-03 | `a009afa` | `cd server && npm test` | 31 passed / 31 | UNIT-01, API-REQ-01..03, API-REF-01, API-CREATE-01..10, API-ATT-01..05, API-ATT-06 (upload), API-ATT-12, plus the Lab 1 tests. Verified stable across five consecutive runs |
 | 2026-09-03 | `a009afa` | `cd client && npm test` | 22 passed / 22 | UI-CTX-01..05, UI-CREATE-01..10 |
+| 2026-09-03 | `623e8a4` | `cd server && npm test` | 34 passed / 34 | adds API-ERR-01 after the ui-spec §9 / api-spec §1 conformance fixes |
+| 2026-09-03 | `623e8a4` | `cd client && npm test` | 22 passed / 22 | unchanged by those fixes; re-run to confirm |
 
 Not yet executed because the code they cover is not written yet:
 API-LIST-\*, API-DETAIL-\*, API-ATT-07..11/13, UI-LIST-\*, UI-DETAIL-\*,
