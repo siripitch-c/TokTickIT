@@ -230,27 +230,32 @@ Screenshots saved to `artifacts/lab-02/screenshots/{create-ticket,my-tickets,tic
 
 ## 6. Test Commands
 
-To be filled in exactly as implemented, then kept current in the README:
 ```
-# server
+# server (unit + API; needs the migrated + seeded local database)
 cd server && npm test
 
-# client
+# client (UI component tests)
 cd client && npm test
 
-# E2E + visual
+# E2E + visual — added with Issue #17
 npm run test:e2e
 ```
 
 ## 7. Final Results
 
-**Current status: planned only — no tests have been executed yet.**
+**Current status: Issues #12 and #13 implemented; #14, #15, #17 pending.**
 This table is filled in as each Issue is implemented, not reconstructed
 after the fact:
 
 | Date | Commit SHA | Command | Result | Notes |
 |---|---|---|---|---|
-| _pending_ | _pending_ | _pending_ | _pending_ | _pending_ |
+| 2026-09-03 | `2b930f4` | `cd server && npm test` | 31 passed / 31 | UNIT-01, API-REQ-01..03, API-REF-01, API-CREATE-01..10, API-ATT-01..05, API-ATT-06 (upload), API-ATT-12, plus the Lab 1 tests |
+| 2026-09-03 | `2b930f4` | `cd client && npm test` | 22 passed / 22 | UI-CTX-01..05, UI-CREATE-01..10 |
+
+Not yet executed because the code they cover is not written yet:
+API-LIST-\*, API-DETAIL-\*, API-ATT-07..11/13, UI-LIST-\*, UI-DETAIL-\*,
+E2E-01..07, VIS-01..03. These belong to Issues #14, #15, and #17 and are
+listed in §2 as planned, not as passing.
 
 ## 8. Known Limitations or Deferred Tests
 
