@@ -381,6 +381,7 @@ export default function CreateTicket() {
             <h2 className="zg-text-lg">Attachments</h2>
 
             <div
+              data-testid="zg-dropzone"
               className="zg-dropzone"
               onDragOver={(e) => e.preventDefault()}
               onDrop={(e) => {
