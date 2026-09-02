@@ -44,6 +44,26 @@ app.get("/api/categories", async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
+// Issue #13 — Create Ticket
+// GET /api/related-systems — api-spec.md §3. Public reference data, same
+// contract and shape as /api/categories: active rows only, { id, name } only.
+// ---------------------------------------------------------------------------
+app.get("/api/related-systems", async (req, res) => {
+  try {
+    const prisma = getPrisma();
+    const relatedSystems = await prisma.relatedSystem.findMany({
+      where: { isActive: true },
+      orderBy: { id: "asc" },
+      select: { id: true, name: true },
+    });
+    res.json({ data: relatedSystems });
+  } catch (error) {
+    console.error("Error fetching related systems:", error);
+    res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Something went wrong. Please try again." } });
+  }
+});
+
+// ---------------------------------------------------------------------------
 // Issue #12 — Data model foundation & Requester context
 // GET /api/requesters — api-spec.md §3. No requester context header needed;
 // this endpoint powers the Selection screen itself (BR-05, BR-35).

@@ -109,3 +109,17 @@ model Attachment {
 
   @@index([ticketId])
 }
+// ---------------------------------------------------------------------------
+// Issue #13 — Create Ticket
+// BR-01 requires the Ticket Number sequence to be produced atomically inside
+// the same transaction as the Ticket insert — never "read current max, add
+// one" in application code, which races under concurrent submissions. This
+// single-row-per-year counter table is the mechanism BR-01 names: the
+// generator runs `UPDATE ... SET counter = counter + 1 RETURNING counter`,
+// which Postgres serializes per row, so 20 concurrent creates get 20
+// distinct numbers (tests.md API-CREATE-08).
+// ---------------------------------------------------------------------------
+model TicketNumberCounter {
+  year    Int @id
+  counter Int @default(0)
+}
