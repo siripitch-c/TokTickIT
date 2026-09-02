@@ -33,7 +33,11 @@ here are final unless changed here first.
   }
   ```
   `field` is omitted when the error isn't tied to one request field (e.g. a
-  404 or 500). `code` is a stable machine-readable string; `message` is
+  404 or 500). This envelope covers **every** non-2xx response, including
+  the two Express would otherwise answer with its own HTML error page: an
+  unmatched path returns **404** `NOT_FOUND`, and a body that cannot be
+  parsed as JSON returns **400** `VALIDATION_ERROR` before any route runs
+  (`tests.md` API-ERR-01). `code` is a stable machine-readable string; `message` is
   human-readable and safe to show directly in the UI.
 - **Pagination envelope** (used by the ticket list endpoint):
   ```json
@@ -254,7 +258,7 @@ BR-32).
 | 200 | — | Successful retrieval or soft-update |
 | 201 | — | Ticket or Attachment created |
 | 400 | `VALIDATION_ERROR`, `INVALID_CATEGORY`, `INVALID_RELATED_SYSTEM` | Request body failed validation |
-| 404 | `TICKET_NOT_FOUND`, `ATTACHMENT_NOT_FOUND` | Missing resource, ownership failure (BR-12), or removed-attachment download attempt |
+| 404 | `TICKET_NOT_FOUND`, `ATTACHMENT_NOT_FOUND`, `NOT_FOUND` | Missing resource, ownership failure (BR-12), removed-attachment download attempt, or an unmatched API path |
 | 409 | `ATTACHMENT_LIMIT_REACHED`, `ALREADY_REMOVED` | Conflicting state |
 | 413 | `FILE_TOO_LARGE` | Attachment exceeds 5 MB |
 | 415 | `UNSUPPORTED_FILE_TYPE` | Attachment type not allowed |

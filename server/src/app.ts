@@ -326,4 +326,27 @@ app.post("/api/tickets/:id/attachments", receiveAttachment, async (req, res) => 
   }
 });
 
+// ---------------------------------------------------------------------------
+// Issue #13 — envelope coverage for the two responses Express would otherwise
+// answer itself. api-spec.md §1 promises the error envelope on *every* non-2xx
+// response, but an unmatched path and an unparseable JSON body were both being
+// served as Express's default HTML error page. These two handlers must stay
+// last: the 404 only fires when no route matched, and the error handler only
+// when something threw past one.
+// ---------------------------------------------------------------------------
+app.use((_req: Request, res: Response) => {
+  sendError(res, 404, "NOT_FOUND", "Resource not found.");
+});
+
+app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
+  // express.json() rejects a malformed body with status 400 before any route
+  // sees it; anything else here is unexpected and stays generic (api-spec.md §6).
+  const status = (error as { status?: number } | null)?.status;
+  if (status === 400) {
+    return sendError(res, 400, "VALIDATION_ERROR", "The request body could not be read as JSON.");
+  }
+  console.error("Unhandled error:", error);
+  sendInternalError(res);
+});
+
 export default app;

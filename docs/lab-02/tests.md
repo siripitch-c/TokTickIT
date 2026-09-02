@@ -36,6 +36,7 @@
 | API-REQ-02 | `GET /api/requesters` with zero active Requesters | Returns `data: []`, not an error | `server/tests/lab-02/requesters.api.test.ts` |
 | API-REQ-03 | Requester later set `isActive:false` | Their existing Tickets remain in DB but that Requester no longer appears in `/api/requesters` | `server/tests/lab-02/requesters.api.test.ts` |
 | API-REF-01 | `GET /api/categories`, `GET /api/related-systems` | Return only active rows, correct shape | `server/tests/lab-02/reference-data.api.test.ts` |
+| API-ERR-01 | Unmatched API path and unparseable JSON body | Both answer with the api-spec.md §1 error envelope (`404 NOT_FOUND` / `400 VALIDATION_ERROR`), never Express's HTML page, and leak no internal detail | `server/tests/lab-02/error-envelope.api.test.ts` |
 
 ### API — Create Ticket
 
@@ -249,7 +250,8 @@ after the fact:
 
 | Date | Commit SHA | Command | Result | Notes |
 |---|---|---|---|---|
-| 2026-09-03 | `a009afa` | `cd server && npm test` | 31 passed / 31 (5 consecutive runs) | UNIT-01, API-REQ-01..03, API-REF-01, API-CREATE-01..10, API-ATT-01..05, API-ATT-06 (upload), API-ATT-12, plus the Lab 1 tests |
+| 2026-09-03 | `a009afa` | `cd server && npm test` | 31 passed / 31 (5 consecutive runs) |
+| 2026-09-03 | `8f73ad4` | `cd server && npm test` | 34 passed / 34 | adds API-ERR-01 after the ui-spec §9 / api-spec §1 conformance fixes | UNIT-01, API-REQ-01..03, API-REF-01, API-CREATE-01..10, API-ATT-01..05, API-ATT-06 (upload), API-ATT-12, plus the Lab 1 tests |
 | 2026-09-03 | `a009afa` | `cd client && npm test` | 22 passed / 22 | UI-CTX-01..05, UI-CREATE-01..10 |
 
 Not yet executed because the code they cover is not written yet:

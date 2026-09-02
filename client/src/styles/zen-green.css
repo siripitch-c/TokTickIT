@@ -64,12 +64,13 @@ body {
 .zg-header {
   background: var(--zg-primary);
   color: #fff;
-  padding: var(--zg-space-3) var(--zg-space-4);
+  height: 64px;
+  padding: 0 var(--zg-space-4);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  flex-wrap: wrap;
-  gap: var(--zg-space-2);
+  flex-wrap: nowrap;
+  gap: var(--zg-space-3);
 }
 
 .zg-header-title {
@@ -157,9 +158,9 @@ select.zg-field--editable {
 
 .zg-field--editable:focus,
 .zg-field--focus {
-  outline: none;
+  outline: 2px solid var(--zg-secondary);
+  outline-offset: 2px;
   border-color: var(--zg-secondary);
-  box-shadow: 0 0 0 2px var(--zg-secondary);
 }
 
 .zg-field--readonly {
@@ -247,7 +248,9 @@ textarea.zg-field--editable {
 
 .zg-btn--disabled,
 .zg-btn--primary:disabled,
-.zg-btn--secondary:disabled {
+.zg-btn--secondary:disabled,
+.zg-btn--tertiary:disabled,
+.zg-btn--destructive:disabled {
   background: var(--zg-disabled-bg);
   color: var(--zg-disabled-text);
   border: 1px solid var(--zg-border);
@@ -257,6 +260,29 @@ textarea.zg-field--editable {
 .zg-btn--busy {
   opacity: 0.85;
   cursor: progress;
+}
+
+/* §2.2: the spinner precedes the label rather than replacing it, so the
+   button keeps an accessible name while the request is in flight. */
+.zg-btn--busy::before {
+  content: "";
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  margin-right: var(--zg-space-2);
+  vertical-align: -2px;
+  border: 2px solid rgba(255, 255, 255, 0.45);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: zg-spin 0.7s linear infinite;
+}
+
+@keyframes zg-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zg-btn--busy::before { animation: none; }
 }
 
 .zg-actions-row {
@@ -516,6 +542,11 @@ textarea.zg-field--editable {
 }
 
 @media (max-width: 767px) {
+  .zg-header {
+    height: 56px;
+    padding: 0 var(--zg-space-3);
+  }
+
   .zg-header-nav {
     display: none;
   }
@@ -566,4 +597,31 @@ textarea.zg-field--editable {
     width: 100%;
     min-height: 44px;
   }
+}
+
+/* ---------- Keyboard focus (ui-spec.md §9, BR-39) ---------- */
+
+/* Buttons and links previously fell back to the browser default ring, which
+   ui-spec.md §9 does not accept: every interactive control carries a 2px
+   --zg-secondary outline with a 2px offset. */
+.zg-btn--primary:focus-visible,
+.zg-btn--secondary:focus-visible,
+.zg-btn--tertiary:focus-visible,
+.zg-btn--destructive:focus-visible,
+.zg-btn--disabled:focus-visible,
+.zg-nav-item:focus-visible,
+.zg-dropzone input[type="file"]:focus-visible,
+.zg-breadcrumb a:focus-visible {
+  outline: 2px solid var(--zg-secondary);
+  outline-offset: 2px;
+}
+
+/* Exception, per ui-spec.md §9: --zg-secondary is a green on a green header
+   and would be effectively invisible there, so controls sitting on the header
+   take a white ring instead. Same width and offset, same visibility. */
+.zg-header .zg-nav-item:focus-visible,
+.zg-header .zg-btn--tertiary:focus-visible,
+.zg-hamburger:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
 }
