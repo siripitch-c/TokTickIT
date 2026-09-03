@@ -88,7 +88,6 @@ export default function CreateTicket() {
   const [success, setSuccess] = useState<SuccessState | null>(null);
 
   const fieldRefs = useRef<Partial<Record<FieldName, HTMLElement | null>>>({});
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function loadReferenceData() {
     setReferenceState("loading");
@@ -394,7 +393,6 @@ export default function CreateTicket() {
               </label>
               <input
                 id="attachments"
-                ref={fileInputRef}
                 type="file"
                 multiple
                 accept={ALLOWED_EXTENSIONS.join(",")}

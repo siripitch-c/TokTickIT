@@ -15,3 +15,6 @@ server/prisma/*.db
 
 # uploaded attachments (Issue #13)
 server/uploads/
+
+# vite dependency pre-bundle cache
+.vite/

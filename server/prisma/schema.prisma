@@ -11,13 +11,9 @@ datasource db {
 }
 
 // ---------------------------------------------------------------------------
-// Issue 3 — Create and seed IT request categories
-// Define a Category model with:
-//   id        Int      @id @default(autoincrement())
-//   name      String   @unique
-//   createdAt DateTime @default(now())
-// Then run:  npx prisma migrate dev --name init
-// TODO(Issue 3): add the Category model below.
+// Lab 1, Issue #3 — IT request categories.
+// Lab 2 added `isActive` (only active Categories are offered on Create Ticket,
+// per BR-21) and the Ticket back-relation.
 // ---------------------------------------------------------------------------
 
 model Category {
