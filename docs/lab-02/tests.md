@@ -254,6 +254,15 @@ after the fact:
 | 2026-09-03 | `a009afa` | `cd client && npm test` | 22 passed / 22 | UI-CTX-01..05, UI-CREATE-01..10 |
 | 2026-09-03 | `623e8a4` | `cd server && npm test` | 34 passed / 34 | adds API-ERR-01 after the ui-spec §9 / api-spec §1 conformance fixes |
 | 2026-09-03 | `623e8a4` | `cd client && npm test` | 22 passed / 22 | unchanged by those fixes; re-run to confirm |
+| 2026-09-03 | `3c354b8` | `cd server && npm test` | 34 passed / 34 | Issue #13 head — final run before the Pull Request |
+| 2026-09-03 | `3c354b8` | `cd client && npm test` | 22 passed / 22 | Issue #13 head — after the manual-inspection fixes (link buttons, selector icon, drop-zone hint, header spacing, busy-button fill) |
+
+Manual verification alongside the automated suites, since several ui-spec
+states are not observable from a component test: the real browser upload path
+(multipart, CORS preflight, on-disk filename), the 5-attachment limit, the
+API-failure state with values retained, the busy button, the character
+counters, the 768/375 layouts, keyboard focus, and Requester switching. Five
+defects were found this way and fixed — see §8.
 
 Not yet executed because the code they cover is not written yet:
 API-LIST-\*, API-DETAIL-\*, API-ATT-07..11/13, UI-LIST-\*, UI-DETAIL-\*,
@@ -273,3 +282,10 @@ listed in §2 as planned, not as passing.
 - Nothing else is deferred: authentication, IT Staff workflow, comments/
   notes/actions, and ticket-lifecycle changes are out of scope per
   `specification.md` §3, not deferred *required* tests.
+- The busy-button state (BR-22) is asserted by UI-CREATE-07 through the DOM
+  (`aria-busy`, `disabled`, a single POST) but its *appearance* is not
+  covered by any automated test, and a real localhost request resolves in
+  milliseconds — Chrome's network throttling does not apply to loopback. The
+  fill defect found on 2026-09-03 was only visible by delaying `window.fetch`
+  by hand. VIS-01..03 in Issue #17 should capture this state deliberately
+  (Playwright can delay the route), rather than relying on catching it live.
