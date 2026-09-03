@@ -180,8 +180,14 @@ generic "something went wrong" fallback covering more than one meaning.
   `zg-nav-item--active` (white bottom border 3px + slightly bolder text —
   not color alone, since both are already white-on-green).
 - Right: current Requester name + a "Change Requester" `zg-btn--tertiary`
-  (rendered in white/`--zg-pale` text on the green header), inside a
-  `Profile ▾` disclosure per the approved mockup.
+  (rendered in white/`--zg-pale` text on the green header), both rendered
+  inline rather than behind the mockup's `Profile ▾` disclosure. Decision:
+  the Requester name is the one piece of context that proves which testing
+  identity is active (handout §8), so hiding it behind a disclosure would
+  cost a click on every screen to answer "who am I right now?", and it
+  would put the Lab 2 identity switch one keyboard step further away for
+  no benefit. The disclosure returns in Lab 3, when a real account menu
+  has more than two things in it.
 - Mobile (<768px): wordmark + hamburger icon only; tapping the hamburger
   opens a full-width `zg-mobile-nav` panel (slide-down) containing My
   Tickets, Create Ticket, current Requester name, and Change Requester,
@@ -299,9 +305,12 @@ buttons stack full-width, Submit above Cancel, both ≥44px tall.
   `zg-field--invalid` styling and message simultaneously (not one at a
   time); focus moves to the first invalid field; no API call is made
   (AC-04).
-- **Submitting**: Submit is `zg-btn--busy`; all fields become read-only
-  during submission (`aria-disabled`) to prevent edits mid-request; no
-  duplicate submission is possible (BR-22/AC-16).
+- **Submitting**: Submit is `zg-btn--busy`; every field is disabled for the
+  duration of the request — using the real `disabled` attribute, per §9's
+  rule that a disabled control never relies on styling or ARIA alone — to
+  prevent edits mid-request; no duplicate submission is possible
+  (BR-22/AC-16). (An earlier draft of this section said `aria-disabled`,
+  which contradicted §9; §9 is the rule that stands.)
 - **Success**: the form is replaced (not just overlaid) by a
   `zg-state--success` panel: a check icon, "Ticket created" heading, the
   generated Ticket Number in large `--zg-text-xl` monospace-styled text,
@@ -491,7 +500,11 @@ overlapping validation messages, no hidden buttons, no unreadable
 - Every interactive control (button, link, select, input, custom
   dropdown) has a visible focus indicator using a 2px `--zg-secondary`
   outline with a minimum 2px offset — never `outline: none` without a
-  replacement.
+  replacement. **Exception:** controls sitting on the `--zg-primary` header
+  (nav items, Change Requester, the mobile hamburger) use a 2px white
+  outline at the same offset instead, because `--zg-secondary` is a green
+  on a green background and would not be visible there. The rule being
+  served is visibility, not the specific token.
 - Every icon-only control has both a visible `title` tooltip and an
   `aria-label`; text-carrying buttons do not additionally require
   `aria-label` if their visible text is descriptive (per BR-39).

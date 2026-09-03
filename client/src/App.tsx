@@ -1,125 +1,79 @@
-import { useEffect, useState } from "react";
-import { fetchRequesters, Requester } from "./api.js";
-import {
-  clearSelectedRequesterId,
-  getSelectedRequesterId,
-} from "./lib/requesterContext.js";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import RequesterSelection from "./components/RequesterSelection.js";
+import AppShell from "./components/AppShell.js";
+import CreateTicket from "./pages/CreateTicket.js";
+import MyTickets from "./pages/MyTickets.js";
+import { UseRequesterSession, useRequesterSession } from "./lib/useRequesterSession.js";
 
-// Issue #12 — Data model foundation & Requester context
+// Issue #13 — routing and the Requester route guard.
 //
-// This replaces the Lab 1 "Check System" demo page. The Development
-// Requester selector (ui-spec.md §4) is now the real entry point of the
-// app: on mount we try to restore a previously-selected Requester from
-// sessionStorage (BR-06); if there is none, or the stored id no longer
-// resolves to an active Requester, we show RequesterSelection. Once a
-// Requester is active, a minimal app shell displays their name and a
-// "Change Requester" action (BR-07) that clears the stored selection and
-// returns to the selector. The full header/nav bar from ui-spec.md §3
-// (My Tickets / Create Ticket links) is intentionally deferred to the
-// issues that actually implement those screens (#13/#14/#15) rather than
-// linking to routes that do not exist yet.
-type AppState =
-  | { status: "checking" }
-  | { status: "needs-selection" }
-  | { status: "ready"; requester: Requester };
+// ui-spec.md §4 requires the "no Requester selected" redirect to live once at
+// the routing level rather than being repeated inside each screen, so
+// RequesterGuard is the single place that decides between the selector and the
+// application shell (tests.md E2E-02). Routes are real URLs, not view state,
+// because Ticket Detail is reachable by direct link in #15 (BR-38).
 
-export default function App() {
-  const [state, setState] = useState<AppState>({ status: "checking" });
+const DEFAULT_ROUTE = "/my-tickets";
 
-  useEffect(() => {
-    restoreSession();
-  }, []);
+export function AppRoutes() {
+  const session = useRequesterSession();
 
-  // BR-06: try to resume the previously-selected Requester from
-  // sessionStorage. Re-fetches the active-Requester list rather than
-  // trusting a cached name, so a Requester who became inactive since the
-  // last visit is caught and sent back to the selector instead of being
-  // shown as a stale "ready" shell.
-  async function restoreSession() {
-    const id = getSelectedRequesterId();
-    if (id === null) {
-      setState({ status: "needs-selection" });
-      return;
-    }
-
-    try {
-      const requesters = await fetchRequesters();
-      const match = requesters.find((r) => r.id === id);
-      if (match) {
-        setState({ status: "ready", requester: match });
-      } else {
-        // Stored id no longer resolves to an active Requester (e.g. the
-        // seeded testing account was deactivated) — do not get stuck on a
-        // broken shell; fall back to a clean re-selection.
-        clearSelectedRequesterId();
-        setState({ status: "needs-selection" });
-      }
-    } catch {
-      // Safe fallback: if we can't verify the stored id right now, don't
-      // show a shell we can't back up. Selecting again is always possible.
-      clearSelectedRequesterId();
-      setState({ status: "needs-selection" });
-    }
-  }
-
-  // RequesterSelection has already written the id to sessionStorage
-  // (BR-06) before calling this; re-resolving through the same path keeps
-  // a single source of truth for "who is the current Requester".
-  function handleContinue() {
-    setState({ status: "checking" });
-    restoreSession();
-  }
-
-  // BR-07: clear the stored selection and return to the selector so no
-  // stale Requester context can remain visible.
-  function handleChangeRequester() {
-    clearSelectedRequesterId();
-    setState({ status: "needs-selection" });
-  }
-
-  if (state.status === "checking") {
+  if (session.status === "checking") {
     return (
-      <div className="zg-page" style={{ background: "var(--zg-bg)" }}>
+      <div className="zg-page">
         <div data-testid="zg-state-loading" className="zg-state--loading">
-          Loading…
+          Loading&hellip;
         </div>
       </div>
     );
   }
 
-  if (state.status === "needs-selection") {
-    return <RequesterSelection onContinue={handleContinue} />;
-  }
-
   return (
-    <div className="zg-page" style={{ background: "var(--zg-bg)" }}>
-      <header
-        className="zg-header"
-        style={{ background: "var(--zg-primary)", color: "#fff" }}
-      >
-        <span className="zg-header-title">TokTickIT</span>
-        <div className="zg-header-requester">
-          <span data-testid="current-requester-name">
-            {state.requester.name}
-          </span>
-          <button
-            type="button"
-            className="zg-btn--tertiary"
-            onClick={handleChangeRequester}
-          >
-            Change Requester
-          </button>
-        </div>
-      </header>
+    <Routes>
+      <Route path="/select-requester" element={<SelectRequesterRoute session={session} />} />
+      <Route element={<RequesterGuard session={session} />}>
+        <Route path={DEFAULT_ROUTE} element={<MyTickets />} />
+        <Route path="/tickets/new" element={<CreateTicket />} />
+      </Route>
+      {/* Anything else (including "/") lands on the Requester's own list. */}
+      <Route path="*" element={<Navigate to={DEFAULT_ROUTE} replace />} />
+    </Routes>
+  );
+}
 
-      <main className="zg-card" style={{ maxWidth: 720, margin: "24px auto" }}>
-        <p className="zg-text-sm zg-text-muted">
-          You're viewing TokTickIT as{" "}
-          <strong>{state.requester.name}</strong>. Create Ticket, My Tickets,
-          and Ticket Detail will be implemented in upcoming issues (#13–#15).
-        </p>
-      </main>
-    </div>
+// Renders the selector, or bounces straight back out when a Requester is
+// already chosen — returning to whichever route asked for the selection.
+function SelectRequesterRoute({ session }: { session: UseRequesterSession }) {
+  const location = useLocation();
+  const from = (location.state as { from?: string } | null)?.from;
+
+  if (session.status === "ready") {
+    return <Navigate to={from ?? DEFAULT_ROUTE} replace />;
+  }
+  return <RequesterSelection onContinue={session.refresh} />;
+}
+
+// AC-02/BR-04: a screen that needs a Requester never renders without one. The
+// requested route is remembered so the Requester resumes where they aimed.
+function RequesterGuard({ session }: { session: UseRequesterSession }) {
+  const location = useLocation();
+
+  if (session.status !== "ready") {
+    return (
+      <Navigate
+        to="/select-requester"
+        replace
+        state={{ from: `${location.pathname}${location.search}` }}
+      />
+    );
+  }
+  return <AppShell requester={session.requester} onChangeRequester={session.changeRequester} />;
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <AppRoutes />
+    </BrowserRouter>
   );
 }

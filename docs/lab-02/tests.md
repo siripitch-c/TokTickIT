@@ -36,6 +36,7 @@
 | API-REQ-02 | `GET /api/requesters` with zero active Requesters | Returns `data: []`, not an error | `server/tests/lab-02/requesters.api.test.ts` |
 | API-REQ-03 | Requester later set `isActive:false` | Their existing Tickets remain in DB but that Requester no longer appears in `/api/requesters` | `server/tests/lab-02/requesters.api.test.ts` |
 | API-REF-01 | `GET /api/categories`, `GET /api/related-systems` | Return only active rows, correct shape | `server/tests/lab-02/reference-data.api.test.ts` |
+| API-ERR-01 | Unmatched API path and unparseable JSON body | Both answer with the api-spec.md §1 error envelope (`404 NOT_FOUND` / `400 VALIDATION_ERROR`), never Express's HTML page, and leak no internal detail | `server/tests/lab-02/error-envelope.api.test.ts` |
 
 ### API — Create Ticket
 
@@ -51,6 +52,9 @@
 | API-CREATE-08 | 20 concurrent creation requests | All 20 get unique `ticketNumber`s, no collision, no lost update (BR-01 atomicity) | same file |
 | API-CREATE-09 | Two rapid duplicate submissions (simulating double-click at the API layer) | Server-side does not itself dedupe identical bodies — documents that duplicate prevention is a UI-layer control (BR-22); this test only proves atomic numbering, not idempotency | same file |
 | API-CREATE-10 | Simulated DB failure during creation | `500`, no partial Ticket row persisted | same file |
+| API-CREATE-11 | `X-Requester-Id` naming a Requester that does not exist | `400 VALIDATION_ERROR` and no Ticket — bad input must not reach the foreign key and come back as a `500` | same file |
+| API-CREATE-12 | `X-Requester-Id` naming an inactive Requester | `400 VALIDATION_ERROR` and no Ticket; BR-05/BR-35 hold server-side, not only in the selector (BR-11) | same file |
+| API-CREATE-13 | Ids beyond the 32-bit `Int` range (`1e21`, `MAX_SAFE_INTEGER`, `2147483648`) in `categoryId`, `relatedSystemId` and the header | Each answered as bad input (`400`), never `500` — `Number.isInteger(1e21)` is true, so an unbounded check hands Prisma a value its `Int` column cannot hold and it raises | same file |
 
 ### API — My Tickets (list)
 
@@ -91,6 +95,8 @@
 | API-ATT-11 | Ticket created successfully, then one of its attachment uploads fails (simulated) | Ticket and any already-successful attachments remain; failed one is not partially stored | same file |
 | API-ATT-12 | Add attachment to an existing ticket, simulated failure | No attachment row stored; existing ticket/attachments unaffected; error returned | same file |
 | API-ATT-13 | Remove an already-removed attachment again | `409 ALREADY_REMOVED` | same file |
+| API-ATT-15 | Unusable `:id` in the upload path (`abc`, `-1`, `0`, out-of-range) | `404 TICKET_NOT_FOUND` in every case, never `500` | same file |
+| API-ATT-14 | Three uploads race for the last free slot on a ticket that already has 4 active attachments | Exactly one `201`, two `409 ATTACHMENT_LIMIT_REACHED`, final active count 5 — the BR-28 check is serialised, not a read-then-write race | same file |
 
 ### UI — Requester context
 
@@ -101,6 +107,10 @@
 | UI-CTX-03 | Selecting a Requester and navigating away/back | Selection persists (client storage) | same file |
 | UI-CTX-04 | Change Requester action | Returns to selector; after new selection, My Tickets/Create Ticket reload with new context, no stale data | same file |
 | UI-CTX-05 | Icon-only controls (e.g. Change Requester icon variant) and keyboard focus | Accessible label present; focus outline visible via keyboard nav | same file |
+| UI-CTX-06 | Opening `/tickets/new` directly with no Requester selected | The selector is shown, the guarded screen never mounts, and the URL becomes `/select-requester` (AC-02, the unit-level counterpart to E2E-02) | `client/tests/lab-02/App.test.tsx` |
+| UI-CTX-07 | Choosing a Requester after being redirected | The originally-requested route is restored rather than the default one | same file |
+| UI-CTX-08 | An active-Requester lookup resolves *after* Change Requester was pressed | The stale response is discarded, so the previous Requester's context never reappears (BR-07) | `client/tests/lab-02/useRequesterSession.test.tsx` |
+| UI-CTX-09 | Mobile navigation toggle, closed and open | Label and tooltip name the action for the current state, `aria-expanded` matches, and the panel carries the same actions as the desktop header (BR-39) | `client/tests/lab-02/App.test.tsx` |
 
 ### UI — Create Ticket
 
@@ -113,6 +123,9 @@
 | UI-CREATE-08 | Simulated API failure on submit | Safe error shown; all entered field values remain in the form | same file |
 | UI-CREATE-09 | Select 0, 5, and 6 attachments before submit | 0–5 accepted; 6th blocked client-side with a message | same file |
 | UI-CREATE-10 | Select a disallowed type / oversized file | Client-side rejects with a clear message before any upload attempt | same file |
+| UI-CREATE-11 | "Create Another" after a successful submission | The Ticket Date resets to now rather than keeping the previous ticket's opening time, and the form is empty | same file |
+| UI-CREATE-12 | Dismiss a rejected file | The red row can be removed once the mistake is corrected, instead of staying on screen for the life of the form | same file |
+| UI-CREATE-13 | A dot-leading filename such as `.png` | Refused client-side, matching the server: Node's `path.extname(".png")` is `""`, so accepting it would mean a 415 after the ticket was already created | same file |
 
 ### UI — My Tickets
 
@@ -164,7 +177,7 @@
 | AC | Evidence IDs |
 |---|---|
 | AC-01 | API-CREATE-01, UI-CREATE-06, E2E-01 |
-| AC-02 | UI-CTX-01, E2E-02 |
+| AC-02 | UI-CTX-01, UI-CTX-06, UI-CTX-07, E2E-02 |
 | AC-03 | API-DETAIL-02, E2E-04 |
 | AC-04 | UI-CREATE-02 |
 | AC-05 | E2E-07 |
@@ -188,22 +201,22 @@
 | BR-01 | UNIT-01, API-CREATE-08 | BR-21 | API-CREATE-07 |
 | BR-02 | API-CREATE-02 | BR-22 | UI-CREATE-07 |
 | BR-03 | API-CREATE-03 | BR-23 | UI-CREATE-02..05, API-CREATE-05..07 |
-| BR-04 | UI-CTX-01 | BR-24 | UI-CREATE-08, API-CREATE-10 |
-| BR-05 | API-REQ-01, UI-CTX-02 | BR-25 | API-ATT-11 |
-| BR-06 | UI-CTX-03 | BR-26 | API-ATT-01 |
-| BR-07 | UI-CTX-04 | BR-27 | API-ATT-02 |
-| BR-08 | UI-CTX-02 | BR-28 | API-ATT-03 |
+| BR-04 | UI-CTX-01, UI-CTX-06 | BR-24 | UI-CREATE-08, API-CREATE-10 |
+| BR-05 | API-REQ-01, UI-CTX-02, API-CREATE-12 | BR-25 | API-ATT-11 |
+| BR-06 | UI-CTX-03 | BR-26 | API-ATT-01, UI-CREATE-13 |
+| BR-07 | UI-CTX-04, UI-CTX-08 | BR-27 | API-ATT-02 |
+| BR-08 | UI-CTX-02 | BR-28 | API-ATT-03, API-ATT-14 |
 | BR-09 | UI-CTX-02 | BR-29 | API-ATT-07 |
 | BR-10 | API-CREATE-04 | BR-30 | API-ATT-08 |
-| BR-11 | API-DETAIL-02, API-ATT-06 | BR-31 | API-ATT-09, UI-DETAIL-05 |
+| BR-11 | API-DETAIL-02, API-ATT-06, API-CREATE-12 | BR-31 | API-ATT-09, UI-DETAIL-05 |
 | BR-12 | API-DETAIL-02, API-DETAIL-03 | BR-32 | API-ATT-04 |
 | BR-13 | API-LIST-02 | BR-33 | API-ATT-12, UI-DETAIL-03 |
 | BR-14 | API-LIST-03..06 | BR-34 | API-ATT-11 |
-| BR-15 | API-LIST-07, API-LIST-08 | BR-35 | API-REQ-01 |
+| BR-15 | API-LIST-07, API-LIST-08 | BR-35 | API-REQ-01, API-CREATE-12 |
 | BR-16 | API-LIST-09 | BR-36 | API-REQ-03 |
 | BR-17 | API-LIST-10 | BR-37 | UI-LIST-02, UI-LIST-03 |
 | BR-18 | API-LIST-11 | BR-38 | API-DETAIL-02 |
-| BR-19 | API-CREATE-05 | BR-39 | UI-CTX-05, UI-DETAIL-08, VIS-01..03 |
+| BR-19 | API-CREATE-05 | BR-39 | UI-CTX-05, UI-CTX-09, UI-DETAIL-08, VIS-01..03 |
 | BR-20 | API-CREATE-06 | BR-40 | *Not independently testable in Lab 2* — verified by schema/code review only (see §8) |
 
 Note: former BR-34 ("attachment ownership") was folded into BR-11 during
@@ -230,27 +243,45 @@ Screenshots saved to `artifacts/lab-02/screenshots/{create-ticket,my-tickets,tic
 
 ## 6. Test Commands
 
-To be filled in exactly as implemented, then kept current in the README:
 ```
-# server
+# server (unit + API; needs the migrated + seeded local database)
 cd server && npm test
 
-# client
+# client (UI component tests)
 cd client && npm test
 
-# E2E + visual
+# E2E + visual — added with Issue #17
 npm run test:e2e
 ```
 
 ## 7. Final Results
 
-**Current status: planned only — no tests have been executed yet.**
+**Current status: Issues #12 and #13 implemented; #14, #15, #17 pending.**
 This table is filled in as each Issue is implemented, not reconstructed
 after the fact:
 
 | Date | Commit SHA | Command | Result | Notes |
 |---|---|---|---|---|
-| _pending_ | _pending_ | _pending_ | _pending_ | _pending_ |
+| 2026-09-03 | `a009afa` | `cd server && npm test` | 31 passed / 31 | UNIT-01, API-REQ-01..03, API-REF-01, API-CREATE-01..10, API-ATT-01..05, API-ATT-06 (upload), API-ATT-12, plus the Lab 1 tests. Verified stable across five consecutive runs |
+| 2026-09-03 | `a009afa` | `cd client && npm test` | 22 passed / 22 | UI-CTX-01..05, UI-CREATE-01..10 |
+| 2026-09-03 | `623e8a4` | `cd server && npm test` | 34 passed / 34 | adds API-ERR-01 after the ui-spec §9 / api-spec §1 conformance fixes |
+| 2026-09-03 | `623e8a4` | `cd client && npm test` | 22 passed / 22 | unchanged by those fixes; re-run to confirm |
+| 2026-09-03 | `3c354b8` | `cd server && npm test` | 34 passed / 34 | before the BR-28 concurrency fix |
+| 2026-09-03 | Issue #13 head | `cd server && npm test` | 39 passed / 39 | adds API-ATT-14/15 and API-CREATE-11..13 |
+| 2026-09-03 | Issue #13 head | `cd client && npm test` | 30 passed / 30 | adds UI-CREATE-11..13 and UI-CTX-06..09 from the final code read-through |
+| 2026-09-03 | `3c354b8` | `cd client && npm test` | 22 passed / 22 | Issue #13 head — after the manual-inspection fixes (link buttons, selector icon, drop-zone hint, header spacing, busy-button fill) |
+
+Manual verification alongside the automated suites, since several ui-spec
+states are not observable from a component test: the real browser upload path
+(multipart, CORS preflight, on-disk filename), the 5-attachment limit, the
+API-failure state with values retained, the busy button, the character
+counters, the 768/375 layouts, keyboard focus, and Requester switching. Five
+defects were found this way and fixed — see §8.
+
+Not yet executed because the code they cover is not written yet:
+API-LIST-\*, API-DETAIL-\*, API-ATT-07..11/13, UI-LIST-\*, UI-DETAIL-\*,
+E2E-01..07, VIS-01..03. These belong to Issues #14, #15, and #17 and are
+listed in §2 as planned, not as passing.
 
 ## 8. Known Limitations or Deferred Tests
 
@@ -265,3 +296,15 @@ after the fact:
 - Nothing else is deferred: authentication, IT Staff workflow, comments/
   notes/actions, and ticket-lifecycle changes are out of scope per
   `specification.md` §3, not deferred *required* tests.
+- Endpoint behaviour under inputs the UI would never send was checked by
+  driving every write endpoint with malformed ids, out-of-range numbers, a
+  non-object body, a missing file part, an unmatched path and an unparseable
+  body. All fourteen now answer with a 4xx envelope; none reach a `500`. The
+  cases that mattered are kept as API-CREATE-11..13 and API-ATT-15.
+- The busy-button state (BR-22) is asserted by UI-CREATE-07 through the DOM
+  (`aria-busy`, `disabled`, a single POST) but its *appearance* is not
+  covered by any automated test, and a real localhost request resolves in
+  milliseconds — Chrome's network throttling does not apply to loopback. The
+  fill defect found on 2026-09-03 was only visible by delaying `window.fetch`
+  by hand. VIS-01..03 in Issue #17 should capture this state deliberately
+  (Playwright can delay the route), rather than relying on catching it live.

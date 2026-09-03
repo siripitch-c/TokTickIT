@@ -12,3 +12,9 @@ server/prisma/*.db
 # logs & OS
 *.log
 .DS_Store
+
+# uploaded attachments (Issue #13)
+server/uploads/
+
+# vite dependency pre-bundle cache
+.vite/

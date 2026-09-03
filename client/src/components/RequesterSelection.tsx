@@ -44,7 +44,16 @@ export default function RequesterSelection({ onContinue }: Props) {
   return (
     <div className="zg-page" style={{ background: "var(--zg-bg)" }}>
       <div className="zg-card" style={{ maxWidth: 480, margin: "0 auto" }}>
-        <div className="zg-icon-badge" aria-hidden="true" />
+        <div className="zg-icon-badge" aria-hidden="true">
+          {/* ui-spec.md §4: person + gear glyph. Inline SVG rather than an
+              emoji so it inherits the Zen Green token colour and stays crisp. */}
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="9" cy="7" r="3.2" />
+            <path d="M2.5 19.5c0-3.2 2.9-5.2 6.5-5.2 1.2 0 2.3.2 3.2.6" />
+            <circle cx="17.5" cy="16.5" r="2.4" />
+            <path d="M17.5 12.6v1.1M17.5 19.3v1.1M13.6 16.5h1.1M20.3 16.5h1.1M14.7 13.7l.8.8M19.5 18.5l.8.8M20.3 13.7l-.8.8M15.5 18.5l-.8.8" />
+          </svg>
+        </div>
         <h1 className="zg-text-xl">Select Development Requester</h1>
         <p className="zg-text-sm zg-text-muted">
           Choose a development requester to simulate the current requester
