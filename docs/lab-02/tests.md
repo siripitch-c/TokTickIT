@@ -115,6 +115,9 @@
 | UI-CREATE-08 | Simulated API failure on submit | Safe error shown; all entered field values remain in the form | same file |
 | UI-CREATE-09 | Select 0, 5, and 6 attachments before submit | 0–5 accepted; 6th blocked client-side with a message | same file |
 | UI-CREATE-10 | Select a disallowed type / oversized file | Client-side rejects with a clear message before any upload attempt | same file |
+| UI-CREATE-11 | "Create Another" after a successful submission | The Ticket Date resets to now rather than keeping the previous ticket's opening time, and the form is empty | same file |
+| UI-CREATE-12 | Dismiss a rejected file | The red row can be removed once the mistake is corrected, instead of staying on screen for the life of the form | same file |
+| UI-CREATE-13 | A dot-leading filename such as `.png` | Refused client-side, matching the server: Node's `path.extname(".png")` is `""`, so accepting it would mean a 415 after the ticket was already created | same file |
 
 ### UI — My Tickets
 
@@ -192,7 +195,7 @@
 | BR-03 | API-CREATE-03 | BR-23 | UI-CREATE-02..05, API-CREATE-05..07 |
 | BR-04 | UI-CTX-01 | BR-24 | UI-CREATE-08, API-CREATE-10 |
 | BR-05 | API-REQ-01, UI-CTX-02 | BR-25 | API-ATT-11 |
-| BR-06 | UI-CTX-03 | BR-26 | API-ATT-01 |
+| BR-06 | UI-CTX-03 | BR-26 | API-ATT-01, UI-CREATE-13 |
 | BR-07 | UI-CTX-04 | BR-27 | API-ATT-02 |
 | BR-08 | UI-CTX-02 | BR-28 | API-ATT-03, API-ATT-14 |
 | BR-09 | UI-CTX-02 | BR-29 | API-ATT-07 |
@@ -257,6 +260,7 @@ after the fact:
 | 2026-09-03 | `623e8a4` | `cd client && npm test` | 22 passed / 22 | unchanged by those fixes; re-run to confirm |
 | 2026-09-03 | `3c354b8` | `cd server && npm test` | 34 passed / 34 | before the BR-28 concurrency fix |
 | 2026-09-03 | Issue #13 head | `cd server && npm test` | 35 passed / 35 | adds API-ATT-14; verified stable across six consecutive runs |
+| 2026-09-03 | Issue #13 head | `cd client && npm test` | 25 passed / 25 | adds UI-CREATE-11..13 from the final code read-through |
 | 2026-09-03 | `3c354b8` | `cd client && npm test` | 22 passed / 22 | Issue #13 head — after the manual-inspection fixes (link buttons, selector icon, drop-zone hint, header spacing, busy-button fill) |
 
 Manual verification alongside the automated suites, since several ui-spec

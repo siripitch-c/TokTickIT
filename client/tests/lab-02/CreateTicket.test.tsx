@@ -347,6 +347,62 @@ describe("Create Ticket screen", () => {
     expect(warning).toHaveTextContent(/not allowed/i);
   });
 
+  it("resets the Ticket Date when Create Another starts a fresh form (ui-spec.md §5.1)", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date("2026-05-12T09:00:00"));
+    mockFetch();
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    try {
+      await renderReadyForm();
+      const firstDate = screen.getByTestId("ticket-date").textContent;
+
+      await fillValidForm(user);
+      await user.click(submitButton());
+      await waitFor(() => expect(screen.getByTestId("created-ticket-number")).toBeInTheDocument());
+
+      // Time moves on between the two tickets.
+      vi.setSystemTime(new Date("2026-05-12T10:30:00"));
+      await user.click(screen.getByRole("button", { name: /create another/i }));
+
+      await waitFor(() => expect(screen.getByTestId("ticket-date")).toBeInTheDocument());
+      // The date previews what becomes createdAt, so a new form must not keep
+      // showing the previous ticket's opening time.
+      expect(screen.getByTestId("ticket-date").textContent).not.toBe(firstDate);
+      expect(screen.getByLabelText(/^Summary/)).toHaveValue("");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("lets a rejected file be dismissed once the mistake is corrected (BR-26)", async () => {
+    mockFetch();
+    const user = userEvent.setup();
+    await renderReadyForm();
+
+    fireEvent.drop(screen.getByTestId("zg-dropzone"), {
+      dataTransfer: { files: [new File(["x"], "docs.txt", { type: "text/plain" })] },
+    });
+    expect(screen.getByText("docs.txt")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Dismiss docs\.txt/i }));
+    expect(screen.queryByText("docs.txt")).not.toBeInTheDocument();
+  });
+
+  it("treats a dot-leading name as having no extension, matching the server (BR-26)", async () => {
+    mockFetch();
+    await renderReadyForm();
+
+    // path.extname(".png") is "" in Node, so the server answers 415. The client
+    // has to reach the same conclusion rather than accepting and failing later.
+    fireEvent.drop(screen.getByTestId("zg-dropzone"), {
+      dataTransfer: { files: [new File(["x"], ".png", { type: "image/png" })] },
+    });
+
+    expect(screen.getByText(/Unsupported file type/i)).toBeInTheDocument();
+    expect(within(screen.getByRole("list")).getAllByRole("listitem")).toHaveLength(1);
+  });
+
   it("shows the read-only system-generated row with the current Requester (ui-spec.md §5.1)", async () => {
     mockFetch();
     await renderReadyForm();

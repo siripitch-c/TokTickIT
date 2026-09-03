@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useOutletContext } from "react-router-dom";
 import {
   AttachmentMeta,
@@ -69,10 +69,11 @@ export default function CreateTicket() {
   const requester = useOutletContext<Requester>();
   const navigate = useNavigate();
 
-  // The Ticket Date shown in the system-generated row is captured once, at
-  // mount: it previews the value that becomes createdAt and must not tick
-  // forward while the form is open (ui-spec.md §5.1).
-  const openedAt = useMemo(() => new Date(), []);
+  // The Ticket Date previews the value that becomes createdAt, so it is frozen
+  // while a form is open rather than ticking forward (ui-spec.md §5.1) — but it
+  // belongs to *this* form: "Create Another" starts a new one and must reset it,
+  // otherwise the second ticket is shown the first one's opening time.
+  const [openedAt, setOpenedAt] = useState(() => new Date());
 
   const [referenceState, setReferenceState] = useState<"loading" | "ready" | "error">("loading");
   const [categories, setCategories] = useState<ReferenceItem[]>([]);
@@ -135,8 +136,12 @@ export default function CreateTicket() {
   }
 
   function rejectionReason(file: File): string | null {
-    const extension = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
-    if (!file.name.includes(".") || !ALLOWED_EXTENSIONS.includes(extension)) {
+    // A leading dot is not an extension: Node's path.extname(".png") is "", so
+    // the server would reject what the client had accepted. Requiring a
+    // non-empty basename keeps both sides on the same answer.
+    const dot = file.name.lastIndexOf(".");
+    const extension = dot > 0 ? file.name.slice(dot).toLowerCase() : "";
+    if (!ALLOWED_EXTENSIONS.includes(extension)) {
       return "Unsupported file type";
     }
     if (file.size > MAX_FILE_BYTES) return "File exceeds 5 MB";
@@ -174,6 +179,12 @@ export default function CreateTicket() {
   function removePending(key: string) {
     setPending((current) => current.filter((item) => item.key !== key));
     setAttachmentNotice(null);
+  }
+
+  // A rejected file could otherwise never leave the list: correcting the
+  // mistake left its red row on screen with no way to dismiss it.
+  function dismissRejected(key: string) {
+    setRejected((current) => current.filter((item) => item.key !== key));
   }
 
   async function handleSubmit(event: React.FormEvent) {
@@ -240,6 +251,7 @@ export default function CreateTicket() {
 
   function startAnother() {
     setSuccess(null);
+    setOpenedAt(new Date());
     setValues(EMPTY_FORM);
     setErrors({});
     setPending([]);
@@ -294,7 +306,7 @@ export default function CreateTicket() {
           {/* System-generated row — read-only throughout (ui-spec.md §5.1). */}
           <div className="zg-field-row zg-field-row--3">
             <ReadOnlyField label="Ticket Number" value="Generated after submit" />
-            <ReadOnlyField label="Ticket Date" value={openedAt.toLocaleString()} />
+            <ReadOnlyField label="Ticket Date" value={openedAt.toLocaleString()} testId="ticket-date" />
             <ReadOnlyField label="Requester" value={requester.name} />
           </div>
 
@@ -431,10 +443,26 @@ export default function CreateTicket() {
                   </button>
                 </li>
               ))}
+              {/* role="alert" goes on the message rather than the <li>: on the
+                  row it replaces the implicit listitem role and drops the row
+                  out of the list. ui-spec.md §9 asks for it on validation
+                  messages, which is what it now marks. */}
               {rejected.map((item) => (
-                <li key={item.key} className="zg-attachment-row--invalid" role="alert">
+                <li key={item.key} className="zg-attachment-row--invalid">
                   <span className="zg-attachment-name">{item.name}</span>
-                  <span className="zg-validation-message">{item.reason}</span>
+                  <span className="zg-validation-message" role="alert">
+                    {item.reason}
+                  </span>
+                  <button
+                    type="button"
+                    className="zg-btn--tertiary"
+                    title={`Dismiss ${item.name}`}
+                    aria-label={`Dismiss ${item.name}`}
+                    disabled={submitting}
+                    onClick={() => dismissRejected(item.key)}
+                  >
+                    &times;
+                  </button>
                 </li>
               ))}
             </ul>
@@ -517,11 +545,19 @@ function CreatedPanel({
 
 // Read-only fields are shaded and marked aria-readonly rather than disabled, so
 // screen readers still announce their value (ui-spec.md §2.1).
-function ReadOnlyField({ label, value }: { label: string; value: string }) {
+function ReadOnlyField({
+  label,
+  value,
+  testId,
+}: {
+  label: string;
+  value: string;
+  testId?: string;
+}) {
   return (
     <div className="zg-field">
       <span className="zg-field-label">{label}</span>
-      <output className="zg-field--readonly" aria-readonly="true">
+      <output className="zg-field--readonly" aria-readonly="true" data-testid={testId}>
         {value}
       </output>
     </div>
