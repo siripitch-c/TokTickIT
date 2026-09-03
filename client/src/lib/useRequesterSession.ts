@@ -62,9 +62,15 @@ export function useRequesterSession(): UseRequesterSession {
       })
       .catch(() => {
         if (token !== lookup.current) return;
-        // Safe fallback: without confirmation we do not render a shell we
-        // cannot back up. Selecting again is always possible.
-        clearSelectedRequesterId();
+        // Without confirmation we do not render a shell we cannot back up, so
+        // the app falls back to the selector — which shows BR-08's error state
+        // and refuses entry while the API is unreachable.
+        //
+        // The stored id is deliberately *kept*. BR-06 says a selection lasts
+        // until the Requester uses Change Requester or storage is cleared, and
+        // a server being down is neither; discarding it made a transient
+        // failure cost the Requester their identity. The selector picks it back
+        // up once the list loads.
         setSession({ status: "needs-selection", requester: null });
       });
   }, []);

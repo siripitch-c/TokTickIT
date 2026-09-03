@@ -368,6 +368,18 @@ Full-width `zg-card` inside the centered app max-width container.
    numbered pages with an ellipsis for long ranges / `Next`) on the
    right; a page-size select (10/25/50) beside it.
 
+Why these columns (handout §8.4 asks for the choice to be justified): the
+list has to let a Requester *identify*, *understand* and *open* a ticket.
+Ticket No. and Summary identify it; Category, Requested Priority, IT
+Priority and Current Status are the four fields that can be filtered on, so
+showing them lets a Requester see why a row survived a filter instead of
+guessing; Created Date and Last Updated are the two sortable time fields,
+and a column that can be sorted but not read would be a control with no
+feedback. Description is excluded — it is up to 2000 characters (BR-20) and
+would dominate the row; it belongs on Ticket Detail. Related System is
+excluded as the field least often used to recognise one's own ticket, and
+it is the one column the tablet layout would have had to drop next.
+
 Note: Requester and Ticket Owner columns from the illustrative Figure 1
 mockup are **not** included — Lab 2's My Tickets is single-Requester
 scoped by definition (BR-11), and "Ticket Owner" is IT Staff-workflow
@@ -383,8 +395,11 @@ sortability.
 ### 6.3 Layout (mobile <768px)
 
 Table is replaced entirely by a stacked list of `zg-ticket-card`
-components (never a horizontally-scrolling table). Each card shows, top
-to bottom: Ticket No. + Created Date (small, muted) on one line;
+components (never a horizontally-scrolling table). Each card carries the same
+fields as the table minus the two that a narrow card cannot afford to give
+a line to — the badge row keeps all three, since they are the fastest way
+to read a ticket's state at a glance. Top to bottom: Ticket No. + Created
+Date (small, muted) on one line;
 Summary (bold, wraps normally); a badge row (Requested Priority, IT
 Priority, Current Status); Category + Last Updated as a small muted
 footer line. The whole card is tappable. Search is a full-width input

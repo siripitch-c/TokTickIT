@@ -156,7 +156,7 @@ describe("GET /api/tickets", () => {
     expect(byDescription.body.data).toHaveLength(0);
   });
 
-  it("API-LIST-02: LIKE wildcards in the search term are matched literally (BR-13)", async () => {
+  it("API-LIST-02b: LIKE wildcards in the search term are matched literally (BR-13)", async () => {
     // "%" and "_" are wildcards to LIKE. Passed through unescaped, searching
     // for "%" returns every ticket and "_" matches any single character, so a
     // Requester looking for "50%" or "TKT_2026" gets answers that have nothing

@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { fetchRequesters, Requester } from "../api.js";
-import { setSelectedRequesterId } from "../lib/requesterContext.js";
+import { getSelectedRequesterId, setSelectedRequesterId } from "../lib/requesterContext.js";
 
 // ui-spec.md §4 — Development Requester Selection Screen.
 // BR-04: this selector is a Lab 2 testing mechanism, not authentication.
@@ -16,16 +16,34 @@ export default function RequesterSelection({ onContinue }: Props) {
   const [requesters, setRequesters] = useState<Requester[]>([]);
   const [selectedId, setSelectedId] = useState<number | "">("");
 
+  // Guards the resume below against repeating if the app-level restore keeps
+  // failing while this screen's own request keeps succeeding.
+  const resumeAttempted = useRef(false);
+
   async function load() {
     setState("loading");
     try {
       const data = await fetchRequesters();
       if (data.length === 0) {
         setState("empty"); // BR-09
-      } else {
-        setRequesters(data);
-        setState("populated");
+        return;
       }
+
+      setRequesters(data);
+
+      // A stored selection only reaches this screen when the app could not
+      // confirm it — the API was unreachable. Now that the list has loaded, an
+      // id that still names an active Requester is resumed rather than asked
+      // for again: BR-06 keeps a selection until Change Requester or cleared
+      // storage, and a server outage is neither.
+      const stored = getSelectedRequesterId();
+      if (!resumeAttempted.current && stored !== null && data.some((r) => r.id === stored)) {
+        resumeAttempted.current = true;
+        onContinue(stored);
+        return;
+      }
+
+      setState("populated");
     } catch {
       setState("error"); // BR-08
     }

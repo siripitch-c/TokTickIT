@@ -243,7 +243,7 @@ describe("My Tickets screen", () => {
     expect(screen.getByTestId("pagination-summary")).toHaveTextContent(/of 23 tickets/);
   });
 
-  it("UI-LIST-05: the sorted column reports its direction to assistive technology (BR-39)", async () => {
+  it("UI-LIST-05b: the sorted column reports its direction to assistive technology (BR-39)", async () => {
     mockFetch(() => ({ tickets: makeTickets(3) }));
     const user = userEvent.setup();
 

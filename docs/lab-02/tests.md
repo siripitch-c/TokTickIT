@@ -111,6 +111,7 @@
 | UI-CTX-06 | Opening `/tickets/new` directly with no Requester selected | The selector is shown, the guarded screen never mounts, and the URL becomes `/select-requester` (AC-02, the unit-level counterpart to E2E-02) | `client/tests/lab-02/App.test.tsx` |
 | UI-CTX-07 | Choosing a Requester after being redirected | The originally-requested route is restored rather than the default one | same file |
 | UI-CTX-08 | An active-Requester lookup resolves *after* Change Requester was pressed | The stale response is discarded, so the previous Requester's context never reappears (BR-07) | `client/tests/lab-02/useRequesterSession.test.tsx` |
+| UI-CTX-10 | The active-Requester lookup fails, then recovers | The selector shows BR-08's error state and refuses entry, the stored selection survives the outage, and pressing Retry resumes that identity instead of asking for it again (BR-06) | `client/tests/lab-02/App.test.tsx` |
 | UI-CTX-09 | Mobile navigation toggle, closed and open | Label and tooltip name the action for the current state, `aria-expanded` matches, and the panel carries the same actions as the desktop header (BR-39) | `client/tests/lab-02/App.test.tsx` |
 
 ### UI — Create Ticket
@@ -205,20 +206,20 @@
 | BR-03 | API-CREATE-03 | BR-23 | UI-CREATE-02..05, API-CREATE-05..07 |
 | BR-04 | UI-CTX-01, UI-CTX-06 | BR-24 | UI-CREATE-08, API-CREATE-10 |
 | BR-05 | API-REQ-01, UI-CTX-02, API-CREATE-12 | BR-25 | API-ATT-11 |
-| BR-06 | UI-CTX-03 | BR-26 | API-ATT-01, UI-CREATE-13 |
-| BR-07 | UI-CTX-04, UI-CTX-08 | BR-27 | API-ATT-02 |
-| BR-08 | UI-CTX-02 | BR-28 | API-ATT-03, API-ATT-14 |
+| BR-06 | UI-CTX-03, UI-CTX-10 | BR-26 | API-ATT-01, UI-CREATE-13 |
+| BR-07 | UI-CTX-04, UI-CTX-08, UI-LIST-07 | BR-27 | API-ATT-02 |
+| BR-08 | UI-CTX-02, UI-CTX-10 | BR-28 | API-ATT-03, API-ATT-14 |
 | BR-09 | UI-CTX-02 | BR-29 | API-ATT-07 |
 | BR-10 | API-CREATE-04 | BR-30 | API-ATT-08 |
-| BR-11 | API-DETAIL-02, API-ATT-06, API-CREATE-12 | BR-31 | API-ATT-09, UI-DETAIL-05 |
+| BR-11 | API-DETAIL-02, API-ATT-06, API-CREATE-12, API-LIST-01 | BR-31 | API-ATT-09, UI-DETAIL-05 |
 | BR-12 | API-DETAIL-02, API-DETAIL-03 | BR-32 | API-ATT-04 |
-| BR-13 | API-LIST-02 | BR-33 | API-ATT-12, UI-DETAIL-03 |
+| BR-13 | API-LIST-02, API-LIST-02b | BR-33 | API-ATT-12, UI-DETAIL-03 |
 | BR-14 | API-LIST-03..06 | BR-34 | API-ATT-11 |
 | BR-15 | API-LIST-07, API-LIST-08 | BR-35 | API-REQ-01, API-CREATE-12 |
 | BR-16 | API-LIST-09 | BR-36 | API-REQ-03 |
 | BR-17 | API-LIST-10 | BR-37 | UI-LIST-02, UI-LIST-03 |
 | BR-18 | API-LIST-11 | BR-38 | API-DETAIL-02 |
-| BR-19 | API-CREATE-05 | BR-39 | UI-CTX-05, UI-CTX-09, UI-DETAIL-08, VIS-01..03 |
+| BR-19 | API-CREATE-05 | BR-39 | UI-CTX-05, UI-CTX-09, UI-LIST-05b, UI-DETAIL-08, VIS-01..03 |
 | BR-20 | API-CREATE-06 | BR-40 | *Not independently testable in Lab 2* — verified by schema/code review only (see §8) |
 
 Note: former BR-34 ("attachment ownership") was folded into BR-11 during
@@ -272,7 +273,7 @@ after the fact:
 | 2026-09-03 | Issue #13 head | `cd server && npm test` | 39 passed / 39 | adds API-ATT-14/15 and API-CREATE-11..13 |
 | 2026-09-03 | Issue #13 head | `cd client && npm test` | 30 passed / 30 | adds UI-CREATE-11..13 and UI-CTX-06..09 from the final code read-through |
 | 2026-09-04 | Issue #14 | `cd server && npm test` | 50 passed / 50 | adds API-LIST-01..11 and the wildcard-escaping case |
-| 2026-09-04 | Issue #14 | `cd client && npm test` | 39 passed / 39 | adds UI-LIST-01..07 and the aria-sort case |
+| 2026-09-04 | Issue #14 | `cd client && npm test` | 40 passed / 40 | adds UI-LIST-01..07, the aria-sort case and UI-CTX-10 |
 | 2026-09-03 | `3c354b8` | `cd client && npm test` | 22 passed / 22 | Issue #13 head — after the manual-inspection fixes (link buttons, selector icon, drop-zone hint, header spacing, busy-button fill) |
 
 My Tickets was also walked through by hand in a browser against the seeded
