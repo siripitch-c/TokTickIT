@@ -136,7 +136,7 @@
 | UI-LIST-03 | Search/filter producing zero matches on a non-empty list | Distinct no-results state (not the empty state from UI-LIST-02) | same file |
 | UI-LIST-04 | Search, each filter, and Clear Filters | List updates correctly; Clear Filters resets to unfiltered | same file |
 | UI-LIST-05 | Sort header click, page navigation, page-size change | List reorders/pages correctly without full reload | same file |
-| UI-LIST-06 | Desktop table vs. mobile card rendering | Correct layout per viewport, no clipped columns | same file |
+| UI-LIST-06 | Desktop table vs. mobile card rendering | Correct layout per viewport, no clipped columns. The two are alternatives, not one hidden by CSS: only one is in the DOM, so assistive technology never walks two copies of every ticket. Tests drive it by replacing `window.matchMedia` | same file |
 | UI-LIST-07 | Requester switch while on My Tickets | List reloads to the new Requester's tickets only | same file |
 
 ### UI — Ticket Detail & Attachments
@@ -269,7 +269,15 @@ after the fact:
 | 2026-09-03 | `3c354b8` | `cd server && npm test` | 34 passed / 34 | before the BR-28 concurrency fix |
 | 2026-09-03 | Issue #13 head | `cd server && npm test` | 39 passed / 39 | adds API-ATT-14/15 and API-CREATE-11..13 |
 | 2026-09-03 | Issue #13 head | `cd client && npm test` | 30 passed / 30 | adds UI-CREATE-11..13 and UI-CTX-06..09 from the final code read-through |
+| 2026-09-04 | Issue #14 | `cd server && npm test` | 49 passed / 49 | adds API-LIST-01..11 |
+| 2026-09-04 | Issue #14 | `cd client && npm test` | 38 passed / 38 | adds UI-LIST-01..07 |
 | 2026-09-03 | `3c354b8` | `cd client && npm test` | 22 passed / 22 | Issue #13 head — after the manual-inspection fixes (link buttons, selector icon, drop-zone hint, header spacing, busy-button fill) |
+
+My Tickets was also walked through by hand in a browser against the seeded
+database before the Pull Request: the desktop table and its sort indicators,
+paging to the last page, sorting by ticket number, a search matching nothing
+(no-results, controls still present), a Requester who owns nothing (empty,
+controls hidden), and the 375px card layout with no horizontal overflow.
 
 Manual verification alongside the automated suites, since several ui-spec
 states are not observable from a component test: the real browser upload path

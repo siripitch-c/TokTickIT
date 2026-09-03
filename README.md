@@ -4,8 +4,8 @@ TokTickIT is an IT service desk application being built through the CPE334 indiv
 
 ## Current branch scope
 
-This branch contains everything through **Issue #13 — Create Ticket**, on
-top of the Lab 1 foundation (Issues 1–4):
+This branch contains everything through **Issue #14 — My Tickets**, on top of
+the Lab 1 foundation (Issues 1–4):
 
 * React + TypeScript + Vite frontend with Bootstrap styling
 * Node.js + Express + TypeScript backend
@@ -41,8 +41,28 @@ top of the Lab 1 foundation (Issues 1–4):
   and the loading/validation/submitting/success/failure states from
   `docs/lab-02/ui-spec.md` §5.4
 
-My Tickets (#14) and Ticket Detail with attachment download/removal (#15)
-are not implemented on this branch; `/my-tickets` is a placeholder page.
+* GET `/api/tickets` — the current Requester's tickets only, with search,
+  filters, sorting and pagination; every query parameter is lenient, so a bad
+  one falls back to its default rather than failing the request
+* My Tickets screen — desktop table with sortable columns, mobile card list,
+  search, four filters, pagination, and distinct loading/empty/no-results/
+  error states
+
+Ticket Detail with attachment download and removal (#15) is not implemented on
+this branch.
+
+### Sample tickets for local testing
+
+The seed carries reference data only. To put some tickets in the database for
+trying out My Tickets:
+
+```bash
+cd server
+npx tsx prisma/demo-tickets.ts
+```
+It gives Michael Brown 13 tickets (two pages at the default page size),
+Jennifer Anderson 3, and leaves the other two Requesters empty so the empty
+state can be seen. Safe to re-run: it clears its own previous tickets first.
 
 ## About the Development Requester selector
 

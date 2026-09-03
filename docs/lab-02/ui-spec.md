@@ -352,8 +352,17 @@ Full-width `zg-card` inside the centered app max-width container.
    (badge), Current Status (badge), Last Updated (sortable). Sortable
    column headers show a `↕`/`↑`/`↓` indicator reflecting current sort
    state; clicking toggles direction, clicking a different column
-   switches primary sort field (BR-15/AC-15). Each row is clickable
-   (whole row, not just the ticket number) and opens Ticket Detail.
+   switches primary sort field (BR-15/AC-15). A newly chosen column starts
+   **descending**, matching BR-15's default rather than flipping to ascending
+   for no stated reason. Changing the sort returns to page 1, since a
+   reordered list makes the old page number meaningless.
+
+   Each row is clickable (whole row, not just the ticket number) and opens
+   Ticket Detail. The row keeps its native table semantics — a `role` on the
+   `<tr>` would replace `row` and drop it out of the table for assistive
+   technology — so the whole-row click is a pointer convenience and the
+   Ticket No. cell holds the real, focusable link that keyboard and screen
+   reader users follow.
 4. Footer row: "Showing X to Y of Z tickets" (`--zg-text-sm`,
    `--zg-text-muted`) on the left; pagination control (`Previous` /
    numbered pages with an ellipsis for long ranges / `Next`) on the
@@ -381,7 +390,10 @@ Priority, Current Status); Category + Last Updated as a small muted
 footer line. The whole card is tappable. Search is a full-width input
 above the list; filters collapse into a single "Filters" button that
 opens a `zg-filter-sheet` bottom sheet containing the same four selects
-plus a full-width "Apply" and "Clear Filters" action. Pagination becomes
+plus a full-width "Apply" and "Clear Filters" action. Each select takes
+effect as it is changed, the same as on desktop; "Apply" closes the sheet
+to reveal the list it has already filtered, rather than gating the filters
+behind a second tap that could be forgotten. Pagination becomes
 `Previous`/`Next` only (no numbered page buttons) plus "Page X of Y"
 text, to keep controls thumb-reachable.
 
