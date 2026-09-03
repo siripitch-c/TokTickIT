@@ -105,6 +105,8 @@
 | UI-CTX-05 | Icon-only controls (e.g. Change Requester icon variant) and keyboard focus | Accessible label present; focus outline visible via keyboard nav | same file |
 | UI-CTX-06 | Opening `/tickets/new` directly with no Requester selected | The selector is shown, the guarded screen never mounts, and the URL becomes `/select-requester` (AC-02, the unit-level counterpart to E2E-02) | `client/tests/lab-02/App.test.tsx` |
 | UI-CTX-07 | Choosing a Requester after being redirected | The originally-requested route is restored rather than the default one | same file |
+| UI-CTX-08 | An active-Requester lookup resolves *after* Change Requester was pressed | The stale response is discarded, so the previous Requester's context never reappears (BR-07) | `client/tests/lab-02/useRequesterSession.test.tsx` |
+| UI-CTX-09 | Mobile navigation toggle, closed and open | Label and tooltip name the action for the current state, `aria-expanded` matches, and the panel carries the same actions as the desktop header (BR-39) | `client/tests/lab-02/App.test.tsx` |
 
 ### UI — Create Ticket
 
@@ -198,7 +200,7 @@
 | BR-04 | UI-CTX-01, UI-CTX-06 | BR-24 | UI-CREATE-08, API-CREATE-10 |
 | BR-05 | API-REQ-01, UI-CTX-02 | BR-25 | API-ATT-11 |
 | BR-06 | UI-CTX-03 | BR-26 | API-ATT-01, UI-CREATE-13 |
-| BR-07 | UI-CTX-04 | BR-27 | API-ATT-02 |
+| BR-07 | UI-CTX-04, UI-CTX-08 | BR-27 | API-ATT-02 |
 | BR-08 | UI-CTX-02 | BR-28 | API-ATT-03, API-ATT-14 |
 | BR-09 | UI-CTX-02 | BR-29 | API-ATT-07 |
 | BR-10 | API-CREATE-04 | BR-30 | API-ATT-08 |
@@ -210,7 +212,7 @@
 | BR-16 | API-LIST-09 | BR-36 | API-REQ-03 |
 | BR-17 | API-LIST-10 | BR-37 | UI-LIST-02, UI-LIST-03 |
 | BR-18 | API-LIST-11 | BR-38 | API-DETAIL-02 |
-| BR-19 | API-CREATE-05 | BR-39 | UI-CTX-05, UI-DETAIL-08, VIS-01..03 |
+| BR-19 | API-CREATE-05 | BR-39 | UI-CTX-05, UI-CTX-09, UI-DETAIL-08, VIS-01..03 |
 | BR-20 | API-CREATE-06 | BR-40 | *Not independently testable in Lab 2* — verified by schema/code review only (see §8) |
 
 Note: former BR-34 ("attachment ownership") was folded into BR-11 during
@@ -262,7 +264,7 @@ after the fact:
 | 2026-09-03 | `623e8a4` | `cd client && npm test` | 22 passed / 22 | unchanged by those fixes; re-run to confirm |
 | 2026-09-03 | `3c354b8` | `cd server && npm test` | 34 passed / 34 | before the BR-28 concurrency fix |
 | 2026-09-03 | Issue #13 head | `cd server && npm test` | 35 passed / 35 | adds API-ATT-14; verified stable across six consecutive runs |
-| 2026-09-03 | Issue #13 head | `cd client && npm test` | 27 passed / 27 | adds UI-CREATE-11..13 and UI-CTX-06/07 from the final code read-through |
+| 2026-09-03 | Issue #13 head | `cd client && npm test` | 30 passed / 30 | adds UI-CREATE-11..13 and UI-CTX-06..09 from the final code read-through |
 | 2026-09-03 | `3c354b8` | `cd client && npm test` | 22 passed / 22 | Issue #13 head — after the manual-inspection fixes (link buttons, selector icon, drop-zone hint, header spacing, busy-button fill) |
 
 Manual verification alongside the automated suites, since several ui-spec

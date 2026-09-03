@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchRequesters, Requester } from "../api.js";
 import {
   clearSelectedRequesterId,
@@ -30,11 +30,18 @@ export function useRequesterSession(): UseRequesterSession {
     requester: null,
   });
 
+  // Every lookup carries a token. A response whose token is no longer the
+  // current one is discarded, because by the time it arrived the Requester had
+  // already moved on — applying it would put the previous Requester's context
+  // back on screen, which BR-07 forbids (tests.md UI-CTX-08).
+  const lookup = useRef(0);
+
   // BR-06: resume the previously-selected Requester from sessionStorage. The
   // active list is re-fetched rather than trusting a cached name, so a
   // Requester who has since been deactivated is caught here and sent back to
   // the selector instead of being shown as a stale "ready" shell.
   const refresh = useCallback(() => {
+    const token = ++lookup.current;
     const id = getSelectedRequesterId();
     if (id === null) {
       setSession({ status: "needs-selection", requester: null });
@@ -44,6 +51,7 @@ export function useRequesterSession(): UseRequesterSession {
     setSession({ status: "checking", requester: null });
     fetchRequesters()
       .then((requesters) => {
+        if (token !== lookup.current) return;
         const match = requesters.find((r) => r.id === id);
         if (match) {
           setSession({ status: "ready", requester: match });
@@ -53,6 +61,7 @@ export function useRequesterSession(): UseRequesterSession {
         }
       })
       .catch(() => {
+        if (token !== lookup.current) return;
         // Safe fallback: without confirmation we do not render a shell we
         // cannot back up. Selecting again is always possible.
         clearSelectedRequesterId();
@@ -65,6 +74,7 @@ export function useRequesterSession(): UseRequesterSession {
   }, [refresh]);
 
   const changeRequester = useCallback(() => {
+    lookup.current++; // any lookup still in flight is now stale
     clearSelectedRequesterId();
     setSession({ status: "needs-selection", requester: null });
   }, []);

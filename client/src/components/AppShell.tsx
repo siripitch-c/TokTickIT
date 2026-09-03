@@ -52,10 +52,10 @@ export default function AppShell({ requester, onChangeRequester }: Props) {
         <button
           type="button"
           className="zg-hamburger"
-          aria-label="Open navigation menu"
+          aria-label={mobileNavOpen ? "Close navigation menu" : "Open navigation menu"}
           aria-expanded={mobileNavOpen}
           aria-controls="zg-mobile-nav"
-          title="Open navigation menu"
+          title={mobileNavOpen ? "Close navigation menu" : "Open navigation menu"}
           onClick={() => setMobileNavOpen((open) => !open)}
         >
           <span aria-hidden="true">&#9776;</span>

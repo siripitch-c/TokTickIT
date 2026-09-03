@@ -142,6 +142,31 @@ describe("App — Development Requester context", () => {
     expect(screen.getByTestId("current-requester-name")).toHaveTextContent("Jennifer Anderson");
   });
 
+  it("UI-CTX-09: the mobile navigation toggle names what it will do, in both states (BR-39)", async () => {
+    mockAllEndpoints();
+    sessionStorage.setItem("toktickit.selectedRequesterId", "1");
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByTestId("current-requester-name")).toBeInTheDocument());
+
+    const toggle = screen.getByRole("button", { name: /open navigation menu/i });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    // Icon-only, so the tooltip has to carry the same words as the label.
+    expect(toggle).toHaveAttribute("title", "Open navigation menu");
+
+    fireEvent.click(toggle);
+
+    const openToggle = screen.getByRole("button", { name: /close navigation menu/i });
+    expect(openToggle).toHaveAttribute("aria-expanded", "true");
+    expect(openToggle).toHaveAttribute("title", "Close navigation menu");
+    // The panel it controls carries the same actions as the desktop header.
+    const panel = document.getElementById("zg-mobile-nav");
+    expect(panel).not.toBeNull();
+    expect(panel!.textContent).toContain("My Tickets");
+    expect(panel!.textContent).toContain("Create Ticket");
+    expect(panel!.textContent).toContain("Jennifer Anderson");
+  });
+
   it("UI-CTX-04: Change Requester clears the stored selection and returns to the selector, no stale data", async () => {
     mockRequestersOk();
     sessionStorage.setItem("toktickit.selectedRequesterId", "1");
