@@ -109,6 +109,8 @@ const SUMMARY_MAX = 150;
 const DESCRIPTION_MIN = 10;
 const DESCRIPTION_MAX = 2000;
 const REQUESTED_PRIORITIES = ["LOW", "MEDIUM", "HIGH"] as const;
+const REQUESTER_UNAVAILABLE =
+  "The selected Development Requester is no longer available. Choose one again.";
 
 // Trims first, then measures — BR-19/BR-20 length limits apply to real content,
 // so "   " is an empty Summary, not an 8-character one.
@@ -161,10 +163,19 @@ app.post("/api/tickets", async (req, res) => {
 
     // An inactive Category/RelatedSystem is rejected exactly like an unknown
     // one (BR-21) — the client only ever offers active rows anyway.
-    const [category, relatedSystem] = await Promise.all([
+    const [requester, category, relatedSystem] = await Promise.all([
+      prisma.requester.findFirst({ where: { id: requesterId, isActive: true }, select: { id: true } }),
       prisma.category.findFirst({ where: { id: categoryId, isActive: true }, select: { id: true } }),
       prisma.relatedSystem.findFirst({ where: { id: relatedSystemId, isActive: true }, select: { id: true } }),
     ]);
+    // The header has to name a Requester the selector could actually offer.
+    // Without this an unknown id reached the foreign key and came back as a
+    // 500 — bad input, not an unexpected fault — and an inactive Requester
+    // could still create tickets, leaving BR-05/BR-35 enforced only in the UI,
+    // which BR-11 does not allow.
+    if (!requester) {
+      return sendError(res, 400, "VALIDATION_ERROR", REQUESTER_UNAVAILABLE);
+    }
     if (!category) {
       return sendError(res, 400, "INVALID_CATEGORY", "Please choose a category.", "categoryId");
     }
@@ -272,6 +283,14 @@ app.post("/api/tickets/:id/attachments", receiveAttachment, async (req, res) => 
 
   try {
     const prisma = getPrisma();
+
+    const requester = await prisma.requester.findFirst({
+      where: { id: requesterId, isActive: true },
+      select: { id: true },
+    });
+    if (!requester) {
+      return sendError(res, 400, "VALIDATION_ERROR", REQUESTER_UNAVAILABLE);
+    }
 
     // BR-12: a Ticket owned by someone else is reported as missing, so ticket
     // existence never leaks across Requesters.

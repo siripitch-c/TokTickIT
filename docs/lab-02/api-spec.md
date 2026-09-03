@@ -13,12 +13,16 @@ here are final unless changed here first.
   Requester testing mechanism (BR-04), **not real authentication** — see
   specification.md BR-40 and the README note required by the Definition of
   Done. There is no session; the header must be sent on every request. A
-  Requester-scoped request whose `X-Requester-Id` is missing, blank, or
-  not a positive integer is rejected with **400** `VALIDATION_ERROR`
+  Requester-scoped request whose `X-Requester-Id` is missing, blank, not a
+  positive integer, or does not name an **active** Requester is rejected with
+  **400** `VALIDATION_ERROR`
   (no `field`, since the fault is in a header rather than a body field)
   — see `tests.md` API-DETAIL-04. This is the one 400 that applies to
   reads as well as writes: it is a malformed request, not the lenient
-  query-parameter handling of BR-18.
+  query-parameter handling of BR-18. Requiring the id to be *active* keeps
+  BR-05/BR-35 enforced on the server rather than only in the selector
+  (BR-11), and stops an unknown id from reaching the foreign key and
+  surfacing as a 500.
 - **Content type:** `application/json` for all bodies except attachment
   upload, which is `multipart/form-data`.
 - **Timestamps:** ISO 8601 UTC strings (e.g. `2026-05-12T09:14:00.000Z`).

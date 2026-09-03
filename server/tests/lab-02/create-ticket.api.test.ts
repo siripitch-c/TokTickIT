@@ -45,6 +45,16 @@ beforeAll(async () => {
   requesterId = owner.id;
   otherRequesterId = other.id;
 
+  await prisma.requester.upsert({
+    where: { email: "create-ticket.inactive@test.invalid" },
+    update: { isActive: false },
+    create: {
+      name: "Create Ticket Inactive",
+      email: "create-ticket.inactive@test.invalid",
+      isActive: false,
+    },
+  });
+
   const category = await prisma.category.findFirst({ where: { isActive: true } });
   const relatedSystem = await prisma.relatedSystem.findFirst({ where: { isActive: true } });
   if (!category || !relatedSystem) throw new Error("Seed data missing — run npm run prisma:seed");
@@ -57,7 +67,10 @@ afterEach(() => {
 });
 
 afterAll(async () => {
-  const ids = [requesterId, otherRequesterId];
+  const inactive = await prisma.requester.findUnique({
+    where: { email: "create-ticket.inactive@test.invalid" },
+  });
+  const ids = [requesterId, otherRequesterId, ...(inactive ? [inactive.id] : [])];
   await prisma.attachment.deleteMany({ where: { ticket: { requesterId: { in: ids } } } });
   await prisma.ticket.deleteMany({ where: { requesterId: { in: ids } } });
   await prisma.requester.deleteMany({ where: { id: { in: ids } } });
@@ -235,6 +248,33 @@ describe("POST /api/tickets", () => {
 
     expect(await prisma.ticket.count({ where: { requesterId } })).toBe(before);
     expect(await prisma.ticket.findFirst({ where: { summary: "Simulated failure ticket" } })).toBeNull();
+  });
+
+  it("API-CREATE-11: an X-Requester-Id that names nobody is rejected, not answered with a 500", async () => {
+    const before = await prisma.ticket.count();
+
+    const response = await post(validBody(), 999999);
+
+    // A client sending an id that does not exist is bad input, not an
+    // unexpected server fault — api-spec.md reserves 500 for the latter.
+    expect(response.status).toBe(400);
+    expect(response.body.error.code).toBe("VALIDATION_ERROR");
+    expect(await prisma.ticket.count()).toBe(before);
+  });
+
+  it("API-CREATE-12: an inactive Requester cannot create a Ticket (BR-05, BR-35, BR-11)", async () => {
+    const inactive = await prisma.requester.findUniqueOrThrow({
+      where: { email: "create-ticket.inactive@test.invalid" },
+    });
+    const before = await prisma.ticket.count();
+
+    const response = await post(validBody(), inactive.id);
+
+    // The selector can never offer this identity, and BR-11 does not allow
+    // that to be the only place the rule is enforced.
+    expect(response.status).toBe(400);
+    expect(response.body.error.code).toBe("VALIDATION_ERROR");
+    expect(await prisma.ticket.count()).toBe(before);
   });
 
   it("rejects a missing or unusable X-Requester-Id header with 400 (api-spec.md §1)", async () => {

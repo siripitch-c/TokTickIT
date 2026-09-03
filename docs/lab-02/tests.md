@@ -52,6 +52,8 @@
 | API-CREATE-08 | 20 concurrent creation requests | All 20 get unique `ticketNumber`s, no collision, no lost update (BR-01 atomicity) | same file |
 | API-CREATE-09 | Two rapid duplicate submissions (simulating double-click at the API layer) | Server-side does not itself dedupe identical bodies — documents that duplicate prevention is a UI-layer control (BR-22); this test only proves atomic numbering, not idempotency | same file |
 | API-CREATE-10 | Simulated DB failure during creation | `500`, no partial Ticket row persisted | same file |
+| API-CREATE-11 | `X-Requester-Id` naming a Requester that does not exist | `400 VALIDATION_ERROR` and no Ticket — bad input must not reach the foreign key and come back as a `500` | same file |
+| API-CREATE-12 | `X-Requester-Id` naming an inactive Requester | `400 VALIDATION_ERROR` and no Ticket; BR-05/BR-35 hold server-side, not only in the selector (BR-11) | same file |
 
 ### API — My Tickets (list)
 
@@ -198,17 +200,17 @@
 | BR-02 | API-CREATE-02 | BR-22 | UI-CREATE-07 |
 | BR-03 | API-CREATE-03 | BR-23 | UI-CREATE-02..05, API-CREATE-05..07 |
 | BR-04 | UI-CTX-01, UI-CTX-06 | BR-24 | UI-CREATE-08, API-CREATE-10 |
-| BR-05 | API-REQ-01, UI-CTX-02 | BR-25 | API-ATT-11 |
+| BR-05 | API-REQ-01, UI-CTX-02, API-CREATE-12 | BR-25 | API-ATT-11 |
 | BR-06 | UI-CTX-03 | BR-26 | API-ATT-01, UI-CREATE-13 |
 | BR-07 | UI-CTX-04, UI-CTX-08 | BR-27 | API-ATT-02 |
 | BR-08 | UI-CTX-02 | BR-28 | API-ATT-03, API-ATT-14 |
 | BR-09 | UI-CTX-02 | BR-29 | API-ATT-07 |
 | BR-10 | API-CREATE-04 | BR-30 | API-ATT-08 |
-| BR-11 | API-DETAIL-02, API-ATT-06 | BR-31 | API-ATT-09, UI-DETAIL-05 |
+| BR-11 | API-DETAIL-02, API-ATT-06, API-CREATE-12 | BR-31 | API-ATT-09, UI-DETAIL-05 |
 | BR-12 | API-DETAIL-02, API-DETAIL-03 | BR-32 | API-ATT-04 |
 | BR-13 | API-LIST-02 | BR-33 | API-ATT-12, UI-DETAIL-03 |
 | BR-14 | API-LIST-03..06 | BR-34 | API-ATT-11 |
-| BR-15 | API-LIST-07, API-LIST-08 | BR-35 | API-REQ-01 |
+| BR-15 | API-LIST-07, API-LIST-08 | BR-35 | API-REQ-01, API-CREATE-12 |
 | BR-16 | API-LIST-09 | BR-36 | API-REQ-03 |
 | BR-17 | API-LIST-10 | BR-37 | UI-LIST-02, UI-LIST-03 |
 | BR-18 | API-LIST-11 | BR-38 | API-DETAIL-02 |
@@ -263,7 +265,7 @@ after the fact:
 | 2026-09-03 | `623e8a4` | `cd server && npm test` | 34 passed / 34 | adds API-ERR-01 after the ui-spec §9 / api-spec §1 conformance fixes |
 | 2026-09-03 | `623e8a4` | `cd client && npm test` | 22 passed / 22 | unchanged by those fixes; re-run to confirm |
 | 2026-09-03 | `3c354b8` | `cd server && npm test` | 34 passed / 34 | before the BR-28 concurrency fix |
-| 2026-09-03 | Issue #13 head | `cd server && npm test` | 35 passed / 35 | adds API-ATT-14; verified stable across six consecutive runs |
+| 2026-09-03 | Issue #13 head | `cd server && npm test` | 37 passed / 37 | adds API-ATT-14 and API-CREATE-11/12 |
 | 2026-09-03 | Issue #13 head | `cd client && npm test` | 30 passed / 30 | adds UI-CREATE-11..13 and UI-CTX-06..09 from the final code read-through |
 | 2026-09-03 | `3c354b8` | `cd client && npm test` | 22 passed / 22 | Issue #13 head — after the manual-inspection fixes (link buttons, selector icon, drop-zone hint, header spacing, busy-button fill) |
 
