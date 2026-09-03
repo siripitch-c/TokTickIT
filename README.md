@@ -124,6 +124,20 @@ the backend. Refreshing the page keeps you signed in as the same Requester
 for the rest of the browser session (sessionStorage); Change Requester
 clears that and returns you to the selector.
 
+## Production build
+
+```bash
+cd server
+npm run build
+npm start
+```
+`npm run build` compiles `src/` only (via `tsconfig.build.json`) so the output
+is `dist/index.js`, which is what `npm start` runs. The root `tsconfig.json`
+still covers `src`, `prisma`, and `tests` for typechecking with
+`npx tsc --noEmit`.
+
+The client build is `cd client && npm run build`.
+
 ## Test
 Backend Tests (Supertest):
 ```bash
