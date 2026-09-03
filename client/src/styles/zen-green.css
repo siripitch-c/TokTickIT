@@ -273,6 +273,17 @@ textarea.zg-field--editable {
   cursor: progress;
 }
 
+/* §2.2: a busy button keeps "the same fill as its variant". It also carries
+   the disabled attribute (BR-22), so without this the disabled rule above
+   greys it out and the white spinner disappears into a pale background. */
+.zg-btn--primary.zg-btn--busy,
+.zg-btn--primary:disabled.zg-btn--busy {
+  background: var(--zg-primary);
+  border: 1px solid var(--zg-primary);
+  color: #fff;
+  opacity: 0.9;
+}
+
 /* §2.2: the spinner precedes the label rather than replacing it, so the
    button keeps an accessible name while the request is in flight. */
 .zg-btn--busy::before {
