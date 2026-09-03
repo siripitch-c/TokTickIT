@@ -220,6 +220,98 @@ async function createTicketWithNumber(prisma: ReturnType<typeof getPrisma>, data
 }
 
 // ---------------------------------------------------------------------------
+// Issue #14 — My Tickets
+// GET /api/tickets — api-spec.md §4. Ownership is a where-clause, not a
+// post-filter: a Ticket belonging to someone else is never read in the first
+// place (BR-11). Unlike the write endpoints, every query parameter here is
+// lenient — an unknown key, an invalid enum, an unparseable number or an
+// unrecognised sort field is ignored and the documented default substituted,
+// and this endpoint never answers 400 for a query-parameter problem (BR-18).
+// ---------------------------------------------------------------------------
+const SORT_FIELDS = ["ticketNumber", "createdAt", "updatedAt"] as const;
+const PAGE_SIZES = [10, 25, 50];
+const DEFAULT_PAGE_SIZE = 10;
+
+app.get("/api/tickets", async (req, res) => {
+  const requesterId = readRequesterId(req);
+  if (requesterId === null) {
+    return sendError(res, 400, "VALIDATION_ERROR", "A valid X-Requester-Id header is required.");
+  }
+
+  const query = req.query as Record<string, unknown>;
+
+  const search = typeof query.search === "string" && query.search.trim() !== "" ? query.search.trim() : null;
+  const categoryId = readId(query.category);
+  const requestedPriority = REQUESTED_PRIORITIES.find((p) => p === query.requestedPriority);
+  const itPriority = REQUESTED_PRIORITIES.find((p) => p === query.itPriority);
+  const currentStatus = query.status === "NEW" ? ("NEW" as const) : undefined;
+
+  const sortBy = SORT_FIELDS.find((f) => f === query.sortBy) ?? "createdAt";
+  const sortDir = query.sortDir === "asc" ? "asc" : "desc";
+  const page = readId(query.page) ?? 1;
+  const pageSizeCandidate = Number(query.pageSize);
+  const pageSize = PAGE_SIZES.includes(pageSizeCandidate) ? pageSizeCandidate : DEFAULT_PAGE_SIZE;
+
+  try {
+    const prisma = getPrisma();
+
+    const requester = await prisma.requester.findFirst({
+      where: { id: requesterId, isActive: true },
+      select: { id: true },
+    });
+    if (!requester) {
+      return sendError(res, 400, "VALIDATION_ERROR", REQUESTER_UNAVAILABLE);
+    }
+
+    const where = {
+      requesterId,
+      ...(categoryId !== null ? { categoryId } : {}),
+      ...(requestedPriority ? { requestedPriority } : {}),
+      ...(itPriority ? { itPriority } : {}),
+      ...(currentStatus ? { currentStatus } : {}),
+      // BR-13: Ticket Number or Summary, partial and case-insensitive.
+      // Description is deliberately not searched (specification.md §11).
+      ...(search
+        ? {
+            OR: [
+              { ticketNumber: { contains: search, mode: "insensitive" as const } },
+              { summary: { contains: search, mode: "insensitive" as const } },
+            ],
+          }
+        : {}),
+    };
+
+    const totalItems = await prisma.ticket.count({ where });
+    const totalPages = Math.ceil(totalItems / pageSize);
+    const pagination = { page, pageSize, totalItems, totalPages };
+
+    // BR-17: a page past the end is an empty result with accurate metadata,
+    // not an error. Answering it here also keeps an absurd page number from
+    // reaching the database as an out-of-range OFFSET.
+    if (page > totalPages) {
+      return res.json({ data: [], pagination });
+    }
+
+    const data = await prisma.ticket.findMany({
+      where,
+      // BR-15: ties on the chosen field resolve by ticketNumber desc, so the
+      // order is total and a row cannot drift between pages.
+      orderBy:
+        sortBy === "ticketNumber"
+          ? [{ ticketNumber: sortDir }]
+          : [{ [sortBy]: sortDir }, { ticketNumber: "desc" }],
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    });
+
+    res.json({ data, pagination });
+  } catch (error) {
+    console.error("Error listing tickets:", error);
+    sendInternalError(res);
+  }
+});
+
+// ---------------------------------------------------------------------------
 // Issue #13 — Attachment upload
 // POST /api/tickets/:id/attachments — api-spec.md §5. Ownership is re-checked
 // here exactly as it is on the Ticket itself (BR-11): an attachment inherits
