@@ -184,6 +184,37 @@ describe("POST /api/tickets/:id/attachments", () => {
     expect(await prisma.attachment.count({ where: { ticketId, removedAt: null } })).toBe(5);
   });
 
+  it("API-ATT-14: concurrent uploads cannot push a ticket past 5 active attachments (BR-28)", async () => {
+    for (let i = 1; i <= 4; i++) {
+      const response = await upload(ticketId, {
+        buffer: bytes(32),
+        filename: `existing-${i}.png`,
+        contentType: "image/png",
+      });
+      expect(response.status).toBe(201);
+    }
+
+    // Three uploads race for the single remaining slot. Counting outside a
+    // transaction would let all three see four attachments and all three
+    // insert, which is the same read-then-write race BR-01 rules out for the
+    // Ticket Number.
+    const responses = await Promise.all(
+      [1, 2, 3].map((n) =>
+        upload(ticketId, { buffer: bytes(32), filename: `racing-${n}.png`, contentType: "image/png" }),
+      ),
+    );
+
+    const created = responses.filter((r) => r.status === 201);
+    const refused = responses.filter((r) => r.status === 409);
+    expect(created).toHaveLength(1);
+    expect(refused).toHaveLength(2);
+    for (const response of refused) {
+      expect(response.body.error.code).toBe("ATTACHMENT_LIMIT_REACHED");
+    }
+
+    expect(await prisma.attachment.count({ where: { ticketId, removedAt: null } })).toBe(5);
+  });
+
   it("API-ATT-04: stored filenames are randomized and can never escape the uploads directory (BR-32)", async () => {
     const response = await upload(ticketId, {
       buffer: bytes(32),
@@ -265,7 +296,22 @@ describe("POST /api/tickets/:id/attachments", () => {
     });
     expect(first.status).toBe(201);
 
-    vi.spyOn(prisma.attachment, "create").mockRejectedValueOnce(new Error("simulated write failure"));
+    const filesBefore = fs.readdirSync(uploadDir).length;
+
+    // The insert now runs on the transaction client, so the failure is
+    // injected there. The callback still executes for real, which means the
+    // file is written to disk before the write fails — exactly the case
+    // BR-33's cleanup exists for.
+    vi.spyOn(prisma, "$transaction").mockImplementationOnce(((callback: unknown) =>
+      (callback as (tx: unknown) => Promise<unknown>)({
+        $queryRaw: async () => [],
+        attachment: {
+          count: async () => 1,
+          create: async () => {
+            throw new Error("simulated write failure");
+          },
+        },
+      })) as never);
 
     const failed = await upload(ticketId, {
       buffer: bytes(32),
@@ -280,8 +326,11 @@ describe("POST /api/tickets/:id/attachments", () => {
     expect(remaining).toHaveLength(1);
     expect(remaining[0].originalFilename).toBe("keeper.png");
 
-    // The ticket itself is untouched by a failed attachment (BR-33/BR-34).
+    // The ticket itself is untouched by a failed attachment (BR-33/BR-34)...
     expect(await prisma.ticket.findUnique({ where: { id: ticketId } })).not.toBeNull();
+    // ...and the file written just before the failure is cleaned up rather
+    // than left orphaned on disk.
+    expect(fs.readdirSync(uploadDir).length).toBe(filesBefore);
   });
 
   it("requires the X-Requester-Id header (api-spec.md §1)", async () => {

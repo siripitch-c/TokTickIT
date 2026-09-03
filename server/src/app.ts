@@ -290,34 +290,46 @@ app.post("/api/tickets/:id/attachments", receiveAttachment, async (req, res) => 
     }
 
     // BR-28 counts active attachments only — a soft-removed one has given its
-    // slot back even though its row and metadata remain (BR-29).
-    const activeCount = await prisma.attachment.count({ where: { ticketId, removedAt: null } });
-    if (activeCount >= MAX_ACTIVE_ATTACHMENTS) {
-      return sendError(
-        res,
-        409,
-        "ATTACHMENT_LIMIT_REACHED",
-        `A ticket can have at most ${MAX_ACTIVE_ATTACHMENTS} attachments. Remove one before adding another.`,
-        "file",
-      );
-    }
-
-    const storedFilename = storeAttachmentFile(file.buffer, extension);
+    // slot back even though its row and metadata remain (BR-29). Counting and
+    // inserting happen inside one transaction that first locks the parent
+    // Ticket row, because counting outside a transaction is the same
+    // read-then-write race BR-01 rules out for the Ticket Number: two uploads
+    // arriving together would both see four attachments and both insert a
+    // fifth (tests.md API-ATT-14).
+    let storedFilename: string | null = null;
     try {
-      const attachment = await prisma.attachment.create({
-        data: {
-          ticketId,
-          originalFilename,
-          storedFilename,
-          mimeType: file.mimetype,
-          sizeBytes: file.size,
-        },
+      const attachment = await prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT "id" FROM "Ticket" WHERE "id" = ${ticketId} FOR UPDATE`;
+
+        const activeCount = await tx.attachment.count({ where: { ticketId, removedAt: null } });
+        if (activeCount >= MAX_ACTIVE_ATTACHMENTS) throw new AttachmentLimitReached();
+
+        storedFilename = storeAttachmentFile(file.buffer, extension);
+        return tx.attachment.create({
+          data: {
+            ticketId,
+            originalFilename,
+            storedFilename,
+            mimeType: file.mimetype,
+            sizeBytes: file.size,
+          },
+        });
       });
+
       res.status(201).json({ data: toAttachmentResponse(attachment) });
     } catch (error) {
       // BR-33: a failed upload stores nothing at all — not a row, and not the
       // file that would otherwise be left orphaned on disk.
-      deleteStoredFile(storedFilename);
+      if (storedFilename !== null) deleteStoredFile(storedFilename);
+      if (error instanceof AttachmentLimitReached) {
+        return sendError(
+          res,
+          409,
+          "ATTACHMENT_LIMIT_REACHED",
+          `A ticket can have at most ${MAX_ACTIVE_ATTACHMENTS} attachments. Remove one before adding another.`,
+          "file",
+        );
+      }
       throw error;
     }
   } catch (error) {
@@ -325,6 +337,10 @@ app.post("/api/tickets/:id/attachments", receiveAttachment, async (req, res) => 
     sendInternalError(res);
   }
 });
+
+// Signals BR-28 from inside the transaction, so the limit check can roll the
+// transaction back rather than responding from within it.
+class AttachmentLimitReached extends Error {}
 
 // ---------------------------------------------------------------------------
 // Issue #13 — envelope coverage for the two responses Express would otherwise
@@ -342,8 +358,8 @@ app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
   // express.json() rejects a malformed body with status 400 before any route
   // sees it; anything else here is unexpected and stays generic (api-spec.md §6).
   const status = (error as { status?: number } | null)?.status;
-  if (status === 400) {
-    return sendError(res, 400, "VALIDATION_ERROR", "The request body could not be read as JSON.");
+  if (typeof status === "number" && status >= 400 && status < 500) {
+    return sendError(res, status, "VALIDATION_ERROR", "The request could not be read.");
   }
   console.error("Unhandled error:", error);
   sendInternalError(res);

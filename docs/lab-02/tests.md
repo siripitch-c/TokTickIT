@@ -92,6 +92,7 @@
 | API-ATT-11 | Ticket created successfully, then one of its attachment uploads fails (simulated) | Ticket and any already-successful attachments remain; failed one is not partially stored | same file |
 | API-ATT-12 | Add attachment to an existing ticket, simulated failure | No attachment row stored; existing ticket/attachments unaffected; error returned | same file |
 | API-ATT-13 | Remove an already-removed attachment again | `409 ALREADY_REMOVED` | same file |
+| API-ATT-14 | Three uploads race for the last free slot on a ticket that already has 4 active attachments | Exactly one `201`, two `409 ATTACHMENT_LIMIT_REACHED`, final active count 5 — the BR-28 check is serialised, not a read-then-write race | same file |
 
 ### UI — Requester context
 
@@ -193,7 +194,7 @@
 | BR-05 | API-REQ-01, UI-CTX-02 | BR-25 | API-ATT-11 |
 | BR-06 | UI-CTX-03 | BR-26 | API-ATT-01 |
 | BR-07 | UI-CTX-04 | BR-27 | API-ATT-02 |
-| BR-08 | UI-CTX-02 | BR-28 | API-ATT-03 |
+| BR-08 | UI-CTX-02 | BR-28 | API-ATT-03, API-ATT-14 |
 | BR-09 | UI-CTX-02 | BR-29 | API-ATT-07 |
 | BR-10 | API-CREATE-04 | BR-30 | API-ATT-08 |
 | BR-11 | API-DETAIL-02, API-ATT-06 | BR-31 | API-ATT-09, UI-DETAIL-05 |
@@ -254,7 +255,8 @@ after the fact:
 | 2026-09-03 | `a009afa` | `cd client && npm test` | 22 passed / 22 | UI-CTX-01..05, UI-CREATE-01..10 |
 | 2026-09-03 | `623e8a4` | `cd server && npm test` | 34 passed / 34 | adds API-ERR-01 after the ui-spec §9 / api-spec §1 conformance fixes |
 | 2026-09-03 | `623e8a4` | `cd client && npm test` | 22 passed / 22 | unchanged by those fixes; re-run to confirm |
-| 2026-09-03 | `3c354b8` | `cd server && npm test` | 34 passed / 34 | Issue #13 head — final run before the Pull Request |
+| 2026-09-03 | `3c354b8` | `cd server && npm test` | 34 passed / 34 | before the BR-28 concurrency fix |
+| 2026-09-03 | Issue #13 head | `cd server && npm test` | 35 passed / 35 | adds API-ATT-14; verified stable across six consecutive runs |
 | 2026-09-03 | `3c354b8` | `cd client && npm test` | 22 passed / 22 | Issue #13 head — after the manual-inspection fixes (link buttons, selector icon, drop-zone hint, header spacing, busy-button fill) |
 
 Manual verification alongside the automated suites, since several ui-spec
