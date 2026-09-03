@@ -229,6 +229,15 @@ async function createTicketWithNumber(prisma: ReturnType<typeof getPrisma>, data
 // and this endpoint never answers 400 for a query-parameter problem (BR-18).
 // ---------------------------------------------------------------------------
 const SORT_FIELDS = ["ticketNumber", "createdAt", "updatedAt"] as const;
+
+// `contains` becomes a LIKE pattern, where % and _ are wildcards and \ is the
+// escape character. Without this a Requester searching for "50%" matches every
+// ticket, and "month_end" matches any character where the underscore is —
+// neither of which is the partial match BR-13 describes. The value itself is
+// still a bound parameter, so this is about correctness, not injection.
+function escapeLikePattern(value: string): string {
+  return value.replace(/[\\%_]/g, (char) => `\\${char}`);
+}
 const PAGE_SIZES = [10, 25, 50];
 const DEFAULT_PAGE_SIZE = 10;
 
@@ -274,8 +283,8 @@ app.get("/api/tickets", async (req, res) => {
       ...(search
         ? {
             OR: [
-              { ticketNumber: { contains: search, mode: "insensitive" as const } },
-              { summary: { contains: search, mode: "insensitive" as const } },
+              { ticketNumber: { contains: escapeLikePattern(search), mode: "insensitive" as const } },
+              { summary: { contains: escapeLikePattern(search), mode: "insensitive" as const } },
             ],
           }
         : {}),

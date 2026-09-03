@@ -156,6 +156,54 @@ describe("GET /api/tickets", () => {
     expect(byDescription.body.data).toHaveLength(0);
   });
 
+  it("API-LIST-02: LIKE wildcards in the search term are matched literally (BR-13)", async () => {
+    // "%" and "_" are wildcards to LIKE. Passed through unescaped, searching
+    // for "%" returns every ticket and "_" matches any single character, so a
+    // Requester looking for "50%" or "TKT_2026" gets answers that have nothing
+    // to do with what they typed.
+    const extras = await prisma.ticket.createManyAndReturn({
+      data: [
+        {
+          ticketNumber: "TKT-2097-000001",
+          requesterId: ownerId,
+          categoryId: categoryA,
+          relatedSystemId: systemId,
+          summary: "Wi-Fi drops with 50% packet loss",
+          description: "Fixture for wildcard escaping.",
+          requestedPriority: "LOW" as const,
+        },
+        {
+          ticketNumber: "TKT-2097-000002",
+          requesterId: ownerId,
+          categoryId: categoryA,
+          relatedSystemId: systemId,
+          summary: "Report file named month_end is missing",
+          description: "Fixture for wildcard escaping.",
+          requestedPriority: "LOW" as const,
+        },
+      ],
+    });
+
+    try {
+      const percent = await list("?search=%25&pageSize=50");
+      expect(numbersOf(percent.body)).toEqual(["TKT-2097-000001"]);
+
+      const underscore = await list("?search=_&pageSize=50");
+      expect(numbersOf(underscore.body)).toEqual(["TKT-2097-000002"]);
+
+      // A backslash is LIKE's escape character; it must not swallow the
+      // character that follows it either.
+      const backslash = await list("?search=%5C&pageSize=50");
+      expect(backslash.body.data).toHaveLength(0);
+
+      // The ordinary case still works.
+      const literal = await list("?search=50%25%20packet&pageSize=50");
+      expect(numbersOf(literal.body)).toEqual(["TKT-2097-000001"]);
+    } finally {
+      await prisma.ticket.deleteMany({ where: { id: { in: extras.map((t) => t.id) } } });
+    }
+  });
+
   it("API-LIST-03..06: each filter narrows the list, and filters combine with AND (BR-14)", async () => {
     const byCategory = await list(`?category=${categoryA}&pageSize=50`);
     expect(byCategory.body.data.length).toBeGreaterThan(0);

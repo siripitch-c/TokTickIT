@@ -243,6 +243,29 @@ describe("My Tickets screen", () => {
     expect(screen.getByTestId("pagination-summary")).toHaveTextContent(/of 23 tickets/);
   });
 
+  it("UI-LIST-05: the sorted column reports its direction to assistive technology (BR-39)", async () => {
+    mockFetch(() => ({ tickets: makeTickets(3) }));
+    const user = userEvent.setup();
+
+    render(<Wrapper requester={REQUESTER} />);
+    await waitFor(() => expect(screen.getByTestId("ticket-table")).toBeInTheDocument());
+
+    const header = (name: RegExp) => screen.getByRole("columnheader", { name });
+
+    // The arrow is visual; aria-sort is what a screen reader reads, and only
+    // the column actually being sorted may claim a direction.
+    expect(header(/created date/i)).toHaveAttribute("aria-sort", "descending");
+    expect(header(/ticket no/i)).toHaveAttribute("aria-sort", "none");
+    expect(header(/last updated/i)).toHaveAttribute("aria-sort", "none");
+
+    await user.click(screen.getByRole("button", { name: /sort by ticket number/i }));
+    await waitFor(() => expect(header(/ticket no/i)).toHaveAttribute("aria-sort", "descending"));
+    expect(header(/created date/i)).toHaveAttribute("aria-sort", "none");
+
+    await user.click(screen.getByRole("button", { name: /sorted by ticket number/i }));
+    await waitFor(() => expect(header(/ticket no/i)).toHaveAttribute("aria-sort", "ascending"));
+  });
+
   it("UI-LIST-06: the desktop table is replaced by cards on a mobile viewport, not merely hidden", async () => {
     mockFetch(() => ({ tickets: makeTickets(3) }));
 

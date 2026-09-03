@@ -400,7 +400,12 @@ text, to keep controls thumb-reachable.
 ### 6.4 States
 
 - **Loading**: skeleton rows (desktop table) or skeleton cards (mobile),
-  5 placeholders, search/filters remain interactive but disabled.
+  5 placeholders. Search and filters stay visible and stay usable — an
+  earlier draft said "interactive but disabled", which cannot be both, and
+  disabling them was the worse reading: every keystroke in a debounced search
+  starts a load, so disabling on load would take the field away mid-word and
+  drop the focus. They are disabled only for the very first load of the
+  screen, when there is not yet a list for them to act on.
 - **Empty** (BR-37, zero owned tickets ever): table/card area replaced by
   `zg-state--empty` — "You haven't created any tickets yet." + `Create
   Ticket` primary button. Search/filter controls are hidden in this

@@ -305,6 +305,7 @@ export default function MyTickets() {
                   <tr>
                     <SortableHeader
                       field="ticketNumber"
+                      dir={sortDir}
                       name="Ticket No."
                       active={sortBy}
                       indicator={sortIndicator("ticketNumber")}
@@ -313,6 +314,7 @@ export default function MyTickets() {
                     />
                     <SortableHeader
                       field="createdAt"
+                      dir={sortDir}
                       name="Created Date"
                       active={sortBy}
                       indicator={sortIndicator("createdAt")}
@@ -329,6 +331,7 @@ export default function MyTickets() {
                     <th scope="col">Current Status</th>
                     <SortableHeader
                       field="updatedAt"
+                      dir={sortDir}
                       name="Last Updated"
                       active={sortBy}
                       indicator={sortIndicator("updatedAt")}
@@ -400,6 +403,7 @@ function SortableHeader({
   field,
   name,
   active,
+  dir,
   indicator,
   label,
   onSort,
@@ -407,12 +411,19 @@ function SortableHeader({
   field: TicketSortField;
   name: string;
   active: TicketSortField;
+  dir: SortDirection;
   indicator: string;
   label: string;
   onSort: (field: TicketSortField) => void;
 }) {
+  // aria-sort belongs on the column actually being sorted; the others say
+  // "none". Leaving the active one unset told assistive technology that no
+  // column was sorted at all, which is the opposite of what the arrow shows.
   return (
-    <th scope="col" aria-sort={field === active ? undefined : "none"}>
+    <th
+      scope="col"
+      aria-sort={field === active ? (dir === "asc" ? "ascending" : "descending") : "none"}
+    >
       <button type="button" className="zg-sort-header" onClick={() => onSort(field)} title={label} aria-label={label}>
         {name} <span aria-hidden="true">{indicator}</span>
       </button>

@@ -62,6 +62,7 @@
 |---|---|---|---|
 | API-LIST-01 | Requester A has 12 tickets, B has 3 | A's list has exactly 12 items, none of B's | `server/tests/lab-02/my-tickets.api.test.ts` |
 | API-LIST-02 | `search` matches ticket number (partial) and summary (partial, case-insensitive) | Correct subset returned for each | same file |
+| API-LIST-02b | `search` containing `%`, `_` or `\` | Matched literally, not as LIKE wildcards — otherwise "50%" returns every ticket and "month_end" matches any character in that position, neither of which is BR-13's partial match | same file |
 | API-LIST-03..06 | Each filter (`category`, `requestedPriority`, `itPriority` incl. unset, `status`) individually and combined (AND) | Correct filtered subset each time | same file |
 | API-LIST-07 | Default sort with tied `createdAt` | Secondary sort by `ticketNumber desc` breaks the tie deterministically | same file |
 | API-LIST-08 | `sortBy=ticketNumber&sortDir=asc` then switch to `sortBy=createdAt&sortDir=desc` | Order changes correctly both times | same file |
@@ -136,6 +137,7 @@
 | UI-LIST-03 | Search/filter producing zero matches on a non-empty list | Distinct no-results state (not the empty state from UI-LIST-02) | same file |
 | UI-LIST-04 | Search, each filter, and Clear Filters | List updates correctly; Clear Filters resets to unfiltered | same file |
 | UI-LIST-05 | Sort header click, page navigation, page-size change | List reorders/pages correctly without full reload | same file |
+| UI-LIST-05b | `aria-sort` on the column headers | Only the sorted column reports a direction; the rest report `none`, so what a screen reader hears matches the arrow that is drawn (BR-39) | same file |
 | UI-LIST-06 | Desktop table vs. mobile card rendering | Correct layout per viewport, no clipped columns. The two are alternatives, not one hidden by CSS: only one is in the DOM, so assistive technology never walks two copies of every ticket. Tests drive it by replacing `window.matchMedia` | same file |
 | UI-LIST-07 | Requester switch while on My Tickets | List reloads to the new Requester's tickets only | same file |
 
@@ -269,8 +271,8 @@ after the fact:
 | 2026-09-03 | `3c354b8` | `cd server && npm test` | 34 passed / 34 | before the BR-28 concurrency fix |
 | 2026-09-03 | Issue #13 head | `cd server && npm test` | 39 passed / 39 | adds API-ATT-14/15 and API-CREATE-11..13 |
 | 2026-09-03 | Issue #13 head | `cd client && npm test` | 30 passed / 30 | adds UI-CREATE-11..13 and UI-CTX-06..09 from the final code read-through |
-| 2026-09-04 | Issue #14 | `cd server && npm test` | 49 passed / 49 | adds API-LIST-01..11 |
-| 2026-09-04 | Issue #14 | `cd client && npm test` | 38 passed / 38 | adds UI-LIST-01..07 |
+| 2026-09-04 | Issue #14 | `cd server && npm test` | 50 passed / 50 | adds API-LIST-01..11 and the wildcard-escaping case |
+| 2026-09-04 | Issue #14 | `cd client && npm test` | 39 passed / 39 | adds UI-LIST-01..07 and the aria-sort case |
 | 2026-09-03 | `3c354b8` | `cd client && npm test` | 22 passed / 22 | Issue #13 head — after the manual-inspection fixes (link buttons, selector icon, drop-zone hint, header spacing, busy-button fill) |
 
 My Tickets was also walked through by hand in a browser against the seeded
