@@ -156,3 +156,57 @@ export async function uploadAttachment(
   const body = await res.json();
   return body.data as AttachmentMeta;
 }
+
+// ---------------------------------------------------------------------------
+// Issue #14 — My Tickets
+// ---------------------------------------------------------------------------
+
+/** A row in the ticket list: the Ticket fields without its attachments (api-spec.md §4). */
+export type TicketSummary = Omit<Ticket, "attachments">;
+
+export interface Pagination {
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+}
+
+export type TicketSortField = "ticketNumber" | "createdAt" | "updatedAt";
+export type SortDirection = "asc" | "desc";
+
+export interface TicketListQuery {
+  search?: string;
+  category?: number | "";
+  requestedPriority?: RequestedPriority | "";
+  itPriority?: RequestedPriority | "";
+  status?: "NEW" | "";
+  sortBy?: TicketSortField;
+  sortDir?: SortDirection;
+  page?: number;
+  pageSize?: number;
+}
+
+/**
+ * BR-18: the server treats every query parameter leniently, so blank values are
+ * simply left out rather than sent as empty strings for it to ignore.
+ */
+export async function fetchTickets(
+  requesterId: number,
+  query: TicketListQuery = {},
+): Promise<{ data: TicketSummary[]; pagination: Pagination }> {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) {
+    if (value !== undefined && value !== null && value !== "") {
+      params.set(key, String(value));
+    }
+  }
+
+  const search = params.toString();
+  const res = await fetch(`${API_URL}/api/tickets${search ? `?${search}` : ""}`, {
+    headers: requesterHeaders(requesterId),
+  });
+  if (!res.ok) throw await toApiError(res);
+
+  const body = await res.json();
+  return { data: body.data as TicketSummary[], pagination: body.pagination as Pagination };
+}

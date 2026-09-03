@@ -647,3 +647,282 @@ textarea.zg-field--editable {
   outline: 2px solid #fff;
   outline-offset: 2px;
 }
+
+/* ---------- My Tickets (ui-spec.md §6) ---------- */
+
+/* §6.1: a full-width card — eight columns do not fit the 840px form width. */
+.zg-card--wide {
+  max-width: 1200px;
+}
+
+.zg-text-left {
+  text-align: left;
+}
+
+.zg-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--zg-space-3);
+  flex-wrap: wrap;
+}
+
+.zg-list-header-actions {
+  display: flex;
+  gap: var(--zg-space-2);
+  align-items: center;
+}
+
+.zg-list-controls {
+  display: flex;
+  gap: var(--zg-space-3);
+  align-items: flex-end;
+  margin: var(--zg-space-4) 0 var(--zg-space-3);
+  flex-wrap: wrap;
+}
+
+.zg-search-field {
+  flex: 1 1 260px;
+  margin-bottom: 0;
+}
+
+.zg-filters {
+  display: flex;
+  gap: var(--zg-space-3);
+  flex-wrap: wrap;
+}
+
+.zg-filters .zg-field {
+  margin-bottom: 0;
+  min-width: 150px;
+}
+
+.zg-filters-toggle {
+  flex: 0 0 auto;
+}
+
+/* ---------- Ticket table (§6.1) ---------- */
+
+/* The wrapper, not the page, is what scrolls if a viewport is narrower than
+   the table — §8.7 forbids horizontal scrolling of the page itself. */
+.zg-table-wrap {
+  overflow-x: auto;
+}
+
+.zg-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--zg-text-sm);
+}
+
+.zg-table th,
+.zg-table td {
+  text-align: left;
+  padding: var(--zg-space-2) var(--zg-space-2);
+  border-bottom: 1px solid var(--zg-border);
+  vertical-align: middle;
+}
+
+.zg-table thead th {
+  background: var(--zg-pale);
+  color: var(--zg-text);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.zg-sort-header {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--zg-space-1);
+}
+
+.zg-sort-header:focus-visible {
+  outline: 2px solid var(--zg-secondary);
+  outline-offset: 2px;
+}
+
+.zg-table-row {
+  cursor: pointer;
+}
+
+.zg-table-row:hover {
+  background: var(--zg-pale);
+}
+
+.zg-table-row:focus-visible {
+  outline: 2px solid var(--zg-secondary);
+  outline-offset: -2px;
+}
+
+/* ---------- Ticket cards, mobile only (§6.3) ---------- */
+
+.zg-ticket-cards {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.zg-ticket-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--zg-space-1);
+  width: 100%;
+  text-align: left;
+  background: var(--zg-surface);
+  border: 1px solid var(--zg-border);
+  border-radius: 8px;
+  padding: var(--zg-space-3);
+  margin-bottom: var(--zg-space-2);
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.zg-ticket-card:focus-visible {
+  outline: 2px solid var(--zg-secondary);
+  outline-offset: 2px;
+}
+
+.zg-ticket-card-summary {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.zg-badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--zg-space-1);
+}
+
+/* ---------- Badges added for the list (§2.3) ---------- */
+
+.zg-badge--status-new {
+  background: var(--zg-pale);
+  color: var(--zg-secondary);
+}
+
+.zg-badge--unset {
+  background: var(--zg-disabled-bg);
+  color: var(--zg-disabled-text);
+}
+
+/* ---------- Footer and pagination (§6.1) ---------- */
+
+.zg-list-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--zg-space-3);
+  margin-top: var(--zg-space-3);
+  flex-wrap: wrap;
+}
+
+.zg-pagination {
+  display: flex;
+  align-items: center;
+  gap: var(--zg-space-2);
+  flex-wrap: wrap;
+}
+
+.zg-pagination .zg-btn--primary,
+.zg-pagination .zg-btn--secondary {
+  min-width: 40px;
+  padding: 0 var(--zg-space-2);
+}
+
+.zg-page-size {
+  margin-bottom: 0;
+  min-width: 130px;
+}
+
+/* No-results is its own state, never the empty state reworded (BR-37). */
+.zg-state--no-results {
+  padding: var(--zg-space-5);
+  text-align: center;
+  color: var(--zg-text-muted);
+}
+
+/* ---------- Responsive (§6.2, §6.3) ---------- */
+
+@media (min-width: 768px) and (max-width: 991px) {
+  /* Tablet drops Category from the table to avoid a horizontal scroll; it
+     stays available as a filter (§6.2). */
+  .zg-col-category {
+    display: none;
+  }
+
+  .zg-filters {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .zg-search-field {
+    flex: 1 1 100%;
+  }
+}
+
+@media (max-width: 767px) {
+  .zg-list-header,
+  .zg-list-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .zg-list-header-actions > * {
+    flex: 1 1 auto;
+  }
+
+  .zg-search-field {
+    flex: 1 1 100%;
+  }
+
+  .zg-filter-sheet {
+    display: flex;
+    flex-direction: column;
+    gap: var(--zg-space-3);
+    background: var(--zg-surface);
+    border: 1px solid var(--zg-border);
+    border-radius: 8px;
+    padding: var(--zg-space-3);
+    margin-bottom: var(--zg-space-3);
+  }
+
+  .zg-filter-sheet .zg-filters {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .zg-filter-sheet-actions {
+    display: flex;
+    gap: var(--zg-space-2);
+  }
+
+  .zg-filter-sheet-actions > * {
+    flex: 1 1 0;
+    min-height: 44px;
+  }
+
+  .zg-pagination {
+    justify-content: space-between;
+  }
+
+  .zg-pagination .zg-btn--secondary,
+  .zg-page-size {
+    min-height: 44px;
+  }
+}
+
+/* The ticket number is the row's real, focusable link (§6.1); the row's own
+   click handler is a pointer convenience layered on top of it. */
+.zg-ticket-link {
+  height: auto;
+  padding: 0;
+  font-weight: 700;
+}
