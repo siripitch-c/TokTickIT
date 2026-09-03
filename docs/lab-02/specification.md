@@ -292,6 +292,12 @@ New Prisma models (in addition to the existing `Category` from Lab 1):
 - **Attachment**: `id`, `ticketId` (FK → Ticket), `originalFilename`,
   `storedFilename`, `mimeType`, `sizeBytes`, `uploadedAt`, `removedAt`
   (nullable), `removedReason` (nullable, string).
+- **TicketNumberCounter**: `year` (primary key), `counter` (default 0). This
+  is the mechanism BR-01 names for producing the Ticket Number sequence: the
+  generator runs `UPDATE ... SET counter = counter + 1 RETURNING counter`
+  against the row for the current year, inside the same transaction as the
+  Ticket insert, so concurrent submissions are serialised by Postgres on that
+  single row. It holds no business data and is never exposed through the API.
 
 Indexes/constraints:
 - Unique index on `Ticket.ticketNumber`.
@@ -303,10 +309,13 @@ Indexes/constraints:
   first" query fast.
 - `Attachment.removedAt` nullable marks soft-removal; no hard deletes.
 
-Migration decision: all four new models plus their relationships are
-introduced in a single migration for Lab 2, since they are only meaningful
-together (a Ticket cannot exist without a valid Requester/Category/
-RelatedSystem to reference).
+Migration decisions: the four business models plus their relationships are
+introduced in a single migration, since they are only meaningful together (a
+Ticket cannot exist without a valid Requester/Category/RelatedSystem to
+reference). `TicketNumberCounter` arrives in its own later migration with the
+Create Ticket work that first needs it — it is infrastructure for one
+endpoint rather than part of the data model, and separating it keeps the
+model migration readable as one unit.
 
 Seed data (idempotent, safe to run repeatedly via upsert):
 - 4 Categories (reused from Lab 1): Account and Access, Hardware, Software,
