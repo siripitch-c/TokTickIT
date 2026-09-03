@@ -333,6 +333,20 @@ describe("POST /api/tickets/:id/attachments", () => {
     expect(fs.readdirSync(uploadDir).length).toBe(filesBefore);
   });
 
+  it("API-ATT-15: an unusable ticket id in the path is a 404, never a 500", async () => {
+    const file = { buffer: bytes(32), filename: "evidence.png", contentType: "image/png" };
+
+    for (const badId of ["abc", "-1", "0", "99999999999999999999", "2147483648"]) {
+      const response = await request(app)
+        .post(`/api/tickets/${badId}/attachments`)
+        .set("X-Requester-Id", String(requesterId))
+        .attach("file", file.buffer, { filename: file.filename, contentType: file.contentType });
+
+      expect(response.status, `ticket id ${badId}`).toBe(404);
+      expect(response.body.error.code).toBe("TICKET_NOT_FOUND");
+    }
+  });
+
   it("requires the X-Requester-Id header (api-spec.md §1)", async () => {
     const response = await upload(
       ticketId,

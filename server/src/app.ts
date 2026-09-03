@@ -2,7 +2,7 @@ import express, { Request, Response } from "express";
 import cors from "cors";
 import { getPrisma } from "./prisma.js";
 import { nextTicketNumber } from "./ticketNumber.js";
-import { readRequesterId, sendError, sendInternalError } from "./requesterContext.js";
+import { readId, readRequesterId, sendError, sendInternalError } from "./requesterContext.js";
 import {
   ATTACHMENT_TYPE_HELP,
   allowedExtensionFor,
@@ -120,11 +120,6 @@ function readBoundedText(value: unknown, min: number, max: number): string | nul
   return trimmed.length >= min && trimmed.length <= max ? trimmed : null;
 }
 
-function readPositiveInt(value: unknown): number | null {
-  const id = typeof value === "number" || typeof value === "string" ? Number(value) : NaN;
-  return Number.isInteger(id) && id > 0 ? id : null;
-}
-
 app.post("/api/tickets", async (req, res) => {
   const requesterId = readRequesterId(req);
   if (requesterId === null) {
@@ -135,11 +130,11 @@ app.post("/api/tickets", async (req, res) => {
 
   // Reference ids get their own error codes (api-spec.md §4) so the client can
   // tell "pick a category" apart from "your text is too short".
-  const categoryId = readPositiveInt(body.categoryId);
+  const categoryId = readId(body.categoryId);
   if (categoryId === null) {
     return sendError(res, 400, "INVALID_CATEGORY", "Please choose a category.", "categoryId");
   }
-  const relatedSystemId = readPositiveInt(body.relatedSystemId);
+  const relatedSystemId = readId(body.relatedSystemId);
   if (relatedSystemId === null) {
     return sendError(res, 400, "INVALID_RELATED_SYSTEM", "Please choose a related system.", "relatedSystemId");
   }
@@ -271,8 +266,8 @@ app.post("/api/tickets/:id/attachments", receiveAttachment, async (req, res) => 
     return sendError(res, 400, "VALIDATION_ERROR", "A valid X-Requester-Id header is required.");
   }
 
-  const ticketId = Number(req.params.id);
-  if (!Number.isInteger(ticketId) || ticketId < 1) {
+  const ticketId = readId(req.params.id);
+  if (ticketId === null) {
     return sendError(res, 404, "TICKET_NOT_FOUND", "Ticket not found.");
   }
 

@@ -277,6 +277,35 @@ describe("POST /api/tickets", () => {
     expect(await prisma.ticket.count()).toBe(before);
   });
 
+  it("API-CREATE-13: ids outside the 32-bit Int range are bad input, not a 500", async () => {
+    const before = await prisma.ticket.count();
+    // Number.isInteger(1e21) is true, so a naive check lets these through to
+    // Prisma, which raises on an Int column rather than returning "no row".
+    const outOfRange = [1e21, Number.MAX_SAFE_INTEGER, 2_147_483_648];
+
+    for (const value of outOfRange) {
+      const category = await post({ ...validBody(), categoryId: value });
+      expect(category.status, `categoryId ${value}`).toBe(400);
+      expect(category.body.error.code).toBe("INVALID_CATEGORY");
+
+      const system = await post({ ...validBody(), relatedSystemId: value });
+      expect(system.status, `relatedSystemId ${value}`).toBe(400);
+      expect(system.body.error.code).toBe("INVALID_RELATED_SYSTEM");
+
+      const header = await post(validBody(), value);
+      expect(header.status, `X-Requester-Id ${value}`).toBe(400);
+      expect(header.body.error.code).toBe("VALIDATION_ERROR");
+    }
+
+    // The largest id the column can actually hold is still parsed, and simply
+    // finds nothing.
+    const atLimit = await post({ ...validBody(), categoryId: 2_147_483_647 });
+    expect(atLimit.status).toBe(400);
+    expect(atLimit.body.error.code).toBe("INVALID_CATEGORY");
+
+    expect(await prisma.ticket.count()).toBe(before);
+  });
+
   it("rejects a missing or unusable X-Requester-Id header with 400 (api-spec.md §1)", async () => {
     expect((await post(validBody(), null)).status).toBe(400);
 

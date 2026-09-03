@@ -54,6 +54,7 @@
 | API-CREATE-10 | Simulated DB failure during creation | `500`, no partial Ticket row persisted | same file |
 | API-CREATE-11 | `X-Requester-Id` naming a Requester that does not exist | `400 VALIDATION_ERROR` and no Ticket — bad input must not reach the foreign key and come back as a `500` | same file |
 | API-CREATE-12 | `X-Requester-Id` naming an inactive Requester | `400 VALIDATION_ERROR` and no Ticket; BR-05/BR-35 hold server-side, not only in the selector (BR-11) | same file |
+| API-CREATE-13 | Ids beyond the 32-bit `Int` range (`1e21`, `MAX_SAFE_INTEGER`, `2147483648`) in `categoryId`, `relatedSystemId` and the header | Each answered as bad input (`400`), never `500` — `Number.isInteger(1e21)` is true, so an unbounded check hands Prisma a value its `Int` column cannot hold and it raises | same file |
 
 ### API — My Tickets (list)
 
@@ -94,6 +95,7 @@
 | API-ATT-11 | Ticket created successfully, then one of its attachment uploads fails (simulated) | Ticket and any already-successful attachments remain; failed one is not partially stored | same file |
 | API-ATT-12 | Add attachment to an existing ticket, simulated failure | No attachment row stored; existing ticket/attachments unaffected; error returned | same file |
 | API-ATT-13 | Remove an already-removed attachment again | `409 ALREADY_REMOVED` | same file |
+| API-ATT-15 | Unusable `:id` in the upload path (`abc`, `-1`, `0`, out-of-range) | `404 TICKET_NOT_FOUND` in every case, never `500` | same file |
 | API-ATT-14 | Three uploads race for the last free slot on a ticket that already has 4 active attachments | Exactly one `201`, two `409 ATTACHMENT_LIMIT_REACHED`, final active count 5 — the BR-28 check is serialised, not a read-then-write race | same file |
 
 ### UI — Requester context
@@ -265,7 +267,7 @@ after the fact:
 | 2026-09-03 | `623e8a4` | `cd server && npm test` | 34 passed / 34 | adds API-ERR-01 after the ui-spec §9 / api-spec §1 conformance fixes |
 | 2026-09-03 | `623e8a4` | `cd client && npm test` | 22 passed / 22 | unchanged by those fixes; re-run to confirm |
 | 2026-09-03 | `3c354b8` | `cd server && npm test` | 34 passed / 34 | before the BR-28 concurrency fix |
-| 2026-09-03 | Issue #13 head | `cd server && npm test` | 37 passed / 37 | adds API-ATT-14 and API-CREATE-11/12 |
+| 2026-09-03 | Issue #13 head | `cd server && npm test` | 39 passed / 39 | adds API-ATT-14/15 and API-CREATE-11..13 |
 | 2026-09-03 | Issue #13 head | `cd client && npm test` | 30 passed / 30 | adds UI-CREATE-11..13 and UI-CTX-06..09 from the final code read-through |
 | 2026-09-03 | `3c354b8` | `cd client && npm test` | 22 passed / 22 | Issue #13 head — after the manual-inspection fixes (link buttons, selector icon, drop-zone hint, header spacing, busy-button fill) |
 
@@ -294,6 +296,11 @@ listed in §2 as planned, not as passing.
 - Nothing else is deferred: authentication, IT Staff workflow, comments/
   notes/actions, and ticket-lifecycle changes are out of scope per
   `specification.md` §3, not deferred *required* tests.
+- Endpoint behaviour under inputs the UI would never send was checked by
+  driving every write endpoint with malformed ids, out-of-range numbers, a
+  non-object body, a missing file part, an unmatched path and an unparseable
+  body. All fourteen now answer with a 4xx envelope; none reach a `500`. The
+  cases that mattered are kept as API-CREATE-11..13 and API-ATT-15.
 - The busy-button state (BR-22) is asserted by UI-CREATE-07 through the DOM
   (`aria-busy`, `disabled`, a single POST) but its *appearance* is not
   covered by any automated test, and a real localhost request resolves in
