@@ -103,6 +103,8 @@
 | UI-CTX-03 | Selecting a Requester and navigating away/back | Selection persists (client storage) | same file |
 | UI-CTX-04 | Change Requester action | Returns to selector; after new selection, My Tickets/Create Ticket reload with new context, no stale data | same file |
 | UI-CTX-05 | Icon-only controls (e.g. Change Requester icon variant) and keyboard focus | Accessible label present; focus outline visible via keyboard nav | same file |
+| UI-CTX-06 | Opening `/tickets/new` directly with no Requester selected | The selector is shown, the guarded screen never mounts, and the URL becomes `/select-requester` (AC-02, the unit-level counterpart to E2E-02) | `client/tests/lab-02/App.test.tsx` |
+| UI-CTX-07 | Choosing a Requester after being redirected | The originally-requested route is restored rather than the default one | same file |
 
 ### UI — Create Ticket
 
@@ -169,7 +171,7 @@
 | AC | Evidence IDs |
 |---|---|
 | AC-01 | API-CREATE-01, UI-CREATE-06, E2E-01 |
-| AC-02 | UI-CTX-01, E2E-02 |
+| AC-02 | UI-CTX-01, UI-CTX-06, UI-CTX-07, E2E-02 |
 | AC-03 | API-DETAIL-02, E2E-04 |
 | AC-04 | UI-CREATE-02 |
 | AC-05 | E2E-07 |
@@ -193,7 +195,7 @@
 | BR-01 | UNIT-01, API-CREATE-08 | BR-21 | API-CREATE-07 |
 | BR-02 | API-CREATE-02 | BR-22 | UI-CREATE-07 |
 | BR-03 | API-CREATE-03 | BR-23 | UI-CREATE-02..05, API-CREATE-05..07 |
-| BR-04 | UI-CTX-01 | BR-24 | UI-CREATE-08, API-CREATE-10 |
+| BR-04 | UI-CTX-01, UI-CTX-06 | BR-24 | UI-CREATE-08, API-CREATE-10 |
 | BR-05 | API-REQ-01, UI-CTX-02 | BR-25 | API-ATT-11 |
 | BR-06 | UI-CTX-03 | BR-26 | API-ATT-01, UI-CREATE-13 |
 | BR-07 | UI-CTX-04 | BR-27 | API-ATT-02 |
@@ -260,7 +262,7 @@ after the fact:
 | 2026-09-03 | `623e8a4` | `cd client && npm test` | 22 passed / 22 | unchanged by those fixes; re-run to confirm |
 | 2026-09-03 | `3c354b8` | `cd server && npm test` | 34 passed / 34 | before the BR-28 concurrency fix |
 | 2026-09-03 | Issue #13 head | `cd server && npm test` | 35 passed / 35 | adds API-ATT-14; verified stable across six consecutive runs |
-| 2026-09-03 | Issue #13 head | `cd client && npm test` | 25 passed / 25 | adds UI-CREATE-11..13 from the final code read-through |
+| 2026-09-03 | Issue #13 head | `cd client && npm test` | 27 passed / 27 | adds UI-CREATE-11..13 and UI-CTX-06/07 from the final code read-through |
 | 2026-09-03 | `3c354b8` | `cd client && npm test` | 22 passed / 22 | Issue #13 head — after the manual-inspection fixes (link buttons, selector icon, drop-zone hint, header spacing, busy-button fill) |
 
 Manual verification alongside the automated suites, since several ui-spec
