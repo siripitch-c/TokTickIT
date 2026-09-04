@@ -579,3 +579,40 @@ describe("Attachment metadata, download and removal", () => {
     expect(noHeader.body.error.code).toBe("VALIDATION_ERROR");
   });
 });
+
+describe("Attachment file missing from disk", () => {
+  it("reports a server fault rather than disguising a lost file as a missing resource", async () => {
+    // The row says a file is there. If it is not, that is the server having
+    // lost it — answering 404 would tell the Requester their attachment never
+    // existed, which is not what happened.
+    const orphan = await prisma.attachment.create({
+      data: {
+        ticketId,
+        originalFilename: "vanished.png",
+        storedFilename: "this-file-was-never-written.png",
+        mimeType: "image/png",
+        sizeBytes: 10,
+      },
+    });
+
+    try {
+      const response = await request(app)
+        .get(`/api/attachments/${orphan.id}/download`)
+        .set("X-Requester-Id", String(requesterId));
+
+      expect(response.status).toBe(500);
+      expect(response.body.error.code).toBe("INTERNAL_ERROR");
+      // The generic message only — no path, no filename, nothing internal.
+      expect(JSON.stringify(response.body)).not.toContain("this-file-was-never-written");
+
+      // Its metadata is still readable; only the file is gone.
+      const metadata = await request(app)
+        .get(`/api/attachments/${orphan.id}`)
+        .set("X-Requester-Id", String(requesterId));
+      expect(metadata.status).toBe(200);
+      expect(metadata.body.data.originalFilename).toBe("vanished.png");
+    } finally {
+      await prisma.attachment.delete({ where: { id: orphan.id } });
+    }
+  });
+});

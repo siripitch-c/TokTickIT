@@ -4,8 +4,8 @@ TokTickIT is an IT service desk application being built through the CPE334 indiv
 
 ## Current branch scope
 
-This branch contains everything through **Issue #14 — My Tickets**, on top of
-the Lab 1 foundation (Issues 1–4):
+This branch contains everything through **Issue #15 — Requester Ticket Detail
+& Attachments**, on top of the Lab 1 foundation (Issues 1–4):
 
 * React + TypeScript + Vite frontend with Bootstrap styling
 * Node.js + Express + TypeScript backend
@@ -48,8 +48,18 @@ the Lab 1 foundation (Issues 1–4):
   search, four filters, pagination, and distinct loading/empty/no-results/
   error states
 
-Ticket Detail with attachment download and removal (#15) is not implemented on
-this branch.
+* GET `/api/tickets/:id` — one owned Ticket with its attachments, removed ones
+  included; a Ticket owned by someone else answers exactly as a nonexistent one
+  does, so its existence is never revealed
+* GET `/api/attachments/:id`, `/api/attachments/:id/download` and DELETE
+  `/api/attachments/:id` — metadata, the file itself, and soft removal with a
+  required reason; a removed attachment is never downloadable again, by anyone
+* Requester Ticket Detail screen — read-only ticket information, and an
+  attachments panel that adds, downloads and soft-removes files, with a confirm
+  step that will not proceed without a reason
+
+Everything in the Lab 2 sprint scope is now implemented. End-to-end tests,
+responsive screenshots and the release integration are Issues #17 and #18.
 
 ### Sample tickets for local testing
 

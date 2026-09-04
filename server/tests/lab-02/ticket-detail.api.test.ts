@@ -139,7 +139,7 @@ describe("GET /api/tickets/:id", () => {
     }
   });
 
-  it("API-DETAIL-02/03: another Requester's ticket and a nonexistent one answer identically (BR-12, AC-03)", async () => {
+  it("API-DETAIL-02 and API-DETAIL-03: another Requester's ticket and a nonexistent one answer identically (BR-12, AC-03)", async () => {
     const foreign = await get(foreignTicketId);
     const missing = await get(999999);
 
