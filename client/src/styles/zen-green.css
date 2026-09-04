@@ -383,6 +383,14 @@ textarea.zg-field--editable {
   max-width: 240px;
 }
 
+/* §7.4: the attachment half of the Ticket Detail loading state. Wider bars
+   than the field skeletons above it, so the two halves of the card read as
+   different things while they load. */
+.zg-skeleton-list .zg-skeleton-bar {
+  height: 48px;
+  max-width: 420px;
+}
+
 @keyframes zg-skeleton-shimmer {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
@@ -1055,6 +1063,23 @@ textarea.zg-field--editable {
      rather than compressing onto the same line. */
   .zg-field-row--4 {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* §7.3: filename, then metadata, then the actions — each on its own line.
+     Left sharing a row, the metadata (size and two timestamps) wins the space
+     and squeezes the filename until `overflow-wrap: anywhere` breaks it one
+     character per line, which is what "rather than compressing onto one line"
+     rules out. */
+  .zg-attachment-row--active,
+  .zg-attachment-row--removed,
+  .zg-attachment-row--uploading,
+  .zg-attachment-row--upload-error {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .zg-attachment-name {
+    flex: none;
   }
 
   .zg-attachment-actions {

@@ -659,7 +659,15 @@ app.use((_req: Request, res: Response) => {
   sendError(res, 404, "NOT_FOUND", "Resource not found.");
 });
 
-app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
+app.use((error: unknown, _req: Request, res: Response, next: NextFunction) => {
+  // res.sendFile streams: a failure part-way through arrives here with the
+  // status line and headers already gone. Writing an envelope on top of that
+  // would throw ERR_HTTP_HEADERS_SENT, so the connection is Express's to close.
+  if (res.headersSent) {
+    console.error("Error after the response had started:", error);
+    return next(error);
+  }
+
   // express.json() rejects a malformed body with status 400 before any route
   // sees it; anything else here is unexpected and stays generic (api-spec.md §6).
   const status = (error as { status?: number } | null)?.status;

@@ -172,6 +172,16 @@ export default function AttachmentSection({ requesterId, ticketId, initialAttach
         </button>
       </div>
 
+      {/* §7.1 asks the disabled control to explain why. A `title` alone does
+          not: Chrome suppresses tooltips on disabled form controls, so the
+          explanation has to be on the page. The attribute stays for the
+          browsers that do show it. */}
+      {atLimit && (
+        <p data-testid="zg-attachment-limit" className="zg-text-sm zg-text-muted">
+          {LIMIT_MESSAGE}
+        </p>
+      )}
+
       {adding && (
         <div
           data-testid="zg-dropzone"

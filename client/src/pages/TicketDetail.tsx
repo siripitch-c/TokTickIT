@@ -80,9 +80,17 @@ export default function TicketDetail() {
     return (
       <section className="zg-card zg-card--detail">
         <div data-testid="zg-state-loading" className="zg-state--loading" role="status">
+          {/* §7.4: skeleton blocks for the information panel… */}
           <div className="zg-skeleton-bar" />
           <div className="zg-skeleton-bar" />
           <div className="zg-skeleton-bar" />
+          {/* …and a skeleton list for the attachments below the divider, so the
+              card does not visibly grow when the real panel arrives. */}
+          <hr className="zg-detail-divider" />
+          <div data-testid="zg-skeleton-attachments" className="zg-skeleton-list">
+            <div className="zg-skeleton-bar" />
+            <div className="zg-skeleton-bar" />
+          </div>
           Loading ticket…
         </div>
       </section>

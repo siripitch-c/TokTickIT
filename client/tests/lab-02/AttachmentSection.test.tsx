@@ -216,10 +216,13 @@ describe("Attachment section", () => {
 
     expect(screen.getByRole("heading", { name: /attachments \(5 active\)/i })).toBeInTheDocument();
 
-    // The control that would add a sixth is unavailable, and says why.
+    // The control that would add a sixth is unavailable, and says why. The
+    // reason has to be readable on the page: Chrome does not render a `title`
+    // on a disabled control, so the attribute alone would explain nothing.
     const addButton = screen.getByRole("button", { name: /add attachment/i });
     expect(addButton).toBeDisabled();
     expect(addButton).toHaveAttribute("title", expect.stringMatching(/maximum 5/i));
+    expect(screen.getByTestId("zg-attachment-limit")).toHaveTextContent(/maximum 5/i);
 
     await user.click(addButton);
     expect(screen.queryByLabelText(/add attachments/i)).not.toBeInTheDocument();

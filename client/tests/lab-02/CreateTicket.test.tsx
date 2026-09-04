@@ -347,7 +347,7 @@ describe("Create Ticket screen", () => {
     expect(warning).toHaveTextContent(/not allowed/i);
   });
 
-  it("resets the Ticket Date when Create Another starts a fresh form (ui-spec.md §5.1)", async () => {
+  it("UI-CREATE-11: resets the Ticket Date when Create Another starts a fresh form (ui-spec.md §5.1)", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.setSystemTime(new Date("2026-05-12T09:00:00"));
     mockFetch();
@@ -375,7 +375,7 @@ describe("Create Ticket screen", () => {
     }
   });
 
-  it("lets a rejected file be dismissed once the mistake is corrected (BR-26)", async () => {
+  it("UI-CREATE-12: lets a rejected file be dismissed once the mistake is corrected (BR-26)", async () => {
     mockFetch();
     const user = userEvent.setup();
     await renderReadyForm();
@@ -389,7 +389,7 @@ describe("Create Ticket screen", () => {
     expect(screen.queryByText("docs.txt")).not.toBeInTheDocument();
   });
 
-  it("treats a dot-leading name as having no extension, matching the server (BR-26)", async () => {
+  it("UI-CREATE-13: treats a dot-leading name as having no extension, matching the server (BR-26)", async () => {
     mockFetch();
     await renderReadyForm();
 
