@@ -60,6 +60,16 @@ export function storeAttachmentFile(buffer: Buffer, extension: string): string {
   return storedFilename;
 }
 
+/** Absolute path of a stored file, for serving a download (api-spec.md §5). */
+export function storedFilePath(storedFilename: string): string {
+  return path.join(getUploadDir(), storedFilename);
+}
+
+/** True when the file a record points at is actually on disk. */
+export function storedFileExists(storedFilename: string): boolean {
+  return fs.existsSync(storedFilePath(storedFilename));
+}
+
 /** Best-effort cleanup so a failed database write leaves no orphan file (BR-33). */
 export function deleteStoredFile(storedFilename: string): void {
   try {

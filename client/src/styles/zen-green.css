@@ -383,6 +383,14 @@ textarea.zg-field--editable {
   max-width: 240px;
 }
 
+/* §7.4: the attachment half of the Ticket Detail loading state. Wider bars
+   than the field skeletons above it, so the two halves of the card read as
+   different things while they load. */
+.zg-skeleton-list .zg-skeleton-bar {
+  height: 48px;
+  max-width: 420px;
+}
+
 @keyframes zg-skeleton-shimmer {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
@@ -925,4 +933,162 @@ textarea.zg-field--editable {
   height: auto;
   padding: 0;
   font-weight: 700;
+}
+
+/* ---------- Ticket Detail (ui-spec.md §7) ---------- */
+
+.zg-card--detail {
+  max-width: 960px;
+}
+
+.zg-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--zg-space-3);
+  flex-wrap: wrap;
+}
+
+.zg-field-row--4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.zg-field--block {
+  grid-column: 1 / -1;
+}
+
+/* A read-only field holding a badge instead of text: the badge brings its own
+   fill, so the field only supplies the frame and height. */
+.zg-field--badge {
+  display: flex;
+  align-items: center;
+  background: transparent;
+  border-color: transparent;
+}
+
+/* Description can run to 2000 characters (BR-20), so it grows instead of
+   clipping — the one read-only field that is not a single line. */
+.zg-field--readonly-multiline {
+  height: auto;
+  min-height: 96px;
+  padding: var(--zg-space-2);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* §7.1 item 2: a hard rule between ticket information and attachments, which
+   the handout requires to be clearly distinguished. */
+.zg-detail-divider {
+  border: none;
+  border-top: 1px solid var(--zg-border);
+  margin: var(--zg-space-5) 0;
+}
+
+.zg-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--zg-space-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--zg-space-3);
+}
+
+/* ---------- Attachment rows, remaining states (ui-spec.md §2.5) ---------- */
+
+.zg-attachment-row--active,
+.zg-attachment-row--removed,
+.zg-attachment-row--uploading,
+.zg-attachment-row--upload-error {
+  display: flex;
+  align-items: center;
+  gap: var(--zg-space-2);
+  flex-wrap: wrap;
+  padding: var(--zg-space-2) var(--zg-space-3);
+  border: 1px solid var(--zg-border);
+  border-radius: 6px;
+  margin-bottom: var(--zg-space-2);
+}
+
+.zg-attachment-row--removed {
+  color: var(--zg-disabled-text);
+  background: var(--zg-disabled-bg);
+}
+
+.zg-attachment-row--uploading {
+  border-style: dashed;
+}
+
+.zg-attachment-row--upload-error {
+  border-color: var(--zg-error);
+  background: var(--zg-error-bg);
+}
+
+.zg-attachment-actions {
+  display: flex;
+  gap: var(--zg-space-2);
+  margin-left: auto;
+}
+
+/* ---------- Confirm modal (ui-spec.md §7.1) ---------- */
+
+.zg-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(30, 42, 36, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--zg-space-3);
+  z-index: 10;
+}
+
+.zg-modal--confirm {
+  background: var(--zg-surface);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  padding: var(--zg-space-4);
+  width: 100%;
+  max-width: 480px;
+}
+
+@media (max-width: 991px) {
+  /* §7.2: the information grid halves; Summary and Description stay full width. */
+  .zg-field-row--4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 767px) {
+  /* §7.3: one field per row, and attachment actions drop below the metadata
+     rather than compressing onto the same line. */
+  .zg-field-row--4 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* §7.3: filename, then metadata, then the actions — each on its own line.
+     Left sharing a row, the metadata (size and two timestamps) wins the space
+     and squeezes the filename until `overflow-wrap: anywhere` breaks it one
+     character per line, which is what "rather than compressing onto one line"
+     rules out. */
+  .zg-attachment-row--active,
+  .zg-attachment-row--removed,
+  .zg-attachment-row--uploading,
+  .zg-attachment-row--upload-error {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .zg-attachment-name {
+    flex: none;
+  }
+
+  .zg-attachment-actions {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .zg-attachment-actions > * {
+    flex: 1 1 0;
+    min-height: 44px;
+  }
 }

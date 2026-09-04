@@ -12,6 +12,14 @@ import {
   fetchRelatedSystems,
   uploadAttachment,
 } from "../api.js";
+import {
+  ALLOWED_EXTENSIONS,
+  ATTACHMENT_HELP,
+  LIMIT_MESSAGE,
+  MAX_ATTACHMENTS,
+  formatBytes,
+  rejectionReason,
+} from "../lib/attachmentRules.js";
 
 // ui-spec.md §5 — Create Ticket Screen.
 // specification.md FR-03/FR-04/FR-15, BR-19..BR-28, BR-33; tests.md UI-CREATE-01..10.
@@ -22,13 +30,6 @@ const SUMMARY_COUNTER_FROM = 120;
 const DESCRIPTION_MIN = 10;
 const DESCRIPTION_MAX = 2000;
 const DESCRIPTION_COUNTER_FROM = 1800;
-const MAX_ATTACHMENTS = 5;
-const MAX_FILE_BYTES = 5 * 1024 * 1024;
-
-// BR-26/BR-27 are re-checked here so a bad file is refused before any upload
-// starts; the server re-validates regardless, and stays authoritative (BR-23).
-const ALLOWED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".pdf"];
-const ATTACHMENT_HELP = "JPG, PNG, WEBP, or PDF — up to 5 MB each, maximum 5 files.";
 
 const PRIORITIES: { value: RequestedPriority; label: string }[] = [
   { value: "LOW", label: "Low" },
@@ -135,19 +136,6 @@ export default function CreateTicket() {
     return found;
   }
 
-  function rejectionReason(file: File): string | null {
-    // A leading dot is not an extension: Node's path.extname(".png") is "", so
-    // the server would reject what the client had accepted. Requiring a
-    // non-empty basename keeps both sides on the same answer.
-    const dot = file.name.lastIndexOf(".");
-    const extension = dot > 0 ? file.name.slice(dot).toLowerCase() : "";
-    if (!ALLOWED_EXTENSIONS.includes(extension)) {
-      return "Unsupported file type";
-    }
-    if (file.size > MAX_FILE_BYTES) return "File exceeds 5 MB";
-    return null;
-  }
-
   function addFiles(files: File[]) {
     if (files.length === 0) return;
     setAttachmentNotice(null);
@@ -173,7 +161,7 @@ export default function CreateTicket() {
 
     if (accepted.length > 0) setPending((current) => [...current, ...accepted]);
     if (refused.length > 0) setRejected((current) => [...current, ...refused]);
-    if (limitHit) setAttachmentNotice(`Maximum ${MAX_ATTACHMENTS} attachments per ticket.`);
+    if (limitHit) setAttachmentNotice(LIMIT_MESSAGE);
   }
 
   function removePending(key: string) {
@@ -640,8 +628,3 @@ function SelectField({
   );
 }
 
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}

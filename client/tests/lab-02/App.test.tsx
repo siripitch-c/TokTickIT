@@ -110,7 +110,7 @@ describe("App — Development Requester context", () => {
     );
   });
 
-  it("AC-02: opening a Requester-scoped route with nothing selected shows the selector instead", async () => {
+  it("UI-CTX-06: opening a Requester-scoped route with nothing selected shows the selector instead (AC-02)", async () => {
     mockAllEndpoints();
     window.history.pushState({}, "", "/tickets/new");
 
@@ -125,7 +125,7 @@ describe("App — Development Requester context", () => {
     expect(window.location.pathname).toBe("/select-requester");
   });
 
-  it("AC-02: after choosing a Requester the originally-requested route is restored", async () => {
+  it("UI-CTX-07: after choosing a Requester the originally-requested route is restored (AC-02)", async () => {
     mockAllEndpoints();
     window.history.pushState({}, "", "/tickets/new");
 

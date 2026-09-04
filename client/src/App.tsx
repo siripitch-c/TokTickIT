@@ -3,6 +3,7 @@ import RequesterSelection from "./components/RequesterSelection.js";
 import AppShell from "./components/AppShell.js";
 import CreateTicket from "./pages/CreateTicket.js";
 import MyTickets from "./pages/MyTickets.js";
+import TicketDetail from "./pages/TicketDetail.js";
 import { UseRequesterSession, useRequesterSession } from "./lib/useRequesterSession.js";
 
 // Issue #13 — routing and the Requester route guard.
@@ -34,6 +35,9 @@ export function AppRoutes() {
       <Route element={<RequesterGuard session={session} />}>
         <Route path={DEFAULT_ROUTE} element={<MyTickets />} />
         <Route path="/tickets/new" element={<CreateTicket />} />
+        {/* BR-38: reachable by direct URL as well as from the list; the guard
+            above and the server both re-check ownership either way. */}
+        <Route path="/tickets/:id" element={<TicketDetail />} />
       </Route>
       {/* Anything else (including "/") lands on the Requester's own list. */}
       <Route path="*" element={<Navigate to={DEFAULT_ROUTE} replace />} />

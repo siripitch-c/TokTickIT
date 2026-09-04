@@ -357,3 +357,262 @@ describe("POST /api/tickets/:id/attachments", () => {
     expect(response.body.error.code).toBe("VALIDATION_ERROR");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Issue #15 — the rest of the attachment lifecycle: metadata, download and
+// soft removal. tests.md API-ATT-05..11, API-ATT-13.
+// ---------------------------------------------------------------------------
+describe("Attachment metadata, download and removal", () => {
+  const CONTENTS = Buffer.from("the exact bytes that must come back out", "utf8");
+
+  async function freshAttachment(filename = "evidence.png") {
+    const response = await upload(ticketId, {
+      buffer: CONTENTS,
+      filename,
+      contentType: "image/png",
+    });
+    expect(response.status).toBe(201);
+    return response.body.data as { id: number; originalFilename: string };
+  }
+
+  it("API-ATT-10: the owner downloads an active attachment and gets its bytes back (AC-17)", async () => {
+    const attachment = await freshAttachment("proof of the problem.png");
+
+    const response = await request(app)
+      .get(`/api/attachments/${attachment.id}/download`)
+      .set("X-Requester-Id", String(requesterId))
+      .buffer(true)
+      .parse((res, callback) => {
+        const chunks: Buffer[] = [];
+        res.on("data", (chunk: Buffer) => chunks.push(chunk));
+        res.on("end", () => callback(null, Buffer.concat(chunks)));
+      });
+
+    expect(response.status).toBe(200);
+    expect(response.headers["content-type"]).toContain("image/png");
+    // The display name comes back, not the randomised name on disk (BR-32).
+    expect(response.headers["content-disposition"]).toContain("proof of the problem.png");
+    expect(Buffer.from(response.body).equals(CONTENTS)).toBe(true);
+  });
+
+  it("API-ATT-05: metadata is readable on its own, and never exposes storedFilename", async () => {
+    const attachment = await freshAttachment();
+
+    const response = await request(app)
+      .get(`/api/attachments/${attachment.id}`)
+      .set("X-Requester-Id", String(requesterId));
+
+    expect(response.status).toBe(200);
+    expect(Object.keys(response.body.data).sort()).toEqual([
+      "id",
+      "mimeType",
+      "originalFilename",
+      "removedAt",
+      "removedReason",
+      "sizeBytes",
+      "ticketId",
+      "uploadedAt",
+    ]);
+    expect(response.body.data.sizeBytes).toBe(CONTENTS.length);
+  });
+
+  it("API-ATT-07: removing an attachment is a soft update — the row survives (BR-29)", async () => {
+    const attachment = await freshAttachment();
+
+    const response = await request(app)
+      .delete(`/api/attachments/${attachment.id}`)
+      .set("X-Requester-Id", String(requesterId))
+      .send({ removalReason: "Uploaded the wrong screenshot by mistake" });
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.removedAt).not.toBeNull();
+    expect(response.body.data.removedReason).toBe("Uploaded the wrong screenshot by mistake");
+
+    // DELETE is the verb, but nothing is deleted: the record and its metadata
+    // stay readable, which is the whole point of a soft removal.
+    const row = await prisma.attachment.findUnique({ where: { id: attachment.id } });
+    expect(row).not.toBeNull();
+    expect(row!.removedAt).not.toBeNull();
+    expect(row!.originalFilename).toBe("evidence.png");
+
+    const metadata = await request(app)
+      .get(`/api/attachments/${attachment.id}`)
+      .set("X-Requester-Id", String(requesterId));
+    expect(metadata.status).toBe(200);
+    expect(metadata.body.data.removedReason).toBe("Uploaded the wrong screenshot by mistake");
+  });
+
+  it("API-ATT-08: a removed attachment cannot be downloaded, not even by its owner (BR-30, AC-08)", async () => {
+    const attachment = await freshAttachment();
+    await request(app)
+      .delete(`/api/attachments/${attachment.id}`)
+      .set("X-Requester-Id", String(requesterId))
+      .send({ removalReason: "No longer relevant to this ticket" })
+      .expect(200);
+
+    const response = await request(app)
+      .get(`/api/attachments/${attachment.id}/download`)
+      .set("X-Requester-Id", String(requesterId));
+
+    // The one case where an owned resource still 404s, and deliberately so.
+    expect(response.status).toBe(404);
+    expect(response.body.error.code).toBe("ATTACHMENT_NOT_FOUND");
+  });
+
+  it("API-ATT-09: removal requires a reason of 5-200 characters (BR-31, AC-13)", async () => {
+    const attachment = await freshAttachment();
+
+    const rejected: unknown[] = [undefined, "", "    ", "abcd", "a".repeat(201)];
+    for (const removalReason of rejected) {
+      const response = await request(app)
+        .delete(`/api/attachments/${attachment.id}`)
+        .set("X-Requester-Id", String(requesterId))
+        .send({ removalReason });
+
+      expect(response.status, `reason ${JSON.stringify(removalReason)}`).toBe(400);
+      expect(response.body.error.code).toBe("VALIDATION_ERROR");
+      expect(response.body.error.field).toBe("removalReason");
+    }
+
+    // Nothing was altered by any of those attempts.
+    const untouched = await prisma.attachment.findUnique({ where: { id: attachment.id } });
+    expect(untouched!.removedAt).toBeNull();
+
+    // The lower boundary is accepted, and measured after trimming.
+    const atMinimum = await request(app)
+      .delete(`/api/attachments/${attachment.id}`)
+      .set("X-Requester-Id", String(requesterId))
+      .send({ removalReason: "  wrong  " });
+    expect(atMinimum.status).toBe(200);
+    expect(atMinimum.body.data.removedReason).toBe("wrong");
+  });
+
+  it("API-ATT-13: removing an already-removed attachment is refused (idempotency guard)", async () => {
+    const attachment = await freshAttachment();
+    await request(app)
+      .delete(`/api/attachments/${attachment.id}`)
+      .set("X-Requester-Id", String(requesterId))
+      .send({ removalReason: "First and only removal" })
+      .expect(200);
+
+    const again = await request(app)
+      .delete(`/api/attachments/${attachment.id}`)
+      .set("X-Requester-Id", String(requesterId))
+      .send({ removalReason: "Trying to remove it a second time" });
+
+    expect(again.status).toBe(409);
+    expect(again.body.error.code).toBe("ALREADY_REMOVED");
+
+    // The original reason is not overwritten by the second attempt.
+    const row = await prisma.attachment.findUnique({ where: { id: attachment.id } });
+    expect(row!.removedReason).toBe("First and only removal");
+  });
+
+  it("API-ATT-06: reading, downloading and removing are all refused across Requesters (BR-11, BR-12)", async () => {
+    const attachment = await freshAttachment();
+
+    const metadata = await request(app)
+      .get(`/api/attachments/${attachment.id}`)
+      .set("X-Requester-Id", String(otherRequesterId));
+    const download = await request(app)
+      .get(`/api/attachments/${attachment.id}/download`)
+      .set("X-Requester-Id", String(otherRequesterId));
+    const removal = await request(app)
+      .delete(`/api/attachments/${attachment.id}`)
+      .set("X-Requester-Id", String(otherRequesterId))
+      .send({ removalReason: "Not mine to remove, but trying anyway" });
+
+    for (const response of [metadata, download, removal]) {
+      expect(response.status).toBe(404);
+      expect(response.body.error.code).toBe("ATTACHMENT_NOT_FOUND");
+    }
+
+    // A nonexistent id answers identically, so ownership is not detectable.
+    const missing = await request(app)
+      .get("/api/attachments/999999")
+      .set("X-Requester-Id", String(otherRequesterId));
+    expect(missing.body).toEqual(metadata.body);
+
+    // And the attempt changed nothing.
+    const row = await prisma.attachment.findUnique({ where: { id: attachment.id } });
+    expect(row!.removedAt).toBeNull();
+  });
+
+  it("API-ATT-11: a later upload failing leaves the ticket and earlier attachments intact (BR-25, BR-34)", async () => {
+    const first = await freshAttachment("kept-one.png");
+    const second = await freshAttachment("kept-two.png");
+
+    vi.spyOn(prisma, "$transaction").mockRejectedValueOnce(new Error("simulated failure on the third"));
+    const third = await upload(ticketId, {
+      buffer: bytes(32),
+      filename: "never-stored.png",
+      contentType: "image/png",
+    });
+    expect(third.status).toBe(500);
+
+    // The Ticket committed independently of its attachments, so a failure here
+    // rolls back neither it nor the uploads that already succeeded.
+    const ticket = await prisma.ticket.findUnique({
+      where: { id: ticketId },
+      include: { attachments: true },
+    });
+    expect(ticket).not.toBeNull();
+    expect(ticket!.attachments.map((a) => a.originalFilename).sort()).toEqual([
+      "kept-one.png",
+      "kept-two.png",
+    ]);
+    expect(ticket!.attachments.map((a) => a.id).sort()).toEqual([first.id, second.id].sort());
+  });
+
+  it("an unusable attachment id is a 404, and the header rules still apply", async () => {
+    for (const badId of ["abc", "-1", "0", "99999999999999999999"]) {
+      const response = await request(app)
+        .get(`/api/attachments/${badId}`)
+        .set("X-Requester-Id", String(requesterId));
+      expect(response.status, `id ${badId}`).toBe(404);
+      expect(response.body.error.code).toBe("ATTACHMENT_NOT_FOUND");
+    }
+
+    const attachment = await freshAttachment();
+    const noHeader = await request(app).get(`/api/attachments/${attachment.id}`);
+    expect(noHeader.status).toBe(400);
+    expect(noHeader.body.error.code).toBe("VALIDATION_ERROR");
+  });
+});
+
+describe("Attachment file missing from disk", () => {
+  it("reports a server fault rather than disguising a lost file as a missing resource", async () => {
+    // The row says a file is there. If it is not, that is the server having
+    // lost it — answering 404 would tell the Requester their attachment never
+    // existed, which is not what happened.
+    const orphan = await prisma.attachment.create({
+      data: {
+        ticketId,
+        originalFilename: "vanished.png",
+        storedFilename: "this-file-was-never-written.png",
+        mimeType: "image/png",
+        sizeBytes: 10,
+      },
+    });
+
+    try {
+      const response = await request(app)
+        .get(`/api/attachments/${orphan.id}/download`)
+        .set("X-Requester-Id", String(requesterId));
+
+      expect(response.status).toBe(500);
+      expect(response.body.error.code).toBe("INTERNAL_ERROR");
+      // The generic message only — no path, no filename, nothing internal.
+      expect(JSON.stringify(response.body)).not.toContain("this-file-was-never-written");
+
+      // Its metadata is still readable; only the file is gone.
+      const metadata = await request(app)
+        .get(`/api/attachments/${orphan.id}`)
+        .set("X-Requester-Id", String(requesterId));
+      expect(metadata.status).toBe(200);
+      expect(metadata.body.data.originalFilename).toBe("vanished.png");
+    } finally {
+      await prisma.attachment.delete({ where: { id: orphan.id } });
+    }
+  });
+});

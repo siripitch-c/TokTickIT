@@ -464,11 +464,18 @@ breadcrumb row.
      removed ones stay visible as metadata).
    - "+ Add Attachment" control (`zg-btn--secondary`) at the top of the
      panel, opening the same drop-zone pattern as Create Ticket,
-     disabled once 5 active attachments exist (BR-28) with a tooltip
-     explaining why.
+     disabled once 5 active attachments exist (BR-28). The reason is
+     shown as visible text under the panel heading, not only as a
+     tooltip: §9 requires the real `disabled` attribute, and Chrome does
+     not render a `title` on a disabled control, so a tooltip alone would
+     leave a greyed-out button with no explanation. The `title` stays for
+     the browsers that do show it.
    - Each active row has Download (icon + "Download" or icon-only with
-     tooltip) and Remove (icon-only, destructive, tooltip "Remove
-     attachment") controls.
+     tooltip) and Remove (icon-only, destructive) controls. Both name
+     their file in the tooltip and `aria-label` ("Remove
+     `<filename>`") rather than using a generic "Remove attachment" —
+     with up to five rows, five identically-named controls would be
+     indistinguishable to a screen reader (BR-39).
    - Clicking Remove opens a `zg-modal--confirm` requiring: a "Removal
      reason *" textarea (5–200 chars, BR-31) and `Cancel` /
      `Remove Attachment` (`zg-btn--destructive`) actions; the destructive

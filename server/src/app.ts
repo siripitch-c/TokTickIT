@@ -9,6 +9,8 @@ import {
   attachmentUpload,
   deleteStoredFile,
   storeAttachmentFile,
+  storedFileExists,
+  storedFilePath,
   toDisplayFilename,
 } from "./uploads.js";
 import type { Attachment } from "@prisma/client";
@@ -321,6 +323,55 @@ app.get("/api/tickets", async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
+// Issue #15 — Requester Ticket Detail
+// GET /api/tickets/:id — api-spec.md §4. Ownership is part of the lookup, so a
+// Ticket belonging to someone else is never read and cannot be half-returned.
+// It answers exactly as a nonexistent id does (BR-12): a Requester who does not
+// own a ticket learns nothing about whether it exists. Reachable by direct URL
+// as well as from the list, and the check runs either way (BR-38).
+// ---------------------------------------------------------------------------
+app.get("/api/tickets/:id", async (req, res) => {
+  const requesterId = readRequesterId(req);
+  if (requesterId === null) {
+    return sendError(res, 400, "VALIDATION_ERROR", "A valid X-Requester-Id header is required.");
+  }
+
+  const ticketId = readId(req.params.id);
+  if (ticketId === null) {
+    return sendError(res, 404, "TICKET_NOT_FOUND", "Ticket not found.");
+  }
+
+  try {
+    const prisma = getPrisma();
+
+    const requester = await prisma.requester.findFirst({
+      where: { id: requesterId, isActive: true },
+      select: { id: true },
+    });
+    if (!requester) {
+      return sendError(res, 400, "VALIDATION_ERROR", REQUESTER_UNAVAILABLE);
+    }
+
+    const ticket = await prisma.ticket.findFirst({
+      where: { id: ticketId, requesterId },
+      // BR-29: removed attachments come too. Their metadata stays part of the
+      // ticket's history; only the file behind them becomes unavailable.
+      // Oldest first, so the list reads in the order they were added.
+      include: { attachments: { orderBy: { uploadedAt: "asc" } } },
+    });
+    if (!ticket) {
+      return sendError(res, 404, "TICKET_NOT_FOUND", "Ticket not found.");
+    }
+
+    const { attachments, ...fields } = ticket;
+    res.json({ data: { ...fields, attachments: attachments.map(toAttachmentResponse) } });
+  } catch (error) {
+    console.error("Error fetching ticket:", error);
+    sendInternalError(res);
+  }
+});
+
+// ---------------------------------------------------------------------------
 // Issue #13 — Attachment upload
 // POST /api/tickets/:id/attachments — api-spec.md §5. Ownership is re-checked
 // here exactly as it is on the Ticket itself (BR-11): an attachment inherits
@@ -458,6 +509,145 @@ app.post("/api/tickets/:id/attachments", receiveAttachment, async (req, res) => 
 class AttachmentLimitReached extends Error {}
 
 // ---------------------------------------------------------------------------
+// Issue #15 — Attachment metadata, download and soft removal (api-spec.md §5).
+//
+// All three share one lookup: an Attachment is reached through the Ticket that
+// owns it, so "not yours" and "does not exist" are the same 404 and neither
+// leaks the other (BR-11, BR-12). None of them ever returns storedFilename.
+// ---------------------------------------------------------------------------
+const REMOVAL_REASON_MIN = 5;
+const REMOVAL_REASON_MAX = 200;
+
+/** Resolves the caller, or writes the 400 and returns null. */
+async function resolveActiveRequester(req: Request, res: Response): Promise<number | null> {
+  const requesterId = readRequesterId(req);
+  if (requesterId === null) {
+    sendError(res, 400, "VALIDATION_ERROR", "A valid X-Requester-Id header is required.");
+    return null;
+  }
+
+  const requester = await getPrisma().requester.findFirst({
+    where: { id: requesterId, isActive: true },
+    select: { id: true },
+  });
+  if (!requester) {
+    sendError(res, 400, "VALIDATION_ERROR", REQUESTER_UNAVAILABLE);
+    return null;
+  }
+  return requesterId;
+}
+
+/** The owned Attachment, or null — the caller answers 404 either way (BR-12). */
+async function findOwnedAttachment(attachmentId: number, requesterId: number) {
+  return getPrisma().attachment.findFirst({
+    where: { id: attachmentId, ticket: { requesterId } },
+  });
+}
+
+app.get("/api/attachments/:id", async (req, res) => {
+  try {
+    const requesterId = await resolveActiveRequester(req, res);
+    if (requesterId === null) return;
+
+    const attachmentId = readId(req.params.id);
+    const attachment = attachmentId === null ? null : await findOwnedAttachment(attachmentId, requesterId);
+    if (!attachment) {
+      return sendError(res, 404, "ATTACHMENT_NOT_FOUND", "Attachment not found.");
+    }
+
+    // Returned even when removed: BR-29 keeps the metadata readable so the
+    // Requester can still see what was removed, when, and why.
+    res.json({ data: toAttachmentResponse(attachment) });
+  } catch (error) {
+    console.error("Error fetching attachment:", error);
+    sendInternalError(res);
+  }
+});
+
+app.get("/api/attachments/:id/download", async (req, res) => {
+  try {
+    const requesterId = await resolveActiveRequester(req, res);
+    if (requesterId === null) return;
+
+    const attachmentId = readId(req.params.id);
+    const attachment = attachmentId === null ? null : await findOwnedAttachment(attachmentId, requesterId);
+
+    // BR-30: a removed attachment is never downloadable by anyone, its owner
+    // included. This is the one case where an owned resource still answers 404,
+    // and it is deliberate — the file is gone as far as the API is concerned.
+    if (!attachment || attachment.removedAt !== null) {
+      return sendError(res, 404, "ATTACHMENT_NOT_FOUND", "Attachment not found.");
+    }
+
+    if (!storedFileExists(attachment.storedFilename)) {
+      // The row says the file should be here. If it is not, that is a server
+      // fault, not a missing resource — do not disguise it as a 404.
+      console.error("Attachment record has no file on disk:", attachment.id);
+      return sendInternalError(res);
+    }
+
+    // The stored MIME type rather than one guessed from the randomised name on
+    // disk, and the display filename rather than that name (BR-32). The
+    // filename* form carries non-ASCII names that the quoted form cannot.
+    res.setHeader("Content-Type", attachment.mimeType);
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${attachment.originalFilename.replace(/"/g, "")}"; ` +
+        `filename*=UTF-8''${encodeURIComponent(attachment.originalFilename)}`,
+    );
+    res.sendFile(storedFilePath(attachment.storedFilename));
+  } catch (error) {
+    console.error("Error downloading attachment:", error);
+    sendInternalError(res);
+  }
+});
+
+app.delete("/api/attachments/:id", async (req, res) => {
+  try {
+    const requesterId = await resolveActiveRequester(req, res);
+    if (requesterId === null) return;
+
+    const attachmentId = readId(req.params.id);
+    const attachment = attachmentId === null ? null : await findOwnedAttachment(attachmentId, requesterId);
+    if (!attachment) {
+      return sendError(res, 404, "ATTACHMENT_NOT_FOUND", "Attachment not found.");
+    }
+
+    // BR-31: a removal has to say why, in 5-200 characters, measured after
+    // trimming so spaces cannot stand in for a reason.
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const reason = typeof body.removalReason === "string" ? body.removalReason.trim() : "";
+    if (reason.length < REMOVAL_REASON_MIN || reason.length > REMOVAL_REASON_MAX) {
+      return sendError(
+        res,
+        400,
+        "VALIDATION_ERROR",
+        `A removal reason of ${REMOVAL_REASON_MIN} to ${REMOVAL_REASON_MAX} characters is required.`,
+        "removalReason",
+      );
+    }
+
+    // Removal is not repeatable: a second attempt must not overwrite the first
+    // reason or move the removal date.
+    if (attachment.removedAt !== null) {
+      return sendError(res, 409, "ALREADY_REMOVED", "This attachment has already been removed.");
+    }
+
+    // BR-29: a soft update. The verb is DELETE, but the row stays and keeps its
+    // metadata; only the file becomes unreachable.
+    const removed = await getPrisma().attachment.update({
+      where: { id: attachment.id },
+      data: { removedAt: new Date(), removedReason: reason },
+    });
+
+    res.json({ data: toAttachmentResponse(removed) });
+  } catch (error) {
+    console.error("Error removing attachment:", error);
+    sendInternalError(res);
+  }
+});
+
+// ---------------------------------------------------------------------------
 // Issue #13 — envelope coverage for the two responses Express would otherwise
 // answer itself. api-spec.md §1 promises the error envelope on *every* non-2xx
 // response, but an unmatched path and an unparseable JSON body were both being
@@ -469,7 +659,15 @@ app.use((_req: Request, res: Response) => {
   sendError(res, 404, "NOT_FOUND", "Resource not found.");
 });
 
-app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
+app.use((error: unknown, _req: Request, res: Response, next: NextFunction) => {
+  // res.sendFile streams: a failure part-way through arrives here with the
+  // status line and headers already gone. Writing an envelope on top of that
+  // would throw ERR_HTTP_HEADERS_SENT, so the connection is Express's to close.
+  if (res.headersSent) {
+    console.error("Error after the response had started:", error);
+    return next(error);
+  }
+
   // express.json() rejects a malformed body with status 400 before any route
   // sees it; anything else here is unexpected and stays generic (api-spec.md §6).
   const status = (error as { status?: number } | null)?.status;

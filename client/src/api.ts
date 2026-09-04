@@ -210,3 +210,67 @@ export async function fetchTickets(
   const body = await res.json();
   return { data: body.data as TicketSummary[], pagination: body.pagination as Pagination };
 }
+
+// ---------------------------------------------------------------------------
+// Issue #15 — Requester Ticket Detail & Attachments
+// ---------------------------------------------------------------------------
+
+/** api-spec.md §4: the full Ticket, attachments included, removed ones too (BR-29). */
+export async function fetchTicket(requesterId: number, ticketId: number): Promise<Ticket> {
+  const res = await fetch(`${API_URL}/api/tickets/${ticketId}`, {
+    headers: requesterHeaders(requesterId),
+  });
+  if (!res.ok) throw await toApiError(res);
+  const body = await res.json();
+  return body.data as Ticket;
+}
+
+/**
+ * BR-31: a removal carries its reason. The verb is DELETE but the row survives,
+ * so the response is the updated metadata rather than an empty body (BR-29).
+ */
+export async function removeAttachment(
+  requesterId: number,
+  attachmentId: number,
+  removalReason: string,
+): Promise<AttachmentMeta> {
+  const res = await fetch(`${API_URL}/api/attachments/${attachmentId}`, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json", ...requesterHeaders(requesterId) },
+    body: JSON.stringify({ removalReason }),
+  });
+  if (!res.ok) throw await toApiError(res);
+  const body = await res.json();
+  return body.data as AttachmentMeta;
+}
+
+/**
+ * The download endpoint is Requester-scoped, so it needs the X-Requester-Id
+ * header — which a plain <a href> cannot send. The file is fetched here and
+ * handed to the browser as an object URL instead, which also means a refusal
+ * (a removed attachment, someone else's file) surfaces as an ApiError the
+ * screen can show rather than as a broken navigation.
+ */
+export async function downloadAttachment(
+  requesterId: number,
+  attachment: Pick<AttachmentMeta, "id" | "originalFilename">,
+): Promise<void> {
+  const res = await fetch(`${API_URL}/api/attachments/${attachment.id}/download`, {
+    headers: requesterHeaders(requesterId),
+  });
+  if (!res.ok) throw await toApiError(res);
+
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  try {
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = attachment.originalFilename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  } finally {
+    // Released on the next tick so the click has taken the blob first.
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
+}

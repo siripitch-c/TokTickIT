@@ -209,10 +209,10 @@
 | BR-06 | UI-CTX-03, UI-CTX-10 | BR-26 | API-ATT-01, UI-CREATE-13 |
 | BR-07 | UI-CTX-04, UI-CTX-08, UI-LIST-07 | BR-27 | API-ATT-02 |
 | BR-08 | UI-CTX-02, UI-CTX-10 | BR-28 | API-ATT-03, API-ATT-14 |
-| BR-09 | UI-CTX-02 | BR-29 | API-ATT-07 |
-| BR-10 | API-CREATE-04 | BR-30 | API-ATT-08 |
+| BR-09 | UI-CTX-02 | BR-29 | API-ATT-07, API-DETAIL-01, UI-DETAIL-07 |
+| BR-10 | API-CREATE-04 | BR-30 | API-ATT-08, UI-DETAIL-07 |
 | BR-11 | API-DETAIL-02, API-ATT-06, API-CREATE-12, API-LIST-01 | BR-31 | API-ATT-09, UI-DETAIL-05 |
-| BR-12 | API-DETAIL-02, API-DETAIL-03 | BR-32 | API-ATT-04 |
+| BR-12 | API-DETAIL-02, API-DETAIL-03, UI-DETAIL-02 | BR-32 | API-ATT-04, API-DETAIL-01 |
 | BR-13 | API-LIST-02, API-LIST-02b | BR-33 | API-ATT-12, UI-DETAIL-03 |
 | BR-14 | API-LIST-03..06 | BR-34 | API-ATT-11 |
 | BR-15 | API-LIST-07, API-LIST-08 | BR-35 | API-REQ-01, API-CREATE-12 |
@@ -274,6 +274,8 @@ after the fact:
 | 2026-09-03 | Issue #13 head | `cd client && npm test` | 30 passed / 30 | adds UI-CREATE-11..13 and UI-CTX-06..09 from the final code read-through |
 | 2026-09-04 | Issue #14 | `cd server && npm test` | 50 passed / 50 | adds API-LIST-01..11 and the wildcard-escaping case |
 | 2026-09-04 | Issue #14 | `cd client && npm test` | 40 passed / 40 | adds UI-LIST-01..07, the aria-sort case and UI-CTX-10 |
+| 2026-09-04 | Issue #15 | `cd server && npm test` | 64 passed / 64 | adds API-DETAIL-01..04 and API-ATT-07..11/13 |
+| 2026-09-04 | Issue #15 | `cd client && npm test` | 53 passed / 53 | adds UI-DETAIL-01..08 |
 | 2026-09-03 | `3c354b8` | `cd client && npm test` | 22 passed / 22 | Issue #13 head — after the manual-inspection fixes (link buttons, selector icon, drop-zone hint, header spacing, busy-button fill) |
 
 My Tickets was also walked through by hand in a browser against the seeded
