@@ -352,12 +352,33 @@ Full-width `zg-card` inside the centered app max-width container.
    (badge), Current Status (badge), Last Updated (sortable). Sortable
    column headers show a `↕`/`↑`/`↓` indicator reflecting current sort
    state; clicking toggles direction, clicking a different column
-   switches primary sort field (BR-15/AC-15). Each row is clickable
-   (whole row, not just the ticket number) and opens Ticket Detail.
+   switches primary sort field (BR-15/AC-15). A newly chosen column starts
+   **descending**, matching BR-15's default rather than flipping to ascending
+   for no stated reason. Changing the sort returns to page 1, since a
+   reordered list makes the old page number meaningless.
+
+   Each row is clickable (whole row, not just the ticket number) and opens
+   Ticket Detail. The row keeps its native table semantics — a `role` on the
+   `<tr>` would replace `row` and drop it out of the table for assistive
+   technology — so the whole-row click is a pointer convenience and the
+   Ticket No. cell holds the real, focusable link that keyboard and screen
+   reader users follow.
 4. Footer row: "Showing X to Y of Z tickets" (`--zg-text-sm`,
    `--zg-text-muted`) on the left; pagination control (`Previous` /
    numbered pages with an ellipsis for long ranges / `Next`) on the
    right; a page-size select (10/25/50) beside it.
+
+Why these columns (handout §8.4 asks for the choice to be justified): the
+list has to let a Requester *identify*, *understand* and *open* a ticket.
+Ticket No. and Summary identify it; Category, Requested Priority, IT
+Priority and Current Status are the four fields that can be filtered on, so
+showing them lets a Requester see why a row survived a filter instead of
+guessing; Created Date and Last Updated are the two sortable time fields,
+and a column that can be sorted but not read would be a control with no
+feedback. Description is excluded — it is up to 2000 characters (BR-20) and
+would dominate the row; it belongs on Ticket Detail. Related System is
+excluded as the field least often used to recognise one's own ticket, and
+it is the one column the tablet layout would have had to drop next.
 
 Note: Requester and Ticket Owner columns from the illustrative Figure 1
 mockup are **not** included — Lab 2's My Tickets is single-Requester
@@ -374,21 +395,32 @@ sortability.
 ### 6.3 Layout (mobile <768px)
 
 Table is replaced entirely by a stacked list of `zg-ticket-card`
-components (never a horizontally-scrolling table). Each card shows, top
-to bottom: Ticket No. + Created Date (small, muted) on one line;
+components (never a horizontally-scrolling table). Each card carries the same
+fields as the table minus the two that a narrow card cannot afford to give
+a line to — the badge row keeps all three, since they are the fastest way
+to read a ticket's state at a glance. Top to bottom: Ticket No. + Created
+Date (small, muted) on one line;
 Summary (bold, wraps normally); a badge row (Requested Priority, IT
 Priority, Current Status); Category + Last Updated as a small muted
 footer line. The whole card is tappable. Search is a full-width input
 above the list; filters collapse into a single "Filters" button that
 opens a `zg-filter-sheet` bottom sheet containing the same four selects
-plus a full-width "Apply" and "Clear Filters" action. Pagination becomes
+plus a full-width "Apply" and "Clear Filters" action. Each select takes
+effect as it is changed, the same as on desktop; "Apply" closes the sheet
+to reveal the list it has already filtered, rather than gating the filters
+behind a second tap that could be forgotten. Pagination becomes
 `Previous`/`Next` only (no numbered page buttons) plus "Page X of Y"
 text, to keep controls thumb-reachable.
 
 ### 6.4 States
 
 - **Loading**: skeleton rows (desktop table) or skeleton cards (mobile),
-  5 placeholders, search/filters remain interactive but disabled.
+  5 placeholders. Search and filters stay visible and stay usable — an
+  earlier draft said "interactive but disabled", which cannot be both, and
+  disabling them was the worse reading: every keystroke in a debounced search
+  starts a load, so disabling on load would take the field away mid-word and
+  drop the focus. They are disabled only for the very first load of the
+  screen, when there is not yet a list for them to act on.
 - **Empty** (BR-37, zero owned tickets ever): table/card area replaced by
   `zg-state--empty` — "You haven't created any tickets yet." + `Create
   Ticket` primary button. Search/filter controls are hidden in this

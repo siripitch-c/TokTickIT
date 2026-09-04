@@ -142,6 +142,37 @@ describe("App — Development Requester context", () => {
     expect(screen.getByTestId("current-requester-name")).toHaveTextContent("Jennifer Anderson");
   });
 
+  it("UI-CTX-10: a server outage does not cost the Requester their selection (BR-06, BR-08)", async () => {
+    let failures = 2; // the app-level restore, then the selector's own load
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(async () => {
+      if (failures > 0) {
+        failures -= 1;
+        throw new TypeError("Failed to fetch");
+      }
+      return { ok: true, status: 200, json: async () => ({ data: REQUESTERS }) } as unknown as Response;
+    });
+    sessionStorage.setItem("toktickit.selectedRequesterId", "1");
+
+    render(<App />);
+
+    // BR-08: the selector refuses entry and offers a retry.
+    await waitFor(() => expect(screen.getByTestId("zg-state-error")).toBeInTheDocument());
+    expect(screen.queryByTestId("current-requester-name")).not.toBeInTheDocument();
+
+    // BR-06: the stored selection survives. A server being unreachable is not
+    // the Requester choosing to change identity.
+    expect(sessionStorage.getItem("toktickit.selectedRequesterId")).toBe("1");
+
+    fireEvent.click(screen.getByRole("button", { name: /retry/i }));
+
+    // Once the API answers, the previous identity is resumed rather than asked
+    // for a second time.
+    await waitFor(() =>
+      expect(screen.getByTestId("current-requester-name")).toHaveTextContent("Jennifer Anderson")
+    );
+    expect(screen.queryByText(/Select Development Requester/i)).not.toBeInTheDocument();
+  });
+
   it("UI-CTX-09: the mobile navigation toggle names what it will do, in both states (BR-39)", async () => {
     mockAllEndpoints();
     sessionStorage.setItem("toktickit.selectedRequesterId", "1");
