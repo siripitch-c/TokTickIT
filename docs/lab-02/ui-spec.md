@@ -405,7 +405,12 @@ Priority, Current Status); Category + Last Updated as a small muted
 footer line. The whole card is tappable. Search is a full-width input
 above the list; filters collapse into a single "Filters" button that
 opens a `zg-filter-sheet` bottom sheet containing the same four selects
-plus a full-width "Apply" and "Clear Filters" action. Each select takes
+plus a full-width "Apply" and "Clear Filters" action. The card itself is a
+link, not a button carrying an onClick: §6.1 already settled that the
+navigation to Ticket Detail is a real link on desktop, and the same action
+should not change from "link" to "button" for a screen reader purely because
+the viewport got narrower — nor should a phone user lose the address behind
+it. Each select takes
 effect as it is changed, the same as on desktop; "Apply" closes the sheet
 to reveal the list it has already filtered, rather than gating the filters
 behind a second tap that could be forgotten. Pagination becomes

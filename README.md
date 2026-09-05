@@ -4,8 +4,8 @@ TokTickIT is an IT service desk application being built through the CPE334 indiv
 
 ## Current branch scope
 
-This branch contains everything through **Issue #15 — Requester Ticket Detail
-& Attachments**, on top of the Lab 1 foundation (Issues 1–4):
+This branch contains everything through **Issue #17 — E2E, responsive &
+visual QA**, on top of the Lab 1 foundation (Issues 1–4):
 
 * React + TypeScript + Vite frontend with Bootstrap styling
 * Node.js + Express + TypeScript backend
@@ -58,13 +58,22 @@ This branch contains everything through **Issue #15 — Requester Ticket Detail
   attachments panel that adds, downloads and soft-removes files, with a confirm
   step that will not proceed without a reason
 
-Everything in the Lab 2 sprint scope is now implemented. End-to-end tests,
-responsive screenshots and the release integration are Issues #17 and #18.
+* Playwright end-to-end suite (`e2e/lab-02/`) driving a real browser against
+  the running client, API and database: the full create-to-detail flow, the
+  route guard, attachment upload/download/removal, cross-Requester isolation,
+  the no-results state, an API failure mid-submission, and the whole flow at
+  375px — plus the responsive screenshots under
+  `artifacts/lab-02/screenshots/` at 1440/768/375px, which also assert that no
+  screen scrolls horizontally at any of the three widths
+
+Everything in the Lab 2 sprint scope is now implemented and tested. The
+release integration back into `main` is Issue #18.
 
 ### Sample tickets for local testing
 
-The seed carries reference data only. To put some tickets in the database for
-trying out My Tickets:
+The seed carries reference data only. To put some tickets in the database —
+needed for trying out My Tickets, and required before the screenshot tests
+under **Test** below:
 
 ```bash
 cd server
@@ -183,4 +192,35 @@ Frontend Tests (Vitest):
 ```bash
 cd client
 npm test
+```
+End-to-end and visual tests (Playwright, Issue #17):
+```bash
+npm install
+npx playwright install chromium
+npm run test:e2e
+```
+Run these from the repository root, not from `client/` or `server/`. They
+drive a real browser against the running app, so both the API and the client
+have to be up; Playwright reuses whatever is already listening on ports 3000
+and 5173 and starts them itself only when nothing is.
+
+**Run the demo tickets step above first.** The seven end-to-end tests each
+create the data they need, but the three screenshot tests do not: they
+photograph My Tickets for a Requester who already owns some, and on an empty
+list that screen hides its search and filter controls by design
+(`ui-spec.md` §6.4), so the captures cannot be taken at all.
+
+The suite creates real tickets, each marked `[e2e]` in its description, and
+deletes them again when the run finishes. If a run is interrupted, remove
+them by hand:
+```bash
+npm run e2e:cleanup --prefix server
+```
+
+It also writes the responsive screenshots that `docs/lab-02/tests.md` §5 is
+checked against, into `artifacts/lab-02/screenshots/`. Those are committed as
+sprint evidence; the Playwright HTML report and traces are not (see
+`.gitignore`). Open the report from the last run with:
+```bash
+npm run test:e2e:report
 ```

@@ -790,6 +790,7 @@ textarea.zg-field--editable {
   cursor: pointer;
   font: inherit;
   color: inherit;
+  text-decoration: none;
 }
 
 .zg-ticket-card:focus-visible {
@@ -863,6 +864,17 @@ textarea.zg-field--editable {
      stays available as a filter (§6.2). */
   .zg-col-category {
     display: none;
+  }
+
+  /* Dropping Category was not enough on its own: the seven remaining columns
+     still measured 742px inside a 718px wrapper, so "Last Updated" was cut
+     off until the reader thought to drag the table sideways — a clipped label
+     either way, which §8.7 rules out. Halving the horizontal cell padding
+     buys back far more than the 24px needed, and keeps every column the spec
+     says to keep at this width. */
+  .zg-table th,
+  .zg-table td {
+    padding: var(--zg-space-2) var(--zg-space-1);
   }
 
   .zg-filters {

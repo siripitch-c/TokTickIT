@@ -164,16 +164,31 @@
 | E2E-03 | Add, download, and soft-remove an attachment from Detail | Each action visibly succeeds; removed one is no longer downloadable | same file |
 | E2E-04 | Requester A creates a ticket; switch to Requester B | B's My Tickets does not show A's ticket; direct URL to A's ticket ID 404s for B | same file |
 | E2E-05 | Search with no matches | No-results state shown | same file |
-| E2E-06 | Kill the backend mid-flow, submit a ticket | Safe error shown, values retained, no crash | same file |
+| E2E-06 | Take the API away mid-flow, then submit a ticket | Safe error shown, values retained, no crash | same file |
+
+E2E-06 removes the API by failing the `POST /api/tickets` request at the
+browser rather than by stopping the server process: the failure then lands
+at exactly the moment being tested, after reference data has loaded, and
+the run does not depend on restarting a process it did not start. What the
+screen sees — a request that never answers — is the same either way.
+
 | E2E-07 | Full flow at mobile viewport (375px) | No clipping/overflow at any step | same file |
 
 ### Visual (Playwright screenshots)
 
 | ID | Viewport | Screens captured |
 |---|---|---|
-| VIS-01 | Desktop 1440px | Selector, Create Ticket (initial/error/success), My Tickets, Ticket Detail |
-| VIS-02 | Tablet 768px | Same four screens |
-| VIS-03 | Mobile 375px | Same four screens |
+| VIS-01 | Desktop 1440px | Selector; Create Ticket initial / validation-failure / rejected-attachment / submitting / success; Ticket Detail with an attachment, its remove-confirm modal, and the panel at the 5-attachment limit; My Tickets populated and no-results |
+| VIS-02 | Tablet 768px | Same screens and states |
+| VIS-03 | Mobile 375px | Same screens and states |
+
+All three are produced by `e2e/lab-02/visual.spec.ts` and are evidence for
+§5: whether a screen *looks* right is a question for a reader, not a runner.
+One half of AC-14 is an exception — "no unintended horizontal scrolling
+occurs at any of the three viewport sizes" is measurable, so each capture
+asserts it from the document before saving the image (33 checks per run).
+A layout that overflows now fails the run instead of waiting to be noticed in
+a picture. The clipping half of AC-14 stays a reading task.
 
 ## 3. Acceptance-Criterion Traceability
 
@@ -231,18 +246,43 @@ in the merge.
 ## 5. Responsive and Visual Checklist
 
 At each of VIS-01/02/03, manually confirm against `ui-spec.md`:
-- [ ] Zen Green color tokens applied correctly (header, badges, fields)
-- [ ] Editable vs. read-only fields are visually distinct
-- [ ] Validation messages appear directly below their field
-- [ ] Button hierarchy (primary/secondary/disabled/busy) is visually clear
-- [ ] Keyboard focus is visible on every interactive control
-- [ ] Every icon-only control has a visible tooltip on hover/focus
-- [ ] No clipped labels, overlapping elements, or unintended horizontal scroll
-- [ ] My Tickets: desktop table vs. mobile card layout, both fully readable
-- [ ] Badges show text plus color, never color alone
-- [ ] Selector, Create Ticket, My Tickets, Ticket Detail all checked, all states
+- [x] Zen Green color tokens applied correctly (header, badges, fields)
+- [x] Editable vs. read-only fields are visually distinct
+- [x] Validation messages appear directly below their field
+- [x] Button hierarchy (primary/secondary/disabled/busy) is visually clear
+- [x] Keyboard focus is visible on every interactive control
+- [x] Every icon-only control has a visible tooltip on hover/focus
+- [x] No clipped labels, overlapping elements, or unintended horizontal scroll
+- [x] My Tickets: desktop table vs. mobile card layout, both fully readable
+- [x] Badges show text plus color, never color alone
+- [x] Selector, Create Ticket, My Tickets, Ticket Detail all checked, all states
 
-Screenshots saved to `artifacts/lab-02/screenshots/{create-ticket,my-tickets,ticket-detail}/{desktop,tablet,mobile}.png`.
+Checked on 2026-09-05 against the 33 captures listed below. Items 5 and 6
+cannot be read off a still image and were confirmed live in Chrome: tabbing
+through My Tickets shows the 2px outline on every control (white on the green
+header, per §9), and hovering the icon-only remove control shows
+"Remove <filename>". Item 7 caught a real defect at 768px — the table
+overflowed its wrapper by 24px and cut off the "Last Updated" header — fixed
+by tightening the tablet cell padding, and now asserted automatically on every
+capture so it cannot come back unnoticed.
+
+Screenshots are saved to
+`artifacts/lab-02/screenshots/<screen>/<viewport>[-<state>].png`, where
+`<screen>` is one of `select-requester`, `create-ticket`, `ticket-detail`,
+`my-tickets` and `<viewport>` is `desktop`, `tablet` or `mobile` — four
+screens, matching VIS-01 above. (An earlier draft of this line named only
+three folders and omitted the Requester Selection screen the VIS rows
+require.) The states carry a suffix: `create-ticket/desktop-validation.png`,
+`create-ticket/desktop-attachment-rejected.png`,
+`create-ticket/desktop-busy.png`, `create-ticket/desktop-success.png`,
+`ticket-detail/desktop-remove-modal.png`,
+`ticket-detail/desktop-attachment-limit.png` and
+`my-tickets/desktop-no-results.png` — 11 images per viewport, 33 in total.
+
+The two attachment-refusal states are captured because §5 asks for every
+state of each screen and `ui-spec.md` §5.4/§7.1 count them as states: what
+BR-26/BR-27/BR-28 *do* is covered by UI-CREATE-09/10 and UI-DETAIL-06, but
+whether the refusal is legible is a visual question those cannot answer.
 
 ## 6. Test Commands
 
@@ -253,13 +293,25 @@ cd server && npm test
 # client (UI component tests)
 cd client && npm test
 
-# E2E + visual — added with Issue #17
-npm run test:e2e
+# E2E + visual (Issue #17). Run from the repository root, with the client
+# and the API both running; Playwright reuses whatever is already listening
+# on 5173/3000 and starts them itself only if nothing is. E2E-01..07 each
+# create the data they need; VIS-01..03 additionally require the demo tickets
+# (README), because My Tickets hides its search and filter controls on an
+# empty list (ui-spec.md 6.4) and the captures drive those controls.
+npm run test:e2e            # E2E-01..07 and VIS-01..03, writing the screenshots
+npm run test:e2e:report     # opens the HTML report from the last run
+
+# The suite creates real tickets, each marked [e2e] in its description, and
+# deletes them again in its global teardown. To remove them by hand after an
+# interrupted run:
+npm run e2e:cleanup --prefix server
 ```
 
 ## 7. Final Results
 
-**Current status: Issues #12 and #13 implemented; #14, #15, #17 pending.**
+**Current status: Issues #12, #13, #14, #15 and #17 implemented; every test
+planned in §2 has been executed.**
 This table is filled in as each Issue is implemented, not reconstructed
 after the fact:
 
@@ -276,6 +328,14 @@ after the fact:
 | 2026-09-04 | Issue #14 | `cd client && npm test` | 40 passed / 40 | adds UI-LIST-01..07, the aria-sort case and UI-CTX-10 |
 | 2026-09-04 | Issue #15 | `cd server && npm test` | 64 passed / 64 | adds API-DETAIL-01..04 and API-ATT-07..11/13 |
 | 2026-09-04 | Issue #15 | `cd client && npm test` | 53 passed / 53 | adds UI-DETAIL-01..08 |
+| 2026-09-04 | `67620f6` | `cd server && npm test` | 65 passed / 65 | adds the missing-file download case from the Issue #15 audit |
+| 2026-09-05 | Issue #17 | `cd server && npm test` | 65 passed / 65 | unchanged by Issue #17; re-run to confirm |
+| 2026-09-05 | Issue #17 | `cd client && npm test` | 53 passed / 53 | still passing after the My Tickets card became a link (see §8) |
+| 2026-09-05 | Issue #17 | `npm run test:e2e` | 10 passed / 10 | E2E-01..07 and VIS-01..03; 33 screenshots written to `artifacts/lab-02/screenshots/` |
+| 2026-09-05 | Issue #17 | `npx playwright test --headed` | 10 passed / 10 | reproduced on the author's own shell with a visible browser, after `npx playwright install chromium` |
+| 2026-09-05 | Issue #17 | `npm run test:e2e` | 10 passed / 10 | final run: adds the clipped-column assertion and the 768px table fix it found; 33 screenshots |
+| 2026-09-05 | Issue #17 | `cd client && npm test` | 53 passed / 53 | re-run after the tablet cell-padding change |
+| 2026-09-05 | Issue #17 | `cd server && npm test` | 65 passed / 65 | re-run to confirm nothing server-side moved |
 | 2026-09-03 | `3c354b8` | `cd client && npm test` | 22 passed / 22 | Issue #13 head — after the manual-inspection fixes (link buttons, selector icon, drop-zone hint, header spacing, busy-button fill) |
 
 My Tickets was also walked through by hand in a browser against the seeded
@@ -291,10 +351,14 @@ API-failure state with values retained, the busy button, the character
 counters, the 768/375 layouts, keyboard focus, and Requester switching. Five
 defects were found this way and fixed — see §8.
 
-Not yet executed because the code they cover is not written yet:
-API-LIST-\*, API-DETAIL-\*, API-ATT-07..11/13, UI-LIST-\*, UI-DETAIL-\*,
-E2E-01..07, VIS-01..03. These belong to Issues #14, #15, and #17 and are
-listed in §2 as planned, not as passing.
+Nothing planned in §2 is now unexecuted. E2E-01..07 and VIS-01..03 were the
+last outstanding group; they run against the real client, the real API and the
+real database, and their first full run found one defect that four issues of
+component and API tests had not (§8).
+
+The end-to-end run creates real tickets, marked `[e2e]` in their descriptions,
+and deletes them again in its teardown — the run above left the database
+exactly as it found it.
 
 ## 8. Known Limitations or Deferred Tests
 
@@ -319,5 +383,7 @@ listed in §2 as planned, not as passing.
   covered by any automated test, and a real localhost request resolves in
   milliseconds — Chrome's network throttling does not apply to loopback. The
   fill defect found on 2026-09-03 was only visible by delaying `window.fetch`
-  by hand. VIS-01..03 in Issue #17 should capture this state deliberately
-  (Playwright can delay the route), rather than relying on catching it live.
+  by hand. **Closed by Issue #17:** VIS-01..03 now hold the `POST /api/tickets`
+  route open for 2.5s and photograph the button mid-submission, so the state is
+  evidence at all three widths rather than something someone has to catch
+  live — `create-ticket/<viewport>-busy.png`.
