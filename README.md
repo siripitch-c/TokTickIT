@@ -2,10 +2,10 @@
 
 TokTickIT is an IT service desk application being built through the CPE334 individual sprint workflow.
 
-## Current branch scope
+## What this repository contains
 
-This branch contains everything through **Issue #17 — E2E, responsive &
-visual QA**, on top of the Lab 1 foundation (Issues 1–4):
+The **Lab 2 sprint is complete** — Issues #11–#18, on top of the Lab 1
+foundation (Issues 1–4):
 
 * React + TypeScript + Vite frontend with Bootstrap styling
 * Node.js + Express + TypeScript backend
@@ -66,8 +66,9 @@ visual QA**, on top of the Lab 1 foundation (Issues 1–4):
   `artifacts/lab-02/screenshots/` at 1440/768/375px, which also assert that no
   screen scrolls horizontally at any of the three widths
 
-Everything in the Lab 2 sprint scope is now implemented and tested. The
-release integration back into `main` is Issue #18.
+Everything in the Lab 2 sprint scope is implemented, tested and documented.
+Each Issue was merged into `lab2-staging` through a peer-reviewed Pull
+Request, and Issue #18 merges `lab2-staging` into `main`.
 
 ### Sample tickets for local testing
 
@@ -96,6 +97,23 @@ BR-12) is an ownership check performed against this testing header, not
 proof of an authorization system that would resist a determined attacker.
 Real authentication is planned to replace this mechanism entirely in Lab 3.
 
+## Documentation
+
+The sprint documents live under `docs/lab-02/`:
+
+| File | What it holds |
+|---|---|
+| `specification.md` | Scope, functional requirements, business rules BR-01–BR-40, acceptance criteria AC-01–AC-17, data changes, definition of done |
+| `api-spec.md` | The ten endpoints, their request/response shapes, and the error envelope |
+| `ui-spec.md` | Zen Green design tokens, every screen and state, responsive rules, accessibility rules |
+| `tests.md` | Every planned test with its id, the AC and BR traceability tables, the responsive checklist, and the recorded result of each run |
+| `reviewer.md` | Peer review record — who reviewed what, the comments given and received, and the responses |
+| `ai-use.md` | Which AI agent was used, the key prompts, and reflection on working with it |
+
+Test evidence sits alongside them: `server/tests/lab-02/`,
+`client/tests/lab-02/`, `e2e/lab-02/`, and the responsive screenshots in
+`artifacts/lab-02/screenshots/`.
+
 ## Prerequisites
 
 * Node.js (v18 or higher)
@@ -103,6 +121,7 @@ Real authentication is planned to replace this mechanism entirely in Lab 3.
 * PostgreSQL running locally (or via Docker)
 
 ## Setup
+
 From the repository root, set up your environment variables:
 ```bash
 cp server/.env.example server/.env
@@ -110,6 +129,9 @@ cp client/.env.example client/.env
 ```
 
 ## Setup Backend
+
+From the repository root:
+
 ```bash
 cd server
 npm install
@@ -128,9 +150,13 @@ Uploaded attachments are written to the directory named by `UPLOAD_DIR` in
 git-ignored). The test suite overrides it with a temporary directory, so
 running tests never writes into the repository.
 
-# Setup Frontend
+## Setup Frontend
+
+From the repository root — a second terminal is fine, and is what you will
+want later when the API and the client both need to keep running:
+
 ```bash
-cd ../client
+cd client
 npm install
 ```
 
@@ -142,6 +168,7 @@ are development-only values from `.env.example`; never commit either `.env`
 file or any real credentials.
 
 ## Run the app
+
 Backend:
 ```bash
 cd server
@@ -178,6 +205,9 @@ still covers `src`, `prisma`, and `tests` for typechecking with
 The client build is `cd client && npm run build`.
 
 ## Test
+
+Each block below starts from the repository root.
+
 Backend Tests (Supertest):
 ```bash
 cd server
