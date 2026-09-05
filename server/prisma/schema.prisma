@@ -11,17 +11,111 @@ datasource db {
 }
 
 // ---------------------------------------------------------------------------
-// Issue 3 — Create and seed IT request categories
-// Define a Category model with:
-//   id        Int      @id @default(autoincrement())
-//   name      String   @unique
-//   createdAt DateTime @default(now())
-// Then run:  npx prisma migrate dev --name init
-// TODO(Issue 3): add the Category model below.
+// Lab 1, Issue #3 — IT request categories.
+// Lab 2 added `isActive` (only active Categories are offered on Create Ticket,
+// per BR-21) and the Ticket back-relation.
 // ---------------------------------------------------------------------------
 
 model Category {
   id        Int      @id @default(autoincrement())
   name      String   @unique
+  isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
+
+  tickets Ticket[]
+}
+
+// ---------------------------------------------------------------------------
+// Issue #12 — Data model foundation & Requester context
+// All four new models below are introduced together in a single migration
+// (specification.md §7), even though only Requester's API/UI is implemented
+// in this issue. Ticket/Attachment routes come in later issues (#13, #15).
+// ---------------------------------------------------------------------------
+
+model Requester {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  tickets Ticket[]
+}
+
+model RelatedSystem {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  tickets Ticket[]
+}
+
+enum RequestedPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum ITPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum CurrentStatus {
+  NEW
+}
+
+model Ticket {
+  id                Int               @id @default(autoincrement())
+  ticketNumber      String            @unique
+  requesterId       Int
+  categoryId        Int
+  relatedSystemId   Int
+  summary           String
+  description       String
+  requestedPriority RequestedPriority
+  itPriority        ITPriority?
+  currentStatus     CurrentStatus     @default(NEW)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  requester     Requester     @relation(fields: [requesterId], references: [id])
+  category      Category      @relation(fields: [categoryId], references: [id])
+  relatedSystem RelatedSystem @relation(fields: [relatedSystemId], references: [id])
+  attachments   Attachment[]
+
+  @@index([requesterId, createdAt])
+  @@index([createdAt])
+}
+
+model Attachment {
+  id               Int       @id @default(autoincrement())
+  ticketId         Int
+  originalFilename String
+  storedFilename   String
+  mimeType         String
+  sizeBytes        Int
+  uploadedAt       DateTime  @default(now())
+  removedAt        DateTime?
+  removedReason    String?
+
+  ticket Ticket @relation(fields: [ticketId], references: [id])
+
+  @@index([ticketId])
+}
+// ---------------------------------------------------------------------------
+// Issue #13 — Create Ticket
+// BR-01 requires the Ticket Number sequence to be produced atomically inside
+// the same transaction as the Ticket insert — never "read current max, add
+// one" in application code, which races under concurrent submissions. This
+// single-row-per-year counter table is the mechanism BR-01 names: the
+// generator runs `UPDATE ... SET counter = counter + 1 RETURNING counter`,
+// which Postgres serializes per row, so 20 concurrent creates get 20
+// distinct numbers (tests.md API-CREATE-08).
+// ---------------------------------------------------------------------------
+model TicketNumberCounter {
+  year    Int @id
+  counter Int @default(0)
 }

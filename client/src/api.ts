@@ -1,21 +1,276 @@
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 
-export interface Category {
+// ---------------------------------------------------------------------------
+// Issue #12 — Data model foundation & Requester context
+// ---------------------------------------------------------------------------
+export interface Requester {
   id: number;
   name: string;
 }
 
-export interface SystemStatus {
-  online: boolean;
-  categories: Category[];
+// api-spec.md §3: GET /api/requesters -> { data: [...] }, active only, no
+// requester context header required. Throws on any non-2xx response so the
+// caller can show BR-08's safe error state.
+export async function fetchRequesters(): Promise<Requester[]> {
+  const res = await fetch(`${API_URL}/api/requesters`);
+  if (!res.ok) {
+    throw new Error("Failed to load Development Requesters");
+  }
+  const body = await res.json();
+  return body.data as Requester[];
 }
 
-// Issue 2 + Issue 4 — call the backend.
-// Steps: fetch `${API_URL}/api/health`; if not ok, throw.
-//        then fetch `${API_URL}/api/categories`; if not ok, throw.
-//        return { online: true, categories }.
-// Throwing on failure lets the UI show a single Offline/error state.
-export async function checkSystem(): Promise<SystemStatus> {
-  // TODO(Issue 2 & 4): implement the two fetch calls described above.
-  throw new Error("checkSystem not implemented yet");
+// ---------------------------------------------------------------------------
+// Issue #13 — Create Ticket
+// ---------------------------------------------------------------------------
+export interface ReferenceItem {
+  id: number;
+  name: string;
+}
+
+export type RequestedPriority = "LOW" | "MEDIUM" | "HIGH";
+
+export interface AttachmentMeta {
+  id: number;
+  ticketId: number;
+  originalFilename: string;
+  mimeType: string;
+  sizeBytes: number;
+  uploadedAt: string;
+  removedAt: string | null;
+  removedReason: string | null;
+}
+
+export interface Ticket {
+  id: number;
+  ticketNumber: string;
+  requesterId: number;
+  categoryId: number;
+  relatedSystemId: number;
+  summary: string;
+  description: string;
+  requestedPriority: RequestedPriority;
+  itPriority: RequestedPriority | null;
+  currentStatus: "NEW";
+  createdAt: string;
+  updatedAt: string;
+  attachments: AttachmentMeta[];
+}
+
+export interface NewTicket {
+  categoryId: number;
+  relatedSystemId: number;
+  summary: string;
+  description: string;
+  requestedPriority: RequestedPriority;
+}
+
+/**
+ * Carries the api-spec.md §1 error envelope through to the UI, so a screen can
+ * put a server-side validation message on the field it belongs to instead of
+ * showing one generic banner (BR-23: the server is authoritative).
+ */
+export class ApiError extends Error {
+  readonly status: number;
+  readonly code: string;
+  readonly field?: string;
+
+  constructor(status: number, code: string, message: string, field?: string) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.code = code;
+    this.field = field;
+  }
+}
+
+const SAFE_FALLBACK_MESSAGE = "Something went wrong. Please try again.";
+
+// api-spec.md §1: every non-2xx carries { error: { code, message, field? } }.
+// A response that fails to parse still has to surface as a safe ApiError
+// rather than a raw crash (BR-24's "safe error" requirement).
+async function toApiError(response: Response): Promise<ApiError> {
+  try {
+    const body = await response.json();
+    const error = body?.error;
+    if (error?.code && error?.message) {
+      return new ApiError(response.status, error.code, error.message, error.field);
+    }
+  } catch {
+    // fall through to the generic error below
+  }
+  return new ApiError(response.status, "INTERNAL_ERROR", SAFE_FALLBACK_MESSAGE);
+}
+
+// The Lab 2 Development Requester context header (api-spec.md §1) — a testing
+// mechanism, not authentication (BR-04/BR-40).
+function requesterHeaders(requesterId: number): Record<string, string> {
+  return { "X-Requester-Id": String(requesterId) };
+}
+
+async function fetchReference(path: string): Promise<ReferenceItem[]> {
+  const res = await fetch(`${API_URL}${path}`);
+  if (!res.ok) throw await toApiError(res);
+  const body = await res.json();
+  return body.data as ReferenceItem[];
+}
+
+export function fetchCategories(): Promise<ReferenceItem[]> {
+  return fetchReference("/api/categories");
+}
+
+export function fetchRelatedSystems(): Promise<ReferenceItem[]> {
+  return fetchReference("/api/related-systems");
+}
+
+export async function createTicket(requesterId: number, ticket: NewTicket): Promise<Ticket> {
+  const res = await fetch(`${API_URL}/api/tickets`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...requesterHeaders(requesterId) },
+    body: JSON.stringify(ticket),
+  });
+  if (!res.ok) throw await toApiError(res);
+  const body = await res.json();
+  return body.data as Ticket;
+}
+
+/**
+ * BR-25/BR-34: attachments are uploaded one at a time against an already-saved
+ * Ticket, and each one succeeds or fails on its own — a failure here never
+ * rolls back the Ticket or the uploads that already worked.
+ */
+export async function uploadAttachment(
+  requesterId: number,
+  ticketId: number,
+  file: File,
+): Promise<AttachmentMeta> {
+  const form = new FormData();
+  form.append("file", file);
+
+  const res = await fetch(`${API_URL}/api/tickets/${ticketId}/attachments`, {
+    method: "POST",
+    headers: requesterHeaders(requesterId),
+    body: form,
+  });
+  if (!res.ok) throw await toApiError(res);
+  const body = await res.json();
+  return body.data as AttachmentMeta;
+}
+
+// ---------------------------------------------------------------------------
+// Issue #14 — My Tickets
+// ---------------------------------------------------------------------------
+
+/** A row in the ticket list: the Ticket fields without its attachments (api-spec.md §4). */
+export type TicketSummary = Omit<Ticket, "attachments">;
+
+export interface Pagination {
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+}
+
+export type TicketSortField = "ticketNumber" | "createdAt" | "updatedAt";
+export type SortDirection = "asc" | "desc";
+
+export interface TicketListQuery {
+  search?: string;
+  category?: number | "";
+  requestedPriority?: RequestedPriority | "";
+  itPriority?: RequestedPriority | "";
+  status?: "NEW" | "";
+  sortBy?: TicketSortField;
+  sortDir?: SortDirection;
+  page?: number;
+  pageSize?: number;
+}
+
+/**
+ * BR-18: the server treats every query parameter leniently, so blank values are
+ * simply left out rather than sent as empty strings for it to ignore.
+ */
+export async function fetchTickets(
+  requesterId: number,
+  query: TicketListQuery = {},
+): Promise<{ data: TicketSummary[]; pagination: Pagination }> {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) {
+    if (value !== undefined && value !== null && value !== "") {
+      params.set(key, String(value));
+    }
+  }
+
+  const search = params.toString();
+  const res = await fetch(`${API_URL}/api/tickets${search ? `?${search}` : ""}`, {
+    headers: requesterHeaders(requesterId),
+  });
+  if (!res.ok) throw await toApiError(res);
+
+  const body = await res.json();
+  return { data: body.data as TicketSummary[], pagination: body.pagination as Pagination };
+}
+
+// ---------------------------------------------------------------------------
+// Issue #15 — Requester Ticket Detail & Attachments
+// ---------------------------------------------------------------------------
+
+/** api-spec.md §4: the full Ticket, attachments included, removed ones too (BR-29). */
+export async function fetchTicket(requesterId: number, ticketId: number): Promise<Ticket> {
+  const res = await fetch(`${API_URL}/api/tickets/${ticketId}`, {
+    headers: requesterHeaders(requesterId),
+  });
+  if (!res.ok) throw await toApiError(res);
+  const body = await res.json();
+  return body.data as Ticket;
+}
+
+/**
+ * BR-31: a removal carries its reason. The verb is DELETE but the row survives,
+ * so the response is the updated metadata rather than an empty body (BR-29).
+ */
+export async function removeAttachment(
+  requesterId: number,
+  attachmentId: number,
+  removalReason: string,
+): Promise<AttachmentMeta> {
+  const res = await fetch(`${API_URL}/api/attachments/${attachmentId}`, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json", ...requesterHeaders(requesterId) },
+    body: JSON.stringify({ removalReason }),
+  });
+  if (!res.ok) throw await toApiError(res);
+  const body = await res.json();
+  return body.data as AttachmentMeta;
+}
+
+/**
+ * The download endpoint is Requester-scoped, so it needs the X-Requester-Id
+ * header — which a plain <a href> cannot send. The file is fetched here and
+ * handed to the browser as an object URL instead, which also means a refusal
+ * (a removed attachment, someone else's file) surfaces as an ApiError the
+ * screen can show rather than as a broken navigation.
+ */
+export async function downloadAttachment(
+  requesterId: number,
+  attachment: Pick<AttachmentMeta, "id" | "originalFilename">,
+): Promise<void> {
+  const res = await fetch(`${API_URL}/api/attachments/${attachment.id}/download`, {
+    headers: requesterHeaders(requesterId),
+  });
+  if (!res.ok) throw await toApiError(res);
+
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  try {
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = attachment.originalFilename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  } finally {
+    // Released on the next tick so the click has taken the blob first.
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
 }

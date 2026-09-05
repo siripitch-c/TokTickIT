@@ -1,0 +1,1106 @@
+/* Zen Green Theme — implements docs/lab-02/ui-spec.md §1 (Design Tokens)
+   and §2 (Shared Components and States). Import this AFTER bootstrap.min.css
+   in main.tsx so these rules can override Bootstrap defaults where needed. */
+
+:root {
+  /* §1.1 Color */
+  --zg-primary: #006B3C;
+  --zg-secondary: #0B7A46;
+  --zg-pale: #EAF6EF;
+  --zg-bg: #F5F7F6;
+  --zg-surface: #FFFFFF;
+  --zg-border: #DDE5E1;
+  --zg-text: #1E2A24;
+  --zg-text-muted: #5B6B63;
+  --zg-editable-bg: #FFFFFF;
+  --zg-editable-border: #C7D2CC;
+  --zg-readonly-bg: #EEF1EE;
+  --zg-readonly-border: #CDD6D0;
+  --zg-error: #8A1F1F;
+  --zg-error-bg: #FBEAEA;
+  --zg-warning: #8A5B00;
+  --zg-warning-bg: #FFF3DC;
+  --zg-success: #0B7A46;
+  --zg-disabled-bg: #EDEFED;
+  --zg-disabled-text: #9AA5A0;
+
+  /* §1.2 Typography */
+  --zg-font: -apple-system, "Segoe UI", Roboto, sans-serif;
+  --zg-text-xs: 12px;
+  --zg-text-sm: 14px;
+  --zg-text-base: 16px;
+  --zg-text-lg: 20px;
+  --zg-text-xl: 28px;
+
+  /* §1.3 Spacing */
+  --zg-space-1: 4px;
+  --zg-space-2: 8px;
+  --zg-space-3: 16px;
+  --zg-space-4: 24px;
+  --zg-space-5: 32px;
+  --zg-space-6: 48px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--zg-font);
+  color: var(--zg-text);
+  background: var(--zg-bg);
+  margin: 0;
+}
+
+/* ---------- Page / layout ---------- */
+
+.zg-page {
+  min-height: 100vh;
+  background: var(--zg-bg);
+  display: flex;
+  flex-direction: column;
+}
+
+.zg-header {
+  background: var(--zg-primary);
+  color: #fff;
+  height: 64px;
+  padding: 0 var(--zg-space-4);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: nowrap;
+  gap: var(--zg-space-3);
+}
+
+.zg-header-title {
+  font-size: var(--zg-text-lg);
+  font-weight: 700;
+  color: #fff;
+}
+
+.zg-header-requester {
+  font-size: var(--zg-text-sm);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: var(--zg-space-3);
+}
+
+/* ---------- Card / surface ---------- */
+
+.zg-card {
+  background: var(--zg-surface);
+  border: 1px solid var(--zg-border);
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  padding: var(--zg-space-4);
+  max-width: 840px;
+  margin: var(--zg-space-5) auto;
+}
+
+@media (max-width: 767px) {
+  .zg-card {
+    padding: var(--zg-space-3);
+    margin: var(--zg-space-3);
+  }
+}
+
+.zg-icon-badge {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--zg-pale);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--zg-primary);
+  color: var(--zg-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto var(--zg-space-3);
+  font-size: var(--zg-text-lg);
+}
+
+/* ---------- Typography helpers ---------- */
+
+.zg-text-xs { font-size: var(--zg-text-xs); }
+.zg-text-sm { font-size: var(--zg-text-sm); }
+.zg-text-base { font-size: var(--zg-text-base); }
+.zg-text-lg { font-size: var(--zg-text-lg); font-weight: 600; }
+.zg-text-xl { font-size: var(--zg-text-xl); font-weight: 700; text-align: center; }
+.zg-text-muted { color: var(--zg-text-muted); }
+
+/* ---------- Field control (§2.1) ---------- */
+
+.zg-field-label {
+  display: block;
+  font-weight: 600;
+  font-size: var(--zg-text-sm);
+  margin-bottom: var(--zg-space-1);
+}
+
+.zg-field--editable,
+.zg-field--readonly,
+.zg-field--invalid,
+.zg-field--disabled,
+select.zg-field--editable {
+  width: 100%;
+  height: 40px;
+  border-radius: 6px;
+  padding: 0 var(--zg-space-2);
+  font-size: var(--zg-text-base);
+  font-family: var(--zg-font);
+  color: var(--zg-text);
+}
+
+.zg-field--editable {
+  background: var(--zg-editable-bg);
+  border: 1px solid var(--zg-editable-border);
+}
+
+.zg-field--editable:focus,
+.zg-field--focus {
+  outline: 2px solid var(--zg-secondary);
+  outline-offset: 2px;
+  border-color: var(--zg-secondary);
+}
+
+.zg-field--readonly {
+  background: var(--zg-readonly-bg);
+  border: 1px solid var(--zg-readonly-border);
+  cursor: not-allowed;
+}
+
+.zg-field--invalid {
+  background: var(--zg-editable-bg);
+  border: 2px solid var(--zg-error);
+}
+
+.zg-field--disabled {
+  background: var(--zg-disabled-bg);
+  color: var(--zg-disabled-text);
+  border: 1px solid var(--zg-border);
+  cursor: not-allowed;
+}
+
+textarea.zg-field--editable {
+  height: auto;
+  min-height: 120px;
+  resize: vertical;
+  padding: var(--zg-space-2);
+}
+
+.zg-required-marker {
+  color: var(--zg-error);
+  margin-left: 2px;
+}
+
+.zg-validation-message {
+  color: var(--zg-error);
+  font-size: var(--zg-text-sm);
+  margin-top: var(--zg-space-1);
+}
+
+/* ---------- Buttons (§2.2) ---------- */
+
+.zg-btn--primary,
+.zg-btn--secondary,
+.zg-btn--tertiary,
+.zg-btn--destructive,
+.zg-btn--disabled {
+  /* A button may be rendered as a router <Link>, i.e. an <a>. Without these
+     it arrives underlined and inline, which §2.2 does not describe: only the
+     tertiary variant underlines, and only on hover. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  height: 40px;
+  padding: 0 var(--zg-space-3);
+  border-radius: 6px;
+  font-size: var(--zg-text-base);
+  font-family: var(--zg-font);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.zg-btn--primary {
+  background: var(--zg-primary);
+  color: #fff;
+  border: 1px solid var(--zg-primary);
+}
+.zg-btn--primary:hover { background: var(--zg-secondary); }
+
+.zg-btn--secondary {
+  background: #fff;
+  color: var(--zg-secondary);
+  border: 1px solid var(--zg-secondary);
+}
+.zg-btn--secondary:hover { background: var(--zg-pale); }
+
+.zg-btn--tertiary {
+  background: transparent;
+  color: var(--zg-secondary);
+  border: none;
+  padding: 0;
+  height: auto;
+}
+.zg-btn--tertiary:hover { text-decoration: underline; }
+
+.zg-btn--destructive {
+  background: #fff;
+  color: var(--zg-error);
+  border: 1px solid var(--zg-error);
+}
+.zg-btn--destructive:hover { background: var(--zg-error); color: #fff; }
+
+.zg-btn--disabled,
+.zg-btn--primary:disabled,
+.zg-btn--secondary:disabled,
+.zg-btn--tertiary:disabled,
+.zg-btn--destructive:disabled {
+  background: var(--zg-disabled-bg);
+  color: var(--zg-disabled-text);
+  border: 1px solid var(--zg-border);
+  cursor: not-allowed;
+}
+
+.zg-btn--busy {
+  opacity: 0.85;
+  cursor: progress;
+}
+
+/* §2.2: a busy button keeps "the same fill as its variant". It also carries
+   the disabled attribute (BR-22), so without this the disabled rule above
+   greys it out and the white spinner disappears into a pale background. */
+.zg-btn--primary.zg-btn--busy,
+.zg-btn--primary:disabled.zg-btn--busy {
+  background: var(--zg-primary);
+  border: 1px solid var(--zg-primary);
+  color: #fff;
+  opacity: 0.9;
+}
+
+/* §2.2: the spinner precedes the label rather than replacing it, so the
+   button keeps an accessible name while the request is in flight. */
+.zg-btn--busy::before {
+  content: "";
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  margin-right: var(--zg-space-2);
+  vertical-align: -2px;
+  border: 2px solid rgba(255, 255, 255, 0.45);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: zg-spin 0.7s linear infinite;
+}
+
+@keyframes zg-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zg-btn--busy::before { animation: none; }
+}
+
+.zg-actions-row {
+  display: flex;
+  gap: var(--zg-space-2);
+  justify-content: flex-end;
+  margin-top: var(--zg-space-4);
+  flex-wrap: wrap;
+}
+
+/* ---------- Badges (§2.3) ---------- */
+
+.zg-badge {
+  display: inline-block;
+  padding: 2px var(--zg-space-2);
+  border-radius: 999px;
+  font-size: var(--zg-text-xs);
+  font-weight: 600;
+}
+.zg-badge--low { background: var(--zg-pale); color: var(--zg-secondary); }
+.zg-badge--medium { background: var(--zg-warning-bg); color: var(--zg-warning); }
+.zg-badge--high { background: var(--zg-error-bg); color: var(--zg-error); }
+
+/* ---------- Callouts ---------- */
+
+.zg-callout--info {
+  background: var(--zg-pale);
+  color: var(--zg-text);
+  border: 1px solid var(--zg-secondary);
+  border-radius: 6px;
+  padding: var(--zg-space-2) var(--zg-space-3);
+  font-size: var(--zg-text-sm);
+  margin: var(--zg-space-3) 0;
+}
+
+.zg-callout--neutral {
+  background: var(--zg-bg);
+  color: var(--zg-text-muted);
+  border: 1px solid var(--zg-border);
+  border-radius: 6px;
+  padding: var(--zg-space-2) var(--zg-space-3);
+  font-size: var(--zg-text-sm);
+  margin: var(--zg-space-3) 0;
+}
+
+.zg-callout--error {
+  background: var(--zg-error-bg);
+  color: var(--zg-error);
+  border: 1px solid var(--zg-error);
+  border-radius: 6px;
+  padding: var(--zg-space-2) var(--zg-space-3);
+  font-size: var(--zg-text-sm);
+  margin: var(--zg-space-3) 0;
+}
+
+/* ---------- States ---------- */
+
+.zg-state--loading,
+.zg-state--empty,
+.zg-state--error {
+  text-align: center;
+  padding: var(--zg-space-5) var(--zg-space-3);
+  color: var(--zg-text-muted);
+  font-size: var(--zg-text-sm);
+}
+
+.zg-state--error { color: var(--zg-error); }
+
+.zg-skeleton-bar {
+  height: 40px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--zg-border) 25%, var(--zg-pale) 50%, var(--zg-border) 75%);
+  background-size: 200% 100%;
+  animation: zg-skeleton-shimmer 1.2s ease-in-out infinite;
+  margin: var(--zg-space-2) auto;
+  max-width: 240px;
+}
+
+/* §7.4: the attachment half of the Ticket Detail loading state. Wider bars
+   than the field skeletons above it, so the two halves of the card read as
+   different things while they load. */
+.zg-skeleton-list .zg-skeleton-bar {
+  height: 48px;
+  max-width: 420px;
+}
+
+@keyframes zg-skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ---------- Application shell: navigation (ui-spec.md §3) ---------- */
+
+.zg-header-glyph {
+  margin-right: var(--zg-space-1);
+}
+
+.zg-header-nav {
+  display: flex;
+  gap: var(--zg-space-3);
+}
+
+/* Both states are already white-on-green, so the active item is marked by a
+   bottom border and weight, never by color alone (ui-spec.md §3). */
+.zg-nav-item {
+  color: #fff;
+  text-decoration: none;
+  padding: var(--zg-space-2) var(--zg-space-1);
+  border-bottom: 3px solid transparent;
+  font-size: var(--zg-text-base);
+}
+
+.zg-nav-item--active {
+  border-bottom-color: #fff;
+  font-weight: 700;
+}
+
+.zg-btn--on-header {
+  color: var(--zg-pale);
+}
+
+.zg-hamburger {
+  display: none;
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: var(--zg-text-lg);
+  min-width: 44px;
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.zg-mobile-nav {
+  display: none;
+}
+
+.zg-main {
+  flex: 1;
+  width: 100%;
+}
+
+.zg-breadcrumb {
+  font-size: var(--zg-text-sm);
+  color: var(--zg-text-muted);
+  margin-bottom: var(--zg-space-2);
+}
+
+/* ---------- Form layout (ui-spec.md §5.1) ---------- */
+
+.zg-field {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: var(--zg-space-3);
+  min-width: 0;
+}
+
+.zg-field-row {
+  display: grid;
+  gap: var(--zg-space-3);
+}
+
+.zg-field-row--3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/* §2.1: Description is the one documented exception to the 40px control
+   height — it starts taller and may only be resized taller, never shorter. */
+.zg-field--textarea {
+  min-height: 120px;
+  height: 120px;
+  resize: vertical;
+  padding: var(--zg-space-2);
+}
+
+.zg-char-counter {
+  align-self: flex-end;
+}
+
+.zg-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ---------- Attachments (ui-spec.md §2.5, §5.1) ---------- */
+
+.zg-section {
+  margin-top: var(--zg-space-4);
+  padding-top: var(--zg-space-3);
+  border-top: 1px solid var(--zg-border);
+}
+
+.zg-dropzone {
+  border: 2px dashed var(--zg-editable-border);
+  border-radius: 8px;
+  padding: var(--zg-space-3);
+  background: var(--zg-surface);
+  min-height: 44px;
+}
+
+.zg-attachment-list {
+  list-style: none;
+  padding: 0;
+  margin: var(--zg-space-2) 0 0;
+}
+
+.zg-attachment-row--pending,
+.zg-attachment-row--invalid {
+  display: flex;
+  align-items: center;
+  gap: var(--zg-space-2);
+  padding: var(--zg-space-2);
+  border: 1px solid var(--zg-border);
+  border-radius: 6px;
+  margin-bottom: var(--zg-space-2);
+}
+
+.zg-attachment-row--invalid {
+  border-color: var(--zg-error);
+  background: var(--zg-error-bg);
+}
+
+.zg-attachment-name {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* ---------- Success and warning states (ui-spec.md §2.4, §5.4) ---------- */
+
+.zg-state--success {
+  background: var(--zg-pale);
+  border: 1px solid var(--zg-success);
+  border-radius: 8px;
+  padding: var(--zg-space-4);
+  text-align: center;
+}
+
+.zg-ticket-number {
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: var(--zg-text-xl);
+  font-weight: 700;
+  color: var(--zg-primary);
+}
+
+.zg-callout--warning {
+  background: var(--zg-warning-bg);
+  border-left: 4px solid var(--zg-warning);
+  color: var(--zg-warning);
+  padding: var(--zg-space-3);
+  border-radius: 6px;
+  margin-top: var(--zg-space-3);
+}
+
+/* ---------- Responsive (ui-spec.md §5.2, §5.3, §8) ---------- */
+
+@media (max-width: 991px) {
+  /* Tablet: the 3-column rows collapse to 2, last field full-width below. */
+  .zg-field-row--3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 767px) {
+  .zg-header {
+    height: 56px;
+    padding: 0 var(--zg-space-3);
+  }
+
+  .zg-header-nav {
+    display: none;
+  }
+
+  .zg-hamburger {
+    display: block;
+  }
+
+  .zg-header-requester {
+    display: none;
+  }
+
+  .zg-mobile-nav {
+    display: flex;
+    flex-direction: column;
+    background: var(--zg-surface);
+    border-bottom: 1px solid var(--zg-border);
+  }
+
+  .zg-mobile-nav .zg-nav-item,
+  .zg-mobile-nav-requester,
+  .zg-mobile-nav .zg-btn--tertiary {
+    color: var(--zg-text);
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    padding: var(--zg-space-2) var(--zg-space-3);
+    border-bottom: none;
+    text-align: left;
+  }
+
+  .zg-mobile-nav .zg-nav-item--active {
+    color: var(--zg-secondary);
+    font-weight: 700;
+  }
+
+  /* Every field group stacks to a single column (ui-spec.md §5.3). */
+  .zg-field-row--3 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Submit above Cancel, both full-width and touch-sized. */
+  .zg-actions-row {
+    flex-direction: column-reverse;
+  }
+
+  .zg-actions-row > * {
+    width: 100%;
+    min-height: 44px;
+  }
+}
+
+/* ---------- Keyboard focus (ui-spec.md §9, BR-39) ---------- */
+
+/* Buttons and links previously fell back to the browser default ring, which
+   ui-spec.md §9 does not accept: every interactive control carries a 2px
+   --zg-secondary outline with a 2px offset. */
+.zg-btn--primary:focus-visible,
+.zg-btn--secondary:focus-visible,
+.zg-btn--tertiary:focus-visible,
+.zg-btn--destructive:focus-visible,
+.zg-btn--disabled:focus-visible,
+.zg-nav-item:focus-visible,
+.zg-dropzone input[type="file"]:focus-visible,
+.zg-breadcrumb a:focus-visible {
+  outline: 2px solid var(--zg-secondary);
+  outline-offset: 2px;
+}
+
+/* Exception, per ui-spec.md §9: --zg-secondary is a green on a green header
+   and would be effectively invisible there, so controls sitting on the header
+   take a white ring instead. Same width and offset, same visibility. */
+.zg-header .zg-nav-item:focus-visible,
+.zg-header .zg-btn--tertiary:focus-visible,
+.zg-hamburger:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+/* ---------- My Tickets (ui-spec.md §6) ---------- */
+
+/* §6.1: a full-width card — eight columns do not fit the 840px form width. */
+.zg-card--wide {
+  max-width: 1200px;
+}
+
+.zg-text-left {
+  text-align: left;
+}
+
+.zg-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--zg-space-3);
+  flex-wrap: wrap;
+}
+
+.zg-list-header-actions {
+  display: flex;
+  gap: var(--zg-space-2);
+  align-items: center;
+}
+
+.zg-list-controls {
+  display: flex;
+  gap: var(--zg-space-3);
+  align-items: flex-end;
+  margin: var(--zg-space-4) 0 var(--zg-space-3);
+  flex-wrap: wrap;
+}
+
+.zg-search-field {
+  flex: 1 1 260px;
+  margin-bottom: 0;
+}
+
+.zg-filters {
+  display: flex;
+  gap: var(--zg-space-3);
+  flex-wrap: wrap;
+}
+
+.zg-filters .zg-field {
+  margin-bottom: 0;
+  min-width: 150px;
+}
+
+.zg-filters-toggle {
+  flex: 0 0 auto;
+}
+
+/* ---------- Ticket table (§6.1) ---------- */
+
+/* The wrapper, not the page, is what scrolls if a viewport is narrower than
+   the table — §8.7 forbids horizontal scrolling of the page itself. */
+.zg-table-wrap {
+  overflow-x: auto;
+}
+
+.zg-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--zg-text-sm);
+}
+
+.zg-table th,
+.zg-table td {
+  text-align: left;
+  padding: var(--zg-space-2) var(--zg-space-2);
+  border-bottom: 1px solid var(--zg-border);
+  vertical-align: middle;
+}
+
+.zg-table thead th {
+  background: var(--zg-pale);
+  color: var(--zg-text);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.zg-sort-header {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--zg-space-1);
+}
+
+.zg-sort-header:focus-visible {
+  outline: 2px solid var(--zg-secondary);
+  outline-offset: 2px;
+}
+
+.zg-table-row {
+  cursor: pointer;
+}
+
+.zg-table-row:hover {
+  background: var(--zg-pale);
+}
+
+.zg-table-row:focus-visible {
+  outline: 2px solid var(--zg-secondary);
+  outline-offset: -2px;
+}
+
+/* ---------- Ticket cards, mobile only (§6.3) ---------- */
+
+.zg-ticket-cards {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.zg-ticket-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--zg-space-1);
+  width: 100%;
+  text-align: left;
+  background: var(--zg-surface);
+  border: 1px solid var(--zg-border);
+  border-radius: 8px;
+  padding: var(--zg-space-3);
+  margin-bottom: var(--zg-space-2);
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  text-decoration: none;
+}
+
+.zg-ticket-card:focus-visible {
+  outline: 2px solid var(--zg-secondary);
+  outline-offset: 2px;
+}
+
+.zg-ticket-card-summary {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.zg-badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--zg-space-1);
+}
+
+/* ---------- Badges added for the list (§2.3) ---------- */
+
+.zg-badge--status-new {
+  background: var(--zg-pale);
+  color: var(--zg-secondary);
+}
+
+.zg-badge--unset {
+  background: var(--zg-disabled-bg);
+  color: var(--zg-disabled-text);
+}
+
+/* ---------- Footer and pagination (§6.1) ---------- */
+
+.zg-list-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--zg-space-3);
+  margin-top: var(--zg-space-3);
+  flex-wrap: wrap;
+}
+
+.zg-pagination {
+  display: flex;
+  align-items: center;
+  gap: var(--zg-space-2);
+  flex-wrap: wrap;
+}
+
+.zg-pagination .zg-btn--primary,
+.zg-pagination .zg-btn--secondary {
+  min-width: 40px;
+  padding: 0 var(--zg-space-2);
+}
+
+.zg-page-size {
+  margin-bottom: 0;
+  min-width: 130px;
+}
+
+/* No-results is its own state, never the empty state reworded (BR-37). */
+.zg-state--no-results {
+  padding: var(--zg-space-5);
+  text-align: center;
+  color: var(--zg-text-muted);
+}
+
+/* ---------- Responsive (§6.2, §6.3) ---------- */
+
+@media (min-width: 768px) and (max-width: 991px) {
+  /* Tablet drops Category from the table to avoid a horizontal scroll; it
+     stays available as a filter (§6.2). */
+  .zg-col-category {
+    display: none;
+  }
+
+  /* Dropping Category was not enough on its own: the seven remaining columns
+     still measured 742px inside a 718px wrapper, so "Last Updated" was cut
+     off until the reader thought to drag the table sideways — a clipped label
+     either way, which §8.7 rules out. Halving the horizontal cell padding
+     buys back far more than the 24px needed, and keeps every column the spec
+     says to keep at this width. */
+  .zg-table th,
+  .zg-table td {
+    padding: var(--zg-space-2) var(--zg-space-1);
+  }
+
+  .zg-filters {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .zg-search-field {
+    flex: 1 1 100%;
+  }
+}
+
+@media (max-width: 767px) {
+  .zg-list-header,
+  .zg-list-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .zg-list-header-actions > * {
+    flex: 1 1 auto;
+  }
+
+  .zg-search-field {
+    flex: 1 1 100%;
+  }
+
+  .zg-filter-sheet {
+    display: flex;
+    flex-direction: column;
+    gap: var(--zg-space-3);
+    background: var(--zg-surface);
+    border: 1px solid var(--zg-border);
+    border-radius: 8px;
+    padding: var(--zg-space-3);
+    margin-bottom: var(--zg-space-3);
+  }
+
+  .zg-filter-sheet .zg-filters {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .zg-filter-sheet-actions {
+    display: flex;
+    gap: var(--zg-space-2);
+  }
+
+  .zg-filter-sheet-actions > * {
+    flex: 1 1 0;
+    min-height: 44px;
+  }
+
+  .zg-pagination {
+    justify-content: space-between;
+  }
+
+  .zg-pagination .zg-btn--secondary,
+  .zg-page-size {
+    min-height: 44px;
+  }
+}
+
+/* The ticket number is the row's real, focusable link (§6.1); the row's own
+   click handler is a pointer convenience layered on top of it. */
+.zg-ticket-link {
+  height: auto;
+  padding: 0;
+  font-weight: 700;
+}
+
+/* ---------- Ticket Detail (ui-spec.md §7) ---------- */
+
+.zg-card--detail {
+  max-width: 960px;
+}
+
+.zg-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--zg-space-3);
+  flex-wrap: wrap;
+}
+
+.zg-field-row--4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.zg-field--block {
+  grid-column: 1 / -1;
+}
+
+/* A read-only field holding a badge instead of text: the badge brings its own
+   fill, so the field only supplies the frame and height. */
+.zg-field--badge {
+  display: flex;
+  align-items: center;
+  background: transparent;
+  border-color: transparent;
+}
+
+/* Description can run to 2000 characters (BR-20), so it grows instead of
+   clipping — the one read-only field that is not a single line. */
+.zg-field--readonly-multiline {
+  height: auto;
+  min-height: 96px;
+  padding: var(--zg-space-2);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* §7.1 item 2: a hard rule between ticket information and attachments, which
+   the handout requires to be clearly distinguished. */
+.zg-detail-divider {
+  border: none;
+  border-top: 1px solid var(--zg-border);
+  margin: var(--zg-space-5) 0;
+}
+
+.zg-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--zg-space-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--zg-space-3);
+}
+
+/* ---------- Attachment rows, remaining states (ui-spec.md §2.5) ---------- */
+
+.zg-attachment-row--active,
+.zg-attachment-row--removed,
+.zg-attachment-row--uploading,
+.zg-attachment-row--upload-error {
+  display: flex;
+  align-items: center;
+  gap: var(--zg-space-2);
+  flex-wrap: wrap;
+  padding: var(--zg-space-2) var(--zg-space-3);
+  border: 1px solid var(--zg-border);
+  border-radius: 6px;
+  margin-bottom: var(--zg-space-2);
+}
+
+.zg-attachment-row--removed {
+  color: var(--zg-disabled-text);
+  background: var(--zg-disabled-bg);
+}
+
+.zg-attachment-row--uploading {
+  border-style: dashed;
+}
+
+.zg-attachment-row--upload-error {
+  border-color: var(--zg-error);
+  background: var(--zg-error-bg);
+}
+
+.zg-attachment-actions {
+  display: flex;
+  gap: var(--zg-space-2);
+  margin-left: auto;
+}
+
+/* ---------- Confirm modal (ui-spec.md §7.1) ---------- */
+
+.zg-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(30, 42, 36, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--zg-space-3);
+  z-index: 10;
+}
+
+.zg-modal--confirm {
+  background: var(--zg-surface);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  padding: var(--zg-space-4);
+  width: 100%;
+  max-width: 480px;
+}
+
+@media (max-width: 991px) {
+  /* §7.2: the information grid halves; Summary and Description stay full width. */
+  .zg-field-row--4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 767px) {
+  /* §7.3: one field per row, and attachment actions drop below the metadata
+     rather than compressing onto the same line. */
+  .zg-field-row--4 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* §7.3: filename, then metadata, then the actions — each on its own line.
+     Left sharing a row, the metadata (size and two timestamps) wins the space
+     and squeezes the filename until `overflow-wrap: anywhere` breaks it one
+     character per line, which is what "rather than compressing onto one line"
+     rules out. */
+  .zg-attachment-row--active,
+  .zg-attachment-row--removed,
+  .zg-attachment-row--uploading,
+  .zg-attachment-row--upload-error {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .zg-attachment-name {
+    flex: none;
+  }
+
+  .zg-attachment-actions {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .zg-attachment-actions > * {
+    flex: 1 1 0;
+    min-height: 44px;
+  }
+}
