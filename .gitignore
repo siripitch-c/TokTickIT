@@ -18,3 +18,10 @@ server/uploads/
 
 # vite dependency pre-bundle cache
 .vite/
+
+# playwright run output (Issue #17). The screenshots under artifacts/ are
+# deliverables and stay tracked; everything here is regenerated on each run.
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/

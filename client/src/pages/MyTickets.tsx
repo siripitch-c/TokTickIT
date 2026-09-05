@@ -277,11 +277,12 @@ export default function MyTickets() {
             <ul data-testid="ticket-cards" className="zg-ticket-cards">
               {rows.map((ticket) => (
                 <li key={ticket.id}>
-                  <button
-                    type="button"
-                    className="zg-ticket-card"
-                    onClick={() => navigate(`/tickets/${ticket.id}`)}
-                  >
+                  {/* A link, not a button: this goes to a URL, and the desktop
+                      table already settled that in §6.1. A button would give
+                      phone users no address to open in a new tab or copy, and
+                      would have a screen reader announce "button" for the same
+                      action it announces as "link" on a wider screen. */}
+                  <Link className="zg-ticket-card" to={`/tickets/${ticket.id}`}>
                     <span className="zg-text-sm zg-text-muted">
                       {ticket.ticketNumber} · {formatDate(ticket.createdAt)}
                     </span>
@@ -294,7 +295,7 @@ export default function MyTickets() {
                     <span className="zg-text-xs zg-text-muted">
                       {categoryName(ticket.categoryId)} · Updated {formatDate(ticket.updatedAt)}
                     </span>
-                  </button>
+                  </Link>
                 </li>
               ))}
             </ul>
