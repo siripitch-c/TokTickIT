@@ -71,7 +71,7 @@ function mockFetch(handlers: Handlers = {}) {
 
 function renderSection(initial: AttachmentMeta[] = []) {
   return render(
-    <AttachmentSection requesterId={REQUESTER_ID} ticketId={TICKET_ID} initialAttachments={initial} />,
+    <AttachmentSection ticketId={TICKET_ID} initialAttachments={initial} />,
   );
 }
 

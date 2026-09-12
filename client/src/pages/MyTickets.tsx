@@ -3,7 +3,7 @@ import { Link, useNavigate, useOutletContext } from "react-router-dom";
 import {
   Pagination,
   ReferenceItem,
-  Requester,
+  AuthUser,
   RequestedPriority,
   SortDirection,
   TicketSortField,
@@ -39,7 +39,7 @@ const NO_FILTERS: Filters = { category: "", requestedPriority: "", itPriority: "
 type ListState = "loading" | "ready" | "error";
 
 export default function MyTickets() {
-  const requester = useOutletContext<Requester>();
+  const user = useOutletContext<AuthUser>();
   const navigate = useNavigate();
   const isMobile = useMediaQuery(MOBILE_QUERY);
 
@@ -85,7 +85,7 @@ export default function MyTickets() {
     setPage(1);
     setOwnsAny(null);
     setState("loading");
-  }, [requester.id]);
+  }, [user.id]);
 
   useEffect(() => {
     fetchCategories()
@@ -97,7 +97,7 @@ export default function MyTickets() {
     const token = ++lookup.current;
     setState("loading");
     try {
-      const result = await fetchTickets(requester.id, {
+      const result = await fetchTickets({
         search,
         category: filters.category === "" ? "" : Number(filters.category),
         requestedPriority: filters.requestedPriority as RequestedPriority | "",
@@ -120,7 +120,7 @@ export default function MyTickets() {
       if (token !== lookup.current) return;
       setState("error");
     }
-  }, [requester.id, search, filters, sortBy, sortDir, page, pageSize]);
+  }, [user.id, search, filters, sortBy, sortDir, page, pageSize]);
 
   useEffect(() => {
     load();

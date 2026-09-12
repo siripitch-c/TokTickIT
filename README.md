@@ -4,9 +4,13 @@ TokTickIT is an IT service desk application being built through the CPE334 indiv
 
 ## What this repository contains
 
-**Lab 3 is in progress.** Issue #29 (authentication foundation) has landed:
-the Development Requester is now a real `User` account with a password, and
-the API issues server-side sessions. See *Lab 3 so far* below.
+**Lab 3 is in progress.** Issues #29 and #30 have landed: the Development
+Requester is now a real `User` account with a password, the API issues
+server-side sessions, and the Requester selector is gone — the application
+opens on a Login screen. See *Lab 3 so far* below.
+
+The Lab 2 list that follows is a record of what that sprint delivered. Where
+Lab 3 has since replaced something, it is marked.
 
 The **Lab 2 sprint is complete** — Issues #11–#18, on top of the Lab 1
 foundation (Issues 1–4):
@@ -25,19 +29,20 @@ foundation (Issues 1–4):
   in Issues #13–#15)
 * Idempotent seed for ≥4 active Requesters, 1 inactive Requester, and 8
   Related Systems (including "Other / Not Listed")
-* GET `/api/requesters` — active Requesters only, no `email` in the response
-* Development Requester Selection screen (loading/empty/error states),
-  session-persisted selection, and a Change Requester action — this is now
-  the app's real entry point, replacing the Lab 1 "Check System" demo page
-* URL routing with a Requester route guard: `/select-requester`,
-  `/my-tickets`, `/tickets/new`; any Requester-scoped route entered without a
-  selected Requester redirects to the selector and returns afterwards
+* ~~GET `/api/requesters`~~ — **removed in Lab 3 Issue #30** (AC-25)
+* ~~Development Requester Selection screen, session-persisted selection, and a
+  Change Requester action~~ — **removed in Lab 3 Issue #30**; the entry point
+  is now the Login screen
+* URL routing with a route guard over `/my-tickets` and `/tickets/new`
+  (in Lab 3 the guard reads the authenticated session instead of a selected
+  Requester, and `/select-requester` no longer exists)
 * Zen Green application shell — header, My Tickets / Create Ticket
-  navigation with active-page indication, current Requester name, Change
-  Requester, and a mobile hamburger panel
+  navigation with active-page indication, and a mobile hamburger panel (in
+  Lab 3 the header shows the signed-in user, their role, and a `Profile ▾`
+  menu instead of Change Requester)
 * POST `/api/tickets` — backend-generated `TKT-YYYY-NNNNNN` Ticket Number
-  from an atomic per-year counter, ownership taken from `X-Requester-Id`,
-  strict body validation
+  from an atomic per-year counter, strict body validation (ownership came from
+  `X-Requester-Id` in Lab 2; in Lab 3 it comes from the session)
 * POST `/api/tickets/:id/attachments` — JPG/JPEG/PNG/WEBP/PDF only, 5 MB per
   file, 5 active attachments per ticket, randomised names on disk
 * GET `/api/related-systems` — active Related Systems for the ticket form
@@ -102,6 +107,18 @@ Issue #29 — authentication foundation:
   `POST /api/auth/change-password`, with an `httpOnly`, `SameSite=Lax` session
   cookie that expires after 8 hours.
 
+Issue #30 — authorization and Requester regression:
+
+* Every Requester endpoint now takes its identity from the session. The
+  `X-Requester-Id` header is not read anywhere, and `GET /api/requesters` is
+  gone with the selector that used it.
+* Three server-side gates run before every protected route: authenticated
+  (401), past the mandatory password change (403), and holding the required
+  role (403). Ownership still answers 404 so a resource belonging to someone
+  else is not revealed to exist.
+* Login, Change Password and a role-aware application shell; routing reads the
+  session, and no destination a role may not use is rendered.
+
 ### Development sign-in credentials
 
 Every seeded account uses the same **local-development password**:
@@ -147,21 +164,24 @@ npx prisma migrate resolve --applied 20260902191419_add_ticket_number_counter
 `npx prisma migrate status` should then report that the schema is up to date,
 and `npx prisma migrate dev` will apply only what is genuinely new.
 
-## About the Development Requester selector
+## The Development Requester selector is gone
 
-The Development Requester selector — the Selection screen, `GET
-/api/requesters`, and the `X-Requester-Id` header that later ticket/
-attachment endpoints will require — is a **Lab 2 testing mechanism only**.
-It is **not authentication** and provides no real security: any client can
-claim to be any Requester simply by sending a different id. Any `404`
-returned by a ticket or attachment endpoint when the id in that header
-doesn't own the requested resource (per `docs/lab-02/specification.md`
-BR-12) is an ownership check performed against this testing header, not
-proof of an authorization system that would resist a determined attacker.
-Real authentication **arrived in Lab 3 Issue #29** and lives alongside it for
-now: the selector and the header still work, because the Lab 2 client is still
-the only client. Both are removed in Issue #30, together with the selector
-screen, at which point identity comes from the session and nothing else.
+Lab 2 identified its caller with a **Development Requester selector**: a
+Selection screen, `GET /api/requesters`, and an `X-Requester-Id` header that
+the ticket and attachment endpoints trusted. It was never authentication —
+any client could claim to be any Requester by sending a different id — and it
+was documented as a testing mechanism throughout Lab 2.
+
+Lab 3 removed it in two steps. Issue #29 added real accounts, passwords and
+server-side sessions alongside it; **Issue #30 deleted it**: the Selection
+screen, the route, the `sessionStorage` state, `GET /api/requesters`, and the
+header itself. The header is no longer read by anything, so sending it has no
+effect on any endpoint (`docs/lab-03/specification.md` AC-03, AC-25).
+
+The ownership checks that Lab 2 performed against that header did not move —
+they now run against the authenticated session instead, which is why a Lab 2
+Ticket is still owned by, and still readable only by, the same person after
+migration.
 
 ## Documentation
 
@@ -247,14 +267,25 @@ cd client
 npm run dev
 ```
 
-Open the Vite URL shown in the client terminal. You should see the
-Development Requester Selection screen first; after choosing a Requester and
-continuing, the app shell opens on `/my-tickets` with your selected
-Requester's name and a "Change Requester" action. Use "Create Ticket" to
-submit a ticket — on success the screen shows the Ticket Number generated by
-the backend. Refreshing the page keeps you signed in as the same Requester
-for the rest of the browser session (sessionStorage); Change Requester
-clears that and returns you to the selector.
+Open the Vite URL shown in the client terminal. You should see the **Login
+screen**. Sign in with one of the accounts in *Development sign-in
+credentials* above — `jennifer.anderson@example.edu` / `ChangeMe123!` is a
+straightforward Requester.
+
+A Requester lands on `/my-tickets`, with their name and role badge in the
+header and a `Profile ▾` menu holding Change Password and Log Out. Use
+"Create Ticket" to submit a ticket — on success the screen shows the Ticket
+Number generated by the backend. Refreshing keeps you signed in: the session
+lives in an `httpOnly` cookie for 8 hours, and the client asks
+`GET /api/auth/me` on each load rather than storing anything itself.
+
+Sign in as `david.lee@example.edu` to see the mandatory password change: every
+screen and every protected endpoint stays unavailable until a new password is
+saved.
+
+IT Staff and Administrator accounts sign in and reach their own landing
+routes, which currently say the screen arrives with a later issue — the queue
+is Issue #31 and User Management is Issue #33.
 
 ## Production build
 

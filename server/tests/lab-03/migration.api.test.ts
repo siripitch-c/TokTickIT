@@ -1,8 +1,10 @@
 import { execSync } from "node:child_process";
+import request from "supertest";
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { PrismaClient } from "@prisma/client";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { app } from "../../src/app.js";
 import { getPrisma } from "../../src/prisma.js";
 
 // tests.md MIG-01..05 — the Lab 2 to Lab 3 migration, against docs/lab-03/
@@ -22,9 +24,10 @@ import { getPrisma } from "../../src/prisma.js";
 // MIG-09 and MIG-10 cover the seed, so they run against the ordinary
 // development database at the bottom of this file rather than the scratch one.
 //
-// MIG-06 (GET /api/requesters removed), MIG-07 (X-Requester-Id ignored) and
-// MIG-08 (Lab 2 endpoints under a session) are deferred to Issue #30, which is
-// where the endpoints and the header contract actually change.
+// MIG-06 is at the bottom of this file. MIG-07 (the header is ignored) and
+// MIG-08 (every Lab 2 endpoint under a session) are asserted where they
+// belong — inside the Lab 2 suites themselves, which now sign in rather than
+// send a header, and whose passing is the regression evidence.
 
 const MIGRATIONS_DIR = path.resolve(import.meta.dirname, "../../prisma/migrations");
 const SCRATCH_DB = "toktickit_migration_test";
@@ -311,6 +314,19 @@ describe("seed data", () => {
     // BR-02 and AC-02 are demonstrable on a fresh database without an
     // Administrator having to reset somebody first.
     expect(await prisma.user.count({ where: { mustChangePassword: true } })).toBeGreaterThanOrEqual(1);
+  });
+
+  it("MIG-06 / AC-25: GET /api/requesters no longer exists", async () => {
+    // It existed only to fill the Development Requester selector, and it
+    // handed a list of real people to any caller with no session at all.
+    // Removed in Issue #30 with the selector (api-spec.md §6).
+    const response = await request(app).get("/api/requesters");
+
+    expect(response.status).toBe(404);
+    expect(response.body.error.code).toBe("NOT_FOUND");
+    // A deleted route falls through to the unmatched-path handler, so it must
+    // still answer in the error envelope rather than Express's HTML page.
+    expect(response.headers["content-type"]).toMatch(/application\/json/);
   });
 
   it("MIG-09 / BR-46: running the seed twice changes nothing", async () => {

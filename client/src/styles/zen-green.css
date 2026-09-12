@@ -85,6 +85,34 @@ body {
   display: flex;
   align-items: center;
   gap: var(--zg-space-3);
+  /* The Profile menu is positioned against this, so the disclosure opens
+     under the control rather than pushing the header apart. */
+  position: relative;
+}
+
+/* ui-spec.md §3 — the Profile disclosure. It leaves the header's dark ground,
+   so its items use the ordinary tertiary colour rather than the on-header
+   variant. */
+.zg-profile-menu {
+  position: absolute;
+  top: calc(100% + var(--zg-space-2));
+  right: 0;
+  z-index: 20;
+  min-width: 180px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--zg-space-2);
+  padding: var(--zg-space-3);
+  background: var(--zg-surface);
+  border: 1px solid var(--zg-border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+
+.zg-profile-menu .zg-btn--tertiary {
+  justify-content: flex-start;
+  min-height: 44px;
 }
 
 /* ---------- Card / surface ---------- */
@@ -324,6 +352,15 @@ textarea.zg-field--editable {
   font-size: var(--zg-text-xs);
   font-weight: 600;
 }
+/* ui-spec.md §2.3: deliberately the quietest badge in the system. Outline
+   rather than fill is what keeps a role from competing with the status badge
+   beside it — a role is an attribute of a person, not a state to scan for. */
+.zg-badge--role {
+  background: var(--zg-surface);
+  border: 1px solid var(--zg-border);
+  color: var(--zg-text-muted);
+}
+
 .zg-badge--low { background: var(--zg-pale); color: var(--zg-secondary); }
 .zg-badge--medium { background: var(--zg-warning-bg); color: var(--zg-warning); }
 .zg-badge--high { background: var(--zg-error-bg); color: var(--zg-error); }
@@ -606,6 +643,13 @@ textarea.zg-field--editable {
     padding: var(--zg-space-2) var(--zg-space-3);
     border-bottom: none;
     text-align: left;
+  }
+
+  /* ui-spec.md §3: the role's items, then a divider, then who you are. */
+  .zg-mobile-nav-divider {
+    margin: var(--zg-space-2) var(--zg-space-3);
+    border: none;
+    border-top: 1px solid var(--zg-border);
   }
 
   .zg-mobile-nav .zg-nav-item--active {
@@ -1103,4 +1147,95 @@ textarea.zg-field--editable {
     flex: 1 1 0;
     min-height: 44px;
   }
+}
+
+/* ---------------------------------------------------------------------------
+   Lab 3, Issue #30 — authentication screens (ui-spec.md §4, §5).
+
+   Eight new classes, every one built from tokens that already exist. No new
+   colour is introduced: ui-spec.md §1 keeps the Lab 2 palette in force, and a
+   second palette is how one application quietly becomes two.
+   --------------------------------------------------------------------------- */
+
+/* One layout at every breakpoint — a sign-in form has nothing to reflow. */
+.zg-auth-screen {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--zg-space-4);
+  padding: var(--zg-space-4);
+  background: var(--zg-bg);
+}
+
+.zg-auth-card {
+  width: 100%;
+  max-width: 420px;
+}
+
+.zg-auth-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--zg-space-2);
+}
+
+.zg-auth-glyph {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.zg-auth-wordmark {
+  font-size: var(--zg-text-xl);
+  font-weight: 600;
+  color: var(--zg-primary);
+}
+
+/* The primary action on a single-purpose form fills the card: there is no
+   second thing to do, so nothing competes with it for the width. */
+.zg-btn--block {
+  display: block;
+  width: 100%;
+  margin-top: var(--zg-space-3);
+}
+
+/* The show/hide toggle sits inside the field rather than beside it, so the
+   control keeps the 40px height every other single-line input has. */
+.zg-password-control {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.zg-password-control > input {
+  width: 100%;
+  padding-right: var(--zg-space-6);
+}
+
+.zg-icon-btn {
+  position: absolute;
+  right: var(--zg-space-1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* 44px, the touch target Lab 2 §8 requires on mobile — applied at every
+     width rather than only below 768px, since a smaller target is no easier
+     to hit with a mouse. */
+  width: 44px;
+  height: 44px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: var(--zg-text-base);
+  border-radius: 4px;
+}
+
+.zg-icon-btn:focus-visible {
+  outline: 2px solid var(--zg-secondary);
+  outline-offset: 2px;
+}
+
+.zg-icon-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }

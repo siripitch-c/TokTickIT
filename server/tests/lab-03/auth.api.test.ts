@@ -13,10 +13,9 @@ import { TEST_PASSWORD, upsertTestUser } from "../support/users.js";
 // that comes back, never by inserting a session row and pretending — a test
 // that forges its own identity proves nothing about the gate it is testing.
 //
-// API-AUTH-17 and API-AUTH-18 (the password-change gate on *other* endpoints)
-// are deferred to Issue #30: the Lab 2 routes still take their identity from
-// the X-Requester-Id header, so there is no gated endpoint to point them at
-// yet. Recorded in tests.md §8 rather than silently skipped.
+// API-AUTH-17 and API-AUTH-18 were deferred from Issue #29 and are written at
+// the bottom of this file: they need endpoints standing behind the gate, and
+// the Lab 2 routes only moved onto the session in Issue #30.
 
 const prisma = getPrisma();
 
@@ -24,6 +23,7 @@ const ACTIVE = "auth.active@test.invalid";
 const INACTIVE = "auth.inactive@test.invalid";
 const CHANGER = "auth.changer@test.invalid";
 const UNKNOWN = "auth.nobody@test.invalid";
+const PENDING = "auth.pending@test.invalid";
 
 const ids: number[] = [];
 
@@ -41,7 +41,13 @@ beforeAll(async () => {
   const active = await upsertTestUser({ email: ACTIVE, name: "Auth Active" });
   const inactive = await upsertTestUser({ email: INACTIVE, name: "Auth Inactive", isActive: false });
   const changer = await upsertTestUser({ email: CHANGER, name: "Auth Changer" });
-  ids.push(active.id, inactive.id, changer.id);
+  // An account still holding the password it was created with (BR-02).
+  const pending = await upsertTestUser({
+    email: PENDING,
+    name: "Auth Pending",
+    mustChangePassword: true,
+  });
+  ids.push(active.id, inactive.id, changer.id, pending.id);
 });
 
 afterAll(async () => {
@@ -353,5 +359,95 @@ describe("POST /api/auth/change-password", () => {
     });
 
     expect(res.status).toBe(401);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Deferred from Issue #29 — gate 3, the mandatory password change.
+//
+// The gate was built with the rest of the authentication foundation, but there
+// was nothing standing behind it until Issue #30 moved the Lab 2 routes onto
+// the session. These two rows are what make BR-02 a server-side rule rather
+// than a client-side redirect.
+// ---------------------------------------------------------------------------
+describe("The mandatory password change gate", () => {
+  const CHOSEN_PASSWORD = "chosen-after-the-initial-one";
+
+  it("API-AUTH-17 / AC-02, BR-02: an account on its initial password reaches no ordinary endpoint", async () => {
+    const cookie = cookieOf(await login(PENDING));
+
+    const calls = [
+      request(app).get("/api/tickets").set("Cookie", cookie),
+      request(app).get("/api/tickets/1").set("Cookie", cookie),
+      request(app).post("/api/tickets").set("Cookie", cookie).send({ summary: "Anything" }),
+      request(app).get("/api/attachments/1").set("Cookie", cookie),
+      request(app).get("/api/attachments/1/download").set("Cookie", cookie),
+      request(app)
+        .delete("/api/attachments/1")
+        .set("Cookie", cookie)
+        .send({ removalReason: "A reason long enough to pass validation." }),
+    ];
+
+    for (const call of calls) {
+      const res = await call;
+      // 403 and not 401: the session is perfectly valid, which is precisely
+      // why the client can be told what to do about it (api-spec.md §3).
+      expect(res.status).toBe(403);
+      expect(res.body.error.code).toBe("PASSWORD_CHANGE_REQUIRED");
+    }
+  });
+
+  it("API-AUTH-17 / BR-02: the refusal outranks anything else wrong with the request", async () => {
+    const cookie = cookieOf(await login(PENDING));
+
+    // An unparseable id would be 404 and an empty body 400 for anyone else.
+    // The gate runs first, so neither answer is reachable from here — a 404
+    // would tell an unauthorised caller which ids exist.
+    const badId = await request(app).get("/api/tickets/not-a-number").set("Cookie", cookie);
+    expect(badId.status).toBe(403);
+    expect(badId.body.error.code).toBe("PASSWORD_CHANGE_REQUIRED");
+  });
+
+  it("API-AUTH-18 / BR-02: the three ways out of that state all still work", async () => {
+    const cookie = cookieOf(await login(PENDING));
+
+    const me = await request(app).get("/api/auth/me").set("Cookie", cookie);
+    expect(me.status).toBe(200);
+    // The client needs this flag to know which screen to show, so it is on the
+    // safe user rather than inferred from a refusal.
+    expect(me.body.data.mustChangePassword).toBe(true);
+
+    const changed = await request(app)
+      .post("/api/auth/change-password")
+      .set("Cookie", cookie)
+      .send({
+        currentPassword: TEST_PASSWORD,
+        newPassword: CHOSEN_PASSWORD,
+        confirmPassword: CHOSEN_PASSWORD,
+      });
+    expect(changed.status).toBe(200);
+    expect(changed.body.data.mustChangePassword).toBe(false);
+
+    // AC-02: past the gate, the ordinary endpoints answer normally — the same
+    // session, no second sign-in.
+    const after = await request(app).get("/api/tickets").set("Cookie", cookie);
+    expect(after.status).toBe(200);
+
+    const loggedOut = await request(app).post("/api/auth/logout").set("Cookie", cookie);
+    expect(loggedOut.status).toBe(204);
+
+    // Left as it was found, so the suite can be run twice in a row.
+    await prisma.user.update({
+      where: { email: PENDING },
+      data: { passwordHash: await hashPassword(TEST_PASSWORD), mustChangePassword: true },
+    });
+  });
+
+  it("API-AUTH-18 / BR-02: logging out is available without changing anything first", async () => {
+    const cookie = cookieOf(await login(PENDING));
+
+    const res = await request(app).post("/api/auth/logout").set("Cookie", cookie);
+    expect(res.status).toBe(204);
+    expect(await prisma.session.count({ where: { user: { email: PENDING } } })).toBe(0);
   });
 });

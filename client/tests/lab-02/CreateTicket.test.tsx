@@ -195,7 +195,13 @@ describe("Create Ticket screen", () => {
 
     const [url, init] = postCalls(fetchMock)[0];
     expect(String(url)).toContain("/api/tickets");
-    expect((init as RequestInit).headers).toMatchObject({ "X-Requester-Id": "7" });
+    // Lab 3, Issue #30 — deliberately updated. The header this asserted is no
+    // longer sent; what carries the identity is the session cookie, and what
+    // makes the browser attach it across origins is `credentials: "include"`
+    // (api-spec.md §1). A call that forgets it looks unauthenticated, so this
+    // is the assertion worth keeping.
+    expect((init as RequestInit).credentials).toBe("include");
+    expect((init as RequestInit).headers).not.toHaveProperty("X-Requester-Id");
     expect(JSON.parse((init as RequestInit).body as string)).toEqual({
       categoryId: 2,
       relatedSystemId: 3,
