@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import request from "supertest";
 import { app } from "../../src/app.js";
 import { getPrisma } from "../../src/prisma.js";
+import { upsertTestUser } from "../support/users.js";
 
 // tests.md API-LIST-01..11; specification.md FR-05..FR-08, BR-11..BR-18;
 // api-spec.md §4 (GET /api/tickets).
@@ -29,16 +30,8 @@ const list = (query = "", id: number | null = ownerId) => {
 const numbersOf = (body: { data: { ticketNumber: string }[] }) => body.data.map((t) => t.ticketNumber);
 
 beforeAll(async () => {
-  const owner = await prisma.requester.upsert({
-    where: { email: "my-tickets.owner@test.invalid" },
-    update: { isActive: true },
-    create: { name: "My Tickets Owner", email: "my-tickets.owner@test.invalid" },
-  });
-  const other = await prisma.requester.upsert({
-    where: { email: "my-tickets.other@test.invalid" },
-    update: { isActive: true },
-    create: { name: "My Tickets Other", email: "my-tickets.other@test.invalid" },
-  });
+  const owner = await upsertTestUser({ email: "my-tickets.owner@test.invalid", name: "My Tickets Owner" });
+  const other = await upsertTestUser({ email: "my-tickets.other@test.invalid", name: "My Tickets Other" });
   ownerId = owner.id;
   otherId = other.id;
 
@@ -88,7 +81,7 @@ afterAll(async () => {
   const ids = [ownerId, otherId];
   await prisma.attachment.deleteMany({ where: { ticket: { requesterId: { in: ids } } } });
   await prisma.ticket.deleteMany({ where: { requesterId: { in: ids } } });
-  await prisma.requester.deleteMany({ where: { id: { in: ids } } });
+  await prisma.user.deleteMany({ where: { id: { in: ids } } });
 });
 
 describe("GET /api/tickets", () => {
@@ -113,6 +106,20 @@ describe("GET /api/tickets", () => {
     const response = await list("?pageSize=10");
     const row = response.body.data[0];
 
+    // Lab 3, Issue #29 — deliberately updated, per the Definition of Done's
+    // allowance for Lab 2 tests that change with a recorded reason.
+    //
+    // `ownerId` and `requesterResolvedAt` are new columns (lab-03 BR-25,
+    // BR-34). They appear here because lab-03/api-spec.md §5 defines a single
+    // Ticket object for every role — "one shape to test and no branch that
+    // could leak by mistake" — so the Requester's list carries them too. They
+    // are both null for a Requester's own unclaimed ticket, and neither says
+    // anything the Requester may not know: who is working on their ticket, and
+    // whether they themselves reported it resolved.
+    //
+    // The assertion stays exhaustive rather than becoming a subset check. Its
+    // job is to fail when the response shape moves, and this run is exactly
+    // that job being done.
     expect(Object.keys(row).sort()).toEqual([
       "categoryId",
       "createdAt",
@@ -120,9 +127,11 @@ describe("GET /api/tickets", () => {
       "description",
       "id",
       "itPriority",
+      "ownerId",
       "relatedSystemId",
       "requestedPriority",
       "requesterId",
+      "requesterResolvedAt",
       "summary",
       "ticketNumber",
       "updatedAt",

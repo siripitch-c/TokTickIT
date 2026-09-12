@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import request from "supertest";
 import { app } from "../../src/app.js";
 import { getPrisma } from "../../src/prisma.js";
+import { upsertTestUser } from "../support/users.js";
 
 // tests.md API-DETAIL-01..04; specification.md FR-09, BR-11, BR-12, BR-29, BR-38;
 // api-spec.md §4 (GET /api/tickets/:id).
@@ -23,16 +24,8 @@ const get = (id: number | string, requesterId: number | null = ownerId) => {
 };
 
 beforeAll(async () => {
-  const owner = await prisma.requester.upsert({
-    where: { email: "detail.owner@test.invalid" },
-    update: { isActive: true },
-    create: { name: "Detail Owner", email: "detail.owner@test.invalid" },
-  });
-  const other = await prisma.requester.upsert({
-    where: { email: "detail.other@test.invalid" },
-    update: { isActive: true },
-    create: { name: "Detail Other", email: "detail.other@test.invalid" },
-  });
+  const owner = await upsertTestUser({ email: "detail.owner@test.invalid", name: "Detail Owner" });
+  const other = await upsertTestUser({ email: "detail.other@test.invalid", name: "Detail Other" });
   ownerId = owner.id;
   otherId = other.id;
 
@@ -97,7 +90,7 @@ afterAll(async () => {
   const ids = [ownerId, otherId];
   await prisma.attachment.deleteMany({ where: { ticket: { requesterId: { in: ids } } } });
   await prisma.ticket.deleteMany({ where: { requesterId: { in: ids } } });
-  await prisma.requester.deleteMany({ where: { id: { in: ids } } });
+  await prisma.user.deleteMany({ where: { id: { in: ids } } });
 });
 
 describe("GET /api/tickets/:id", () => {
@@ -176,7 +169,7 @@ describe("GET /api/tickets/:id", () => {
     const unknown = await get(ticketId, 999999);
     expect(unknown.status).toBe(400);
 
-    const inactive = await prisma.requester.findFirstOrThrow({ where: { isActive: false } });
+    const inactive = await prisma.user.findFirstOrThrow({ where: { isActive: false } });
     const asInactive = await get(ticketId, inactive.id);
     expect(asInactive.status).toBe(400);
   });

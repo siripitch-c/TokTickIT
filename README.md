@@ -4,6 +4,10 @@ TokTickIT is an IT service desk application being built through the CPE334 indiv
 
 ## What this repository contains
 
+**Lab 3 is in progress.** Issue #29 (authentication foundation) has landed:
+the Development Requester is now a real `User` account with a password, and
+the API issues server-side sessions. See *Lab 3 so far* below.
+
 The **Lab 2 sprint is complete** — Issues #11–#18, on top of the Lab 1
 foundation (Issues 1–4):
 
@@ -84,6 +88,65 @@ It gives Michael Brown 13 tickets (two pages at the default page size),
 Jennifer Anderson 3, and leaves the other two Requesters empty so the empty
 state can be seen. Safe to re-run: it clears its own previous tickets first.
 
+## Lab 3 so far
+
+Issue #29 — authentication foundation:
+
+* The Lab 2 `Requester` model is now `User`, **renamed in place**. Every id,
+  Ticket and Attachment from Lab 2 survives; nothing was recreated.
+* `User` adds `passwordHash` (bcrypt), `role` (`REQUESTER` / `IT_STAFF` /
+  `ADMINISTRATOR`), `mustChangePassword` and `updatedAt`.
+* New `Session`, `PublicComment` and `InternalNote` tables; `Ticket` gains
+  `ownerId` and `requesterResolvedAt`; `CurrentStatus` now has all eight values.
+* `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me` and
+  `POST /api/auth/change-password`, with an `httpOnly`, `SameSite=Lax` session
+  cookie that expires after 8 hours.
+
+### Development sign-in credentials
+
+Every seeded account uses the same **local-development password**:
+
+```
+ChangeMe123!
+```
+
+This is not a secret and is not anyone's real password. It exists so the
+application can be run locally; no production credential belongs in this file
+or anywhere else in the repository.
+
+| Account | Role | Notes |
+|---|---|---|
+| `jennifer.anderson@example.edu` | Requester | active |
+| `michael.brown@example.edu` | Requester | active, owns most demo tickets |
+| `sarah.johnson@example.edu` | Requester | active |
+| `david.lee@example.edu` | Requester | active, **must change password at first sign-in** |
+| `former.student@example.edu` | Requester | inactive — sign-in is refused |
+| `somsak.wattana@example.edu` | IT Staff | active |
+| `nattapong.sri@example.edu` | IT Staff | active |
+| `preecha.thongchai@example.edu` | IT Staff | active |
+| `retired.technician@example.edu` | IT Staff | inactive |
+| `anong.kittisak@example.edu` | Administrator | active |
+
+Accounts **migrated from a Lab 2 database** (rather than created by the seed)
+also start with this password and are all flagged to change it at first
+sign-in, so a migrated account cannot be used until a real password is set.
+
+### If `prisma migrate dev` reports drift
+
+A database created with `prisma db push` has the tables but no record of the
+migrations that would have built them, so Migrate sees a mismatch and offers to
+reset — which would delete everything. Do not accept. Register the existing
+migrations as already applied instead, from `server/`:
+
+```bash
+npx prisma migrate resolve --applied 20260814191724_init_category
+npx prisma migrate resolve --applied 20260901092602_add_requester_ticket_attachment
+npx prisma migrate resolve --applied 20260902191419_add_ticket_number_counter
+```
+
+`npx prisma migrate status` should then report that the schema is up to date,
+and `npx prisma migrate dev` will apply only what is genuinely new.
+
 ## About the Development Requester selector
 
 The Development Requester selector — the Selection screen, `GET
@@ -95,7 +158,10 @@ returned by a ticket or attachment endpoint when the id in that header
 doesn't own the requested resource (per `docs/lab-02/specification.md`
 BR-12) is an ownership check performed against this testing header, not
 proof of an authorization system that would resist a determined attacker.
-Real authentication is planned to replace this mechanism entirely in Lab 3.
+Real authentication **arrived in Lab 3 Issue #29** and lives alongside it for
+now: the selector and the header still work, because the Lab 2 client is still
+the only client. Both are removed in Issue #30, together with the selector
+screen, at which point identity comes from the session and nothing else.
 
 ## Documentation
 
@@ -215,8 +281,13 @@ npm test
 ```
 The API tests run against the same local PostgreSQL database configured in
 `server/.env`, so run the migration and seed steps above first. They create
-and clean up their own throwaway Requesters and tickets rather than reusing
-the seeded demo identities.
+and clean up their own throwaway accounts and tickets rather than reusing the
+seeded demo identities.
+
+The Lab 3 migration suite additionally creates a scratch database named
+`toktickit_migration_test`, replays the migration files into it, and drops it
+again — so the PostgreSQL user in `DATABASE_URL` needs permission to create a
+database.
 
 Frontend Tests (Vitest):
 ```bash

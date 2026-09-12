@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { app } from "../../src/app.js";
 import { getPrisma } from "../../src/prisma.js";
+import { upsertTestUser } from "../support/users.js";
 
 // tests.md API-ATT-01..05 and API-ATT-12 (the upload half of the attachment
 // lifecycle — metadata, download, and soft removal arrive with Issue #15).
@@ -59,16 +60,8 @@ beforeAll(async () => {
   uploadDir = fs.mkdtempSync(path.join(os.tmpdir(), "toktickit-uploads-"));
   process.env.UPLOAD_DIR = uploadDir;
 
-  const owner = await prisma.requester.upsert({
-    where: { email: "attachments.owner@test.invalid" },
-    update: { isActive: true },
-    create: { name: "Attachment Owner", email: "attachments.owner@test.invalid" },
-  });
-  const other = await prisma.requester.upsert({
-    where: { email: "attachments.other@test.invalid" },
-    update: { isActive: true },
-    create: { name: "Attachment Other", email: "attachments.other@test.invalid" },
-  });
+  const owner = await upsertTestUser({ email: "attachments.owner@test.invalid", name: "Attachment Owner" });
+  const other = await upsertTestUser({ email: "attachments.other@test.invalid", name: "Attachment Other" });
   requesterId = owner.id;
   otherRequesterId = other.id;
 
@@ -87,7 +80,7 @@ afterAll(async () => {
   const ids = [requesterId, otherRequesterId];
   await prisma.attachment.deleteMany({ where: { ticket: { requesterId: { in: ids } } } });
   await prisma.ticket.deleteMany({ where: { requesterId: { in: ids } } });
-  await prisma.requester.deleteMany({ where: { id: { in: ids } } });
+  await prisma.user.deleteMany({ where: { id: { in: ids } } });
   delete process.env.UPLOAD_DIR;
   fs.rmSync(uploadDir, { recursive: true, force: true });
 });

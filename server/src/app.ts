@@ -1,5 +1,6 @@
 import express, { Request, Response } from "express";
 import cors from "cors";
+import { authRoutes } from "./authRoutes.js";
 import { getPrisma } from "./prisma.js";
 import { nextTicketNumber } from "./ticketNumber.js";
 import { readId, readRequesterId, sendError, sendInternalError } from "./requesterContext.js";
@@ -24,8 +25,18 @@ void getPrisma;
 // Supertest can import `app` without opening a port. Do not merge these files.
 export const app = express();
 
-app.use(cors());          // already wired: lets the Vite dev server call this API
+// Lab 3, Issue #29 — the session cookie makes this a credentialed request, and
+// a wildcard origin is incompatible with those: the browser refuses to send
+// the cookie unless the API names the origin exactly (api-spec.md §1). The
+// value is configurable so a different dev port does not require a code edit.
+const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN ?? "http://localhost:5173";
+app.use(cors({ origin: CLIENT_ORIGIN, credentials: true }));
 app.use(express.json());
+
+// The four authentication endpoints (api-spec.md §4). They are mounted before
+// everything else because they are the only routes exempt from the
+// password-change gate — they are the way out of it (BR-02).
+app.use("/api/auth", authRoutes);
 
 // ---------------------------------------------------------------------------
 // Issue 2 — API health check
@@ -87,8 +98,14 @@ app.get("/api/related-systems", async (req, res) => {
 app.get("/api/requesters", async (req, res) => {
   try {
     const prisma = getPrisma();
-    const requesters = await prisma.requester.findMany({
-      where: { isActive: true },
+    const requesters = await prisma.user.findMany({
+      // Lab 3, Issue #29: `Requester` is now `User` and holds IT Staff and
+      // Administrators too, so this list has to say which role it wants.
+      // Without the filter the Lab 2 selector would start offering staff
+      // accounts as Requester identities. The endpoint itself is removed in
+      // Issue #30, together with the selector that is its only caller
+      // (api-spec.md §6, AC-25).
+      where: { isActive: true, role: "REQUESTER" },
       orderBy: { id: "asc" },
       select: { id: true, name: true }, // email intentionally omitted (api-spec.md §3)
     });
@@ -161,7 +178,7 @@ app.post("/api/tickets", async (req, res) => {
     // An inactive Category/RelatedSystem is rejected exactly like an unknown
     // one (BR-21) — the client only ever offers active rows anyway.
     const [requester, category, relatedSystem] = await Promise.all([
-      prisma.requester.findFirst({ where: { id: requesterId, isActive: true }, select: { id: true } }),
+      prisma.user.findFirst({ where: { id: requesterId, isActive: true, role: "REQUESTER" }, select: { id: true } }),
       prisma.category.findFirst({ where: { id: categoryId, isActive: true }, select: { id: true } }),
       prisma.relatedSystem.findFirst({ where: { id: relatedSystemId, isActive: true }, select: { id: true } }),
     ]);
@@ -266,8 +283,8 @@ app.get("/api/tickets", async (req, res) => {
   try {
     const prisma = getPrisma();
 
-    const requester = await prisma.requester.findFirst({
-      where: { id: requesterId, isActive: true },
+    const requester = await prisma.user.findFirst({
+      where: { id: requesterId, isActive: true, role: "REQUESTER" },
       select: { id: true },
     });
     if (!requester) {
@@ -344,8 +361,8 @@ app.get("/api/tickets/:id", async (req, res) => {
   try {
     const prisma = getPrisma();
 
-    const requester = await prisma.requester.findFirst({
-      where: { id: requesterId, isActive: true },
+    const requester = await prisma.user.findFirst({
+      where: { id: requesterId, isActive: true, role: "REQUESTER" },
       select: { id: true },
     });
     if (!requester) {
@@ -431,8 +448,8 @@ app.post("/api/tickets/:id/attachments", receiveAttachment, async (req, res) => 
   try {
     const prisma = getPrisma();
 
-    const requester = await prisma.requester.findFirst({
-      where: { id: requesterId, isActive: true },
+    const requester = await prisma.user.findFirst({
+      where: { id: requesterId, isActive: true, role: "REQUESTER" },
       select: { id: true },
     });
     if (!requester) {
@@ -526,8 +543,8 @@ async function resolveActiveRequester(req: Request, res: Response): Promise<numb
     return null;
   }
 
-  const requester = await getPrisma().requester.findFirst({
-    where: { id: requesterId, isActive: true },
+  const requester = await getPrisma().user.findFirst({
+    where: { id: requesterId, isActive: true, role: "REQUESTER" },
     select: { id: true },
   });
   if (!requester) {

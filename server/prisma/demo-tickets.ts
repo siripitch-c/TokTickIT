@@ -62,7 +62,7 @@ async function main() {
   ];
 
   for (const [email, samples] of plan) {
-    const requester = await prisma.requester.findUnique({ where: { email } });
+    const requester = await prisma.user.findUnique({ where: { email } });
     if (!requester) {
       console.log(`skipped ${email} — not seeded; run "npx prisma db seed" first`);
       continue;
