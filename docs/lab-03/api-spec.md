@@ -19,8 +19,10 @@ reference for their request and response bodies.
   else.
 - **Session cookie:** name `tt_session`, value an opaque 256-bit random
   identifier that is the primary key of a `Session` row. Attributes
-  `HttpOnly`, `SameSite=Lax`, `Path=/`, and `Secure` outside development
-  (BR-15). `Max-Age` is 8 hours, matching the server-side `expiresAt` (BR-11).
+  `HttpOnly`, `SameSite=Lax`, `Path=/`, and `Secure` outside development —
+  meaning everywhere except an unset `NODE_ENV`, `development` and `test`,
+  which are the environments that run over plain http and where a `Secure`
+  cookie would simply never be sent back (BR-15). `Max-Age` is 8 hours, matching the server-side `expiresAt` (BR-11).
   The cookie is set by `POST /api/auth/login` and cleared by
   `POST /api/auth/logout`. No session identifier is ever returned in a response
   body (BR-07, BR-13).

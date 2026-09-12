@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from "vitest
 import request from "supertest";
 import { app } from "../../src/app.js";
 import { getPrisma } from "../../src/prisma.js";
+import { upsertTestUser } from "../support/users.js";
 import { TICKET_NUMBER_PATTERN } from "../../src/ticketNumber.js";
 
 // tests.md API-CREATE-01..10; specification.md BR-01..03, BR-10, BR-19..24;
@@ -32,28 +33,12 @@ const post = (body: unknown, id: number | null = requesterId) => {
 beforeAll(async () => {
   // Dedicated throwaway Requesters so these tests never pollute the ticket
   // lists of the seeded demo identities.
-  const owner = await prisma.requester.upsert({
-    where: { email: "create-ticket.owner@test.invalid" },
-    update: { isActive: true },
-    create: { name: "Create Ticket Owner", email: "create-ticket.owner@test.invalid" },
-  });
-  const other = await prisma.requester.upsert({
-    where: { email: "create-ticket.other@test.invalid" },
-    update: { isActive: true },
-    create: { name: "Create Ticket Other", email: "create-ticket.other@test.invalid" },
-  });
+  const owner = await upsertTestUser({ email: "create-ticket.owner@test.invalid", name: "Create Ticket Owner" });
+  const other = await upsertTestUser({ email: "create-ticket.other@test.invalid", name: "Create Ticket Other" });
   requesterId = owner.id;
   otherRequesterId = other.id;
 
-  await prisma.requester.upsert({
-    where: { email: "create-ticket.inactive@test.invalid" },
-    update: { isActive: false },
-    create: {
-      name: "Create Ticket Inactive",
-      email: "create-ticket.inactive@test.invalid",
-      isActive: false,
-    },
-  });
+  await upsertTestUser({ email: "create-ticket.inactive@test.invalid", name: "Create Ticket Inactive", isActive: false });
 
   const category = await prisma.category.findFirst({ where: { isActive: true } });
   const relatedSystem = await prisma.relatedSystem.findFirst({ where: { isActive: true } });
@@ -67,13 +52,13 @@ afterEach(() => {
 });
 
 afterAll(async () => {
-  const inactive = await prisma.requester.findUnique({
+  const inactive = await prisma.user.findUnique({
     where: { email: "create-ticket.inactive@test.invalid" },
   });
   const ids = [requesterId, otherRequesterId, ...(inactive ? [inactive.id] : [])];
   await prisma.attachment.deleteMany({ where: { ticket: { requesterId: { in: ids } } } });
   await prisma.ticket.deleteMany({ where: { requesterId: { in: ids } } });
-  await prisma.requester.deleteMany({ where: { id: { in: ids } } });
+  await prisma.user.deleteMany({ where: { id: { in: ids } } });
 });
 
 describe("POST /api/tickets", () => {
@@ -263,7 +248,7 @@ describe("POST /api/tickets", () => {
   });
 
   it("API-CREATE-12: an inactive Requester cannot create a Ticket (BR-05, BR-35, BR-11)", async () => {
-    const inactive = await prisma.requester.findUniqueOrThrow({
+    const inactive = await prisma.user.findUniqueOrThrow({
       where: { email: "create-ticket.inactive@test.invalid" },
     });
     const before = await prisma.ticket.count();

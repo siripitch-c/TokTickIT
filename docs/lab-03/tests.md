@@ -55,34 +55,34 @@ scheme as follows, so a reader looking for them can find them:
 
 | ID | Type | AC / BR | What it tests | Expected result | File | Status |
 |---|---|---|---|---|---|---|
-| UNIT-01 | Unit | BR-07 | Hash round-trip | A hash verifies its own password, rejects another, and never equals the plaintext | `password.unit.test.ts` | Planned |
-| UNIT-02 | Unit | BR-08 | Password length bounds | 7 and 73 characters rejected; 8 and 72 accepted | `password.unit.test.ts` | Planned |
+| UNIT-01 | Unit | BR-07 | Hash round-trip | A hash verifies its own password, rejects another, and never equals the plaintext | `password.unit.test.ts` | **Pass** |
+| UNIT-02 | Unit | BR-08 | Password length bounds | 7 and 73 characters rejected; 8 and 72 accepted | `password.unit.test.ts` | **Pass** |
 | UNIT-03 | Unit | BR-30, BR-31 | Transition matrix helper | Every permitted cell allowed; every other pair rejected, including all eight self-transitions | `status-transitions.unit.test.ts` | Planned |
-| UNIT-04 | Unit | BR-11 | Session expiry arithmetic | `expiresAt` is issue time + 8h; a timestamp one second past it is expired | `session.unit.test.ts` | Planned |
-| UNIT-05 | Unit | BR-36 | Email normalisation | Surrounding whitespace trimmed and comparison case-folded | `password.unit.test.ts` | Planned |
+| UNIT-04 | Unit | BR-11 | Session expiry arithmetic | `expiresAt` is issue time + 8h; a timestamp one second past it is expired | `session.unit.test.ts` | **Pass** |
+| UNIT-05 | Unit | BR-36 | Email normalisation | Surrounding whitespace trimmed and comparison case-folded | `password.unit.test.ts` | **Pass** |
 
 ### 2.2 API — Authentication — `server/tests/lab-03/auth.api.test.ts`
 
 | ID | Type | AC / BR | What it tests | Expected result | File | Status |
 |---|---|---|---|---|---|---|
-| API-AUTH-01 | API | AC-01, BR-01 | Valid login | 200, `Set-Cookie: tt_session`, safe user object with role | `auth.api.test.ts` | Planned |
-| API-AUTH-02 | API | BR-06 | Wrong password | 401 `INVALID_CREDENTIALS`, no cookie, no session row | `auth.api.test.ts` | Planned |
-| API-AUTH-03 | API | BR-06 | Unknown email | Response body byte-identical to API-AUTH-02 | `auth.api.test.ts` | Planned |
-| API-AUTH-04 | API | AC-05, BR-01 | Inactive account, correct password | Same 401 body again; no session created | `auth.api.test.ts` | Planned |
-| API-AUTH-05 | API | BR-42 | Blank email or password | 400 `VALIDATION_ERROR` with the offending `field` | `auth.api.test.ts` | Planned |
-| API-AUTH-06 | API | BR-36 | Capitalised and padded email | Logs in successfully | `auth.api.test.ts` | Planned |
-| API-AUTH-07 | API | BR-07 | Login response contents | No `passwordHash`, no session id anywhere in the body | `auth.api.test.ts` | Planned |
-| API-AUTH-08 | API | BR-14 | Ten consecutive failures | No lockout: the eleventh attempt with the correct password succeeds | `auth.api.test.ts` | Planned |
-| API-AUTH-09 | API | FR-03, BR-13 | `GET /api/auth/me` with a session | 200 with the safe user object | `auth.api.test.ts` | Planned |
-| API-AUTH-10 | API | BR-13 | `GET /api/auth/me` with no session | 401 `UNAUTHENTICATED` — never 200 with a null user | `auth.api.test.ts` | Planned |
-| API-AUTH-11 | API | AC-06, BR-10 | Logout then replay the cookie | 204; session row deleted; replay answers 401 | `auth.api.test.ts` | Planned |
-| API-AUTH-12 | API | BR-15 | Cookie attributes | `HttpOnly`, `SameSite=Lax`, `Path=/` present on the login response | `auth.api.test.ts` | Planned |
-| API-AUTH-13 | API | BR-11 | Session past `expiresAt` | 401, and the expired row is deleted | `auth.api.test.ts` | Planned |
-| API-AUTH-14 | API | BR-09, BR-12 | Successful password change | 200, `mustChangePassword:false`, old password fails, other sessions of that user are gone, the current one survives | `auth.api.test.ts` | Planned |
-| API-AUTH-15 | API | BR-42 | Wrong `currentPassword` | 400 with `field:"currentPassword"` — not 401 | `auth.api.test.ts` | Planned |
-| API-AUTH-16 | API | BR-08, BR-09 | Change-password validation | Too short, too long, same as current, mismatched confirmation each answer 400 with the right `field` | `auth.api.test.ts` | Planned |
-| API-AUTH-17 | API | AC-02, BR-02 | `mustChangePassword` user calls any other endpoint | 403 `PASSWORD_CHANGE_REQUIRED` | `auth.api.test.ts` | Planned |
-| API-AUTH-18 | API | BR-02 | The three exempt endpoints while `mustChangePassword` | `me`, `change-password` and `logout` all work | `auth.api.test.ts` | Planned |
+| API-AUTH-01 | API | AC-01, BR-01 | Valid login | 200, `Set-Cookie: tt_session`, safe user object with role | `auth.api.test.ts` | **Pass** |
+| API-AUTH-02 | API | BR-06 | Wrong password | 401 `INVALID_CREDENTIALS`, no cookie, no session row | `auth.api.test.ts` | **Pass** |
+| API-AUTH-03 | API | BR-06 | Unknown email | Response body byte-identical to API-AUTH-02 | `auth.api.test.ts` | **Pass** |
+| API-AUTH-04 | API | AC-05, BR-01 | Inactive account, correct password | Same 401 body again; no session created | `auth.api.test.ts` | **Pass** |
+| API-AUTH-05 | API | BR-42 | Blank email or password | 400 `VALIDATION_ERROR` with the offending `field` | `auth.api.test.ts` | **Pass** |
+| API-AUTH-06 | API | BR-36 | Capitalised and padded email | Logs in successfully | `auth.api.test.ts` | **Pass** |
+| API-AUTH-07 | API | BR-07 | Login response contents | No `passwordHash`, no session id anywhere in the body | `auth.api.test.ts` | **Pass** |
+| API-AUTH-08 | API | BR-14 | Ten consecutive failures | No lockout: the eleventh attempt with the correct password succeeds | `auth.api.test.ts` | **Pass** |
+| API-AUTH-09 | API | FR-03, BR-13 | `GET /api/auth/me` with a session | 200 with the safe user object | `auth.api.test.ts` | **Pass** |
+| API-AUTH-10 | API | BR-13 | `GET /api/auth/me` with no session | 401 `UNAUTHENTICATED` — never 200 with a null user | `auth.api.test.ts` | **Pass** |
+| API-AUTH-11 | API | AC-06, BR-10 | Logout then replay the cookie | 204; session row deleted; replay answers 401 | `auth.api.test.ts` | **Pass** |
+| API-AUTH-12 | API | BR-15 | Cookie attributes | `HttpOnly`, `SameSite=Lax`, `Path=/` present on the login response | `auth.api.test.ts` | **Pass** |
+| API-AUTH-13 | API | BR-11 | Session past `expiresAt` | 401, and the expired row is deleted | `auth.api.test.ts` | **Pass** |
+| API-AUTH-14 | API | BR-09, BR-12 | Successful password change | 200, `mustChangePassword:false`, old password fails, other sessions of that user are gone, the current one survives | `auth.api.test.ts` | **Pass** |
+| API-AUTH-15 | API | BR-42 | Wrong `currentPassword` | 400 with `field:"currentPassword"` — not 401 | `auth.api.test.ts` | **Pass** |
+| API-AUTH-16 | API | BR-08, BR-09 | Change-password validation | Too short, too long, same as current, mismatched confirmation each answer 400 with the right `field` | `auth.api.test.ts` | **Pass** |
+| API-AUTH-17 | API | AC-02, BR-02 | `mustChangePassword` user calls any other endpoint | 403 `PASSWORD_CHANGE_REQUIRED` | `auth.api.test.ts` | Deferred to Issue #30 |
+| API-AUTH-18 | API | BR-02 | The three exempt endpoints while `mustChangePassword` | `me`, `change-password` and `logout` all work | `auth.api.test.ts` | Deferred to Issue #30 |
 
 ### 2.3 API — Authorization and safe errors — `server/tests/lab-03/authorization.api.test.ts`
 
@@ -196,16 +196,16 @@ into another suite.
 
 | ID | Type | AC / BR | What it tests | Expected result | File | Status |
 |---|---|---|---|---|---|---|
-| MIG-01 | Migration | AC-08 | Lab 2 `Requester` rows after migration | Present as `User` rows with the same ids and names — the table was renamed, not dropped and recreated | `migration.api.test.ts` | Planned |
-| MIG-02 | Migration | AC-08 | Pre-existing Tickets and Attachments | Ticket number, requester, fields and attachment rows all unchanged and readable by the original owner | `migration.api.test.ts` | Planned |
-| MIG-03 | Migration | AC-08, BR-36 | Migrated account state | `role: REQUESTER`, `mustChangePassword: true`, no usable password until changed, and every migrated `email` stored lower-cased | `migration.api.test.ts` | Planned |
-| MIG-04 | Migration | BR-29 | `itPriority` backfill | Every migrated Ticket has `itPriority` equal to its `requestedPriority` | `migration.api.test.ts` | Planned |
-| MIG-05 | Migration | BR-27 | Ownership of migrated Tickets | `ownerId` is null — unassigned | `migration.api.test.ts` | Planned |
-| MIG-06 | Migration | AC-25 | `GET /api/requesters` | 404 `NOT_FOUND`; the route is gone | `migration.api.test.ts` | Planned |
-| MIG-07 | Migration | AC-03, BR-03 | `X-Requester-Id` after migration | Has no effect on any endpoint, with or without a session | `migration.api.test.ts` | Planned |
-| MIG-08 | Regression | BR-44 | Every Lab 2 Requester endpoint under a session | Create, list, detail, upload, download and soft-remove all behave as `docs/lab-02/api-spec.md` describes, except that a missing identity is now 401 rather than 400 | `migration.api.test.ts` | Planned |
-| MIG-09 | Migration | BR-45 | Seed idempotency | Running the seed twice leaves the same row counts and no duplicate emails | `migration.api.test.ts` | Planned |
-| MIG-10 | Migration | BR-45 | Seed composition | At least 4 active + 1 inactive Requester, 3 active + 1 inactive IT Staff, 1 active Administrator, Tickets across statuses/priorities/assigned and unassigned, plus example comments and notes | `migration.api.test.ts` | Planned |
+| MIG-01 | Migration | AC-08 | Lab 2 `Requester` rows after migration | Present as `User` rows with the same ids and names — the table was renamed, not dropped and recreated | `migration.api.test.ts` | **Pass** |
+| MIG-02 | Migration | AC-08 | Pre-existing Tickets and Attachments | Ticket number, requester, fields and attachment rows all unchanged and readable by the original owner | `migration.api.test.ts` | **Pass** |
+| MIG-03 | Migration | AC-08, BR-36 | Migrated account state | `role: REQUESTER`, `mustChangePassword: true`, no usable password until changed, and every migrated `email` stored lower-cased | `migration.api.test.ts` | **Pass** |
+| MIG-04 | Migration | BR-29 | `itPriority` backfill | Every migrated Ticket has `itPriority` equal to its `requestedPriority` | `migration.api.test.ts` | **Pass** |
+| MIG-05 | Migration | BR-27 | Ownership of migrated Tickets | `ownerId` is null — unassigned | `migration.api.test.ts` | **Pass** |
+| MIG-06 | Migration | AC-25 | `GET /api/requesters` | 404 `NOT_FOUND`; the route is gone | `migration.api.test.ts` | Deferred to Issue #30 |
+| MIG-07 | Migration | AC-03, BR-03 | `X-Requester-Id` after migration | Has no effect on any endpoint, with or without a session | `migration.api.test.ts` | Deferred to Issue #30 |
+| MIG-08 | Regression | BR-44 | Every Lab 2 Requester endpoint under a session | Create, list, detail, upload, download and soft-remove all behave as `docs/lab-02/api-spec.md` describes, except that a missing identity is now 401 rather than 400 | `migration.api.test.ts` | Deferred to Issue #30 |
+| MIG-09 | Migration | BR-45 | Seed idempotency | Running the seed twice leaves the same row counts and no duplicate emails | `migration.api.test.ts` | **Pass** |
+| MIG-10 | Migration | BR-45 | Seed composition | At least 4 active + 1 inactive Requester, 3 active + 1 inactive IT Staff, 1 active Administrator, Tickets across statuses/priorities/assigned and unassigned, plus example comments and notes | `migration.api.test.ts` | **Pass** |
 
 **Error codes inherited from Lab 2.** `INVALID_CATEGORY`,
 `INVALID_RELATED_SYSTEM`, `UNSUPPORTED_FILE_TYPE`, `FILE_TOO_LARGE`,
@@ -450,17 +450,51 @@ without touching seeded users.
 
 ## 7. Final Results
 
-To be completed from the final `main` branch, in the format Lab 2 used: the
-full `npm test` output for server and client, the Playwright summary, and this
-plan's Status column updated to Pass for every row.
+Filled in as each issue lands, and completed from the final `main` branch in
+the format Lab 2 used: the full `npm test` output for server and client, the
+Playwright summary, and this plan's Status column carrying a result for every
+row.
 
 | Suite | Command | Tests | Result |
 |---|---|---|---|
-| Server unit + API + migration | `npm test --prefix server` | — | Pending |
-| Client UI components | `npm test --prefix client` | — | Pending |
-| E2E + visual | `npm run test:e2e` | — | Pending |
+| Server unit + API + migration | `npm test --prefix server` | **107** | **All passing** as of Issue #29 |
+| Client UI components | `npm test --prefix client` | — | Pending — first Lab 3 screens land in Issue #30 |
+| E2E + visual | `npm run test:e2e` | — | Pending — Issue #34 |
+
+### After Issue #29 — authentication foundation
+
+| Area | Files | Cases |
+|---|---|---|
+| Lab 1 and Lab 2 regression | 10 files | 65, all still passing after the migration |
+| Lab 3 unit | `password.unit.test.ts`, `session.unit.test.ts` | 10 |
+| Lab 3 authentication API | `auth.api.test.ts` | 22 |
+| Lab 3 migration and seed | `migration.api.test.ts` | 10 |
+
+The migration suite creates a scratch database, replays the real migration
+files in order, pauses after the last Lab 2 migration to insert Lab 2-shaped
+rows, applies the two Lab 3 migrations to them, and drops the database
+afterwards. It is the actual shipped SQL under test, not a description of it,
+and it is why AC-08 can be claimed rather than asserted.
 
 ## 8. Known Limitations and Deferred Tests
+
+### Deferred within the sprint
+
+- **API-AUTH-17, API-AUTH-18** — the password-change gate on endpoints *other*
+  than the three exempt ones. Issue #29 builds the gate, but the Lab 2 routes
+  still take their identity from the `X-Requester-Id` header, so there is no
+  gated endpoint to point these at yet. They land with Issue #30, which moves
+  those routes onto the session. The gate itself is written in the same issue
+  rather than shipped ahead of the tests that exercise it.
+- **MIG-06, MIG-07, MIG-08** — `GET /api/requesters` is still served and the
+  `X-Requester-Id` header still works, because the Lab 2 client is still the
+  only client and removing either would break the running application
+  mid-sprint. Both are removed in Issue #30, with the selector, and these three
+  are written there.
+- **UNIT-03** — the status transition matrix helper is built in Issue #32,
+  where the endpoint that consults it is built.
+
+### Standing limitations
 
 - **Timing-safety of the login response (BR-14) is asserted structurally, not
   statistically.** API-AUTH-08 proves that no lockout occurs and that the same

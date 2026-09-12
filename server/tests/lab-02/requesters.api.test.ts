@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import request from "supertest";
 import { app } from "../../src/app.js";
 import { getPrisma } from "../../src/prisma.js";
+import { upsertTestUser } from "../support/users.js";
 
 // specification.md BR-05/BR-35, api-spec.md §3, tests.md API-REQ-01..03.
 // Requires a migrated + seeded test database (see README §Testing).
@@ -26,15 +27,18 @@ describe("GET /api/requesters", () => {
   it("API-REQ-02: with zero active Requesters, returns data: [] (not an error)", async () => {
     const prisma = getPrisma();
     // deactivate every requester for this test, then restore afterward
-    const all = await prisma.requester.findMany({ where: { isActive: true } });
-    await prisma.requester.updateMany({ data: { isActive: false } });
+    // Lab 3, Issue #29: `User` now holds IT Staff and Administrators as well,
+    // and deactivating those would take the whole application down for the
+    // rest of the run. Only the role this endpoint lists is touched.
+    const all = await prisma.user.findMany({ where: { isActive: true, role: "REQUESTER" } });
+    await prisma.user.updateMany({ where: { role: "REQUESTER" }, data: { isActive: false } });
 
     try {
       const response = await request(app).get("/api/requesters");
       expect(response.status).toBe(200);
       expect(response.body.data).toEqual([]);
     } finally {
-      await prisma.requester.updateMany({
+      await prisma.user.updateMany({
         where: { id: { in: all.map((r) => r.id) } },
         data: { isActive: true },
       });
@@ -49,12 +53,10 @@ describe("GET /api/requesters", () => {
 
     // A fresh, temporarily-active Requester, so this test doesn't depend on
     // (or disturb) the permanently-inactive seeded Requester.
-    const requester = await prisma.requester.create({
-      data: {
-        name: "Temp BR-36 Requester",
-        email: `br36-${Date.now()}@example.edu`,
-        isActive: true,
-      },
+    const requester = await upsertTestUser({
+      name: "Temp BR-36 Requester",
+      email: `br36-${Date.now()}@example.edu`,
+      isActive: true,
     });
 
     const ticket = await prisma.ticket.create({
@@ -71,7 +73,7 @@ describe("GET /api/requesters", () => {
 
     try {
       // The Requester becomes inactive AFTER the Ticket already exists.
-      await prisma.requester.update({ where: { id: requester.id }, data: { isActive: false } });
+      await prisma.user.update({ where: { id: requester.id }, data: { isActive: false } });
 
       const response = await request(app).get("/api/requesters");
       const ids = response.body.data.map((r: { id: number }) => r.id);
@@ -82,7 +84,7 @@ describe("GET /api/requesters", () => {
       expect(stillThere?.requesterId).toBe(requester.id);
     } finally {
       await prisma.ticket.delete({ where: { id: ticket.id } });
-      await prisma.requester.delete({ where: { id: requester.id } });
+      await prisma.user.delete({ where: { id: requester.id } });
     }
   });
 });

@@ -26,20 +26,67 @@ model Category {
 }
 
 // ---------------------------------------------------------------------------
-// Issue #12 — Data model foundation & Requester context
-// All four new models below are introduced together in a single migration
-// (specification.md §7), even though only Requester's API/UI is implemented
-// in this issue. Ticket/Attachment routes come in later issues (#13, #15).
+// Issue #12 — Data model foundation & Requester context. Introduced Requester,
+// RelatedSystem, Ticket and Attachment together in one migration
+// (lab-02/specification.md §7). The Requester model it added is the `User`
+// model below: Lab 3 renamed it rather than replacing it, so the rows and ids
+// created in Lab 2 are the same rows and ids today.
 // ---------------------------------------------------------------------------
 
-model Requester {
-  id        Int      @id @default(autoincrement())
-  name      String
-  email     String   @unique
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
+// ---------------------------------------------------------------------------
+// Lab 3, Issue #29 — the Development Requester becomes a real account.
+//
+// This model is the Lab 2 `Requester` *renamed*, not a new table: ids are
+// preserved so every existing `Ticket.requesterId` keeps resolving and no
+// ticket row is rewritten (lab-03/specification.md §7, AC-08). Prisma cannot
+// express a rename, so the generated migration is hand-edited to
+// `ALTER TABLE "Requester" RENAME TO "User"` — see that migration's comments.
+//
+// `email` is stored already trimmed and lower-cased, which is what makes the
+// plain @unique constraint enough to deliver BR-36's case-insensitive
+// uniqueness; Postgres UNIQUE is case-sensitive on its own.
+// ---------------------------------------------------------------------------
 
-  tickets Ticket[]
+enum Role {
+  REQUESTER
+  IT_STAFF
+  ADMINISTRATOR
+}
+
+model User {
+  id                 Int      @id @default(autoincrement())
+  name               String
+  email              String   @unique
+  passwordHash       String
+  role               Role     @default(REQUESTER)
+  isActive           Boolean  @default(true)
+  mustChangePassword Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @default(now()) @updatedAt
+
+  tickets        Ticket[]        @relation("TicketRequester")
+  ownedTickets   Ticket[]        @relation("TicketOwner")
+  sessions       Session[]
+  publicComments PublicComment[]
+  internalNotes  InternalNote[]
+}
+
+// Server-side sessions rather than a signed token, because BR-10 requires
+// logout to invalidate access and BR-12 requires deactivation to do the same
+// immediately — a row can be deleted, a signed token cannot (§11).
+model Session {
+  id        String   @id
+  userId    Int
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  // Cascade is here for test fixtures, not for production: BR-39 and BR-41
+  // mean a User is never deleted in the running application, but suites do
+  // delete the throwaway accounts they create, and those accounts have
+  // sessions by then.
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model RelatedSystem {
@@ -63,8 +110,24 @@ enum ITPriority {
   HIGH
 }
 
+// Lab 3, Issue #29 — the eight statuses BR-30 names. Lab 2 shipped this as an
+// enum holding a single value precisely so this sprint could add the other
+// seven without changing the column's type.
+//
+// These seven values are added in a migration of their own, ahead of the one
+// that adds users and sessions (lab-03/specification.md §7). Postgres refuses
+// to let a value added by `ALTER TYPE ... ADD VALUE` be *used* inside the same
+// transaction that added it, and Prisma runs each migration in one transaction
+// — so keeping the extension alone means no later migration can trip over it.
 enum CurrentStatus {
   NEW
+  OPEN
+  IN_PROGRESS
+  WAITING_FOR_REQUESTER
+  RESOLVED
+  CLOSED
+  REOPENED
+  CANCELLED
 }
 
 model Ticket {
@@ -81,13 +144,24 @@ model Ticket {
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
 
-  requester     Requester     @relation(fields: [requesterId], references: [id])
+  // Lab 3, Issue #29. `ownerId` is nullable because a Ticket may be unassigned
+  // (BR-25, BR-27), and every migrated Lab 2 Ticket starts that way.
+  // `requesterResolvedAt` records BR-34's signal without touching the status.
+  ownerId             Int?
+  requesterResolvedAt DateTime?
+
+  requester     User          @relation("TicketRequester", fields: [requesterId], references: [id])
+  owner         User?         @relation("TicketOwner", fields: [ownerId], references: [id])
   category      Category      @relation(fields: [categoryId], references: [id])
   relatedSystem RelatedSystem @relation(fields: [relatedSystemId], references: [id])
   attachments   Attachment[]
 
+  publicComments PublicComment[]
+  internalNotes  InternalNote[]
+
   @@index([requesterId, createdAt])
   @@index([createdAt])
+  @@index([ownerId])
 }
 
 model Attachment {
@@ -105,6 +179,7 @@ model Attachment {
 
   @@index([ticketId])
 }
+
 // ---------------------------------------------------------------------------
 // Issue #13 — Create Ticket
 // BR-01 requires the Ticket Number sequence to be produced atomically inside
@@ -118,4 +193,42 @@ model Attachment {
 model TicketNumberCounter {
   year    Int @id
   counter Int @default(0)
+}
+
+// ---------------------------------------------------------------------------
+// Lab 3, Issue #29 — Public Comments and Internal Notes.
+//
+// Two tables rather than one with a `visibility` column, and that is the whole
+// point (lab-03/specification.md §7): a query that forgets
+// `WHERE visibility = 'public'` would leak private notes to a Requester, while
+// no query against PublicComment can leak anything, whatever it forgets.
+//
+// Both are append-only in Lab 3 (BR-21), which is why neither carries
+// `updatedAt` — there is no update path to record.
+// ---------------------------------------------------------------------------
+
+model PublicComment {
+  id        Int      @id @default(autoincrement())
+  ticketId  Int
+  authorId  Int
+  body      String
+  createdAt DateTime @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id])
+  author User   @relation(fields: [authorId], references: [id])
+
+  @@index([ticketId])
+}
+
+model InternalNote {
+  id        Int      @id @default(autoincrement())
+  ticketId  Int
+  authorId  Int
+  body      String
+  createdAt DateTime @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id])
+  author User   @relation(fields: [authorId], references: [id])
+
+  @@index([ticketId])
 }
