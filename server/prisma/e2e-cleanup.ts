@@ -34,6 +34,10 @@ async function main(): Promise<void> {
   // go while rows still point at them. Files come last — a file left on disk
   // with no row is invisible, but a row pointing at a missing file is a 500
   // waiting to happen.
+  // Lab 3, Issue #32: comments and notes point at their Ticket with no cascade
+  // either, so they go first too.
+  await prisma.publicComment.deleteMany({ where: { ticketId: { in: ticketIds } } });
+  await prisma.internalNote.deleteMany({ where: { ticketId: { in: ticketIds } } });
   await prisma.attachment.deleteMany({ where: { ticketId: { in: ticketIds } } });
   await prisma.ticket.deleteMany({ where: { id: { in: ticketIds } } });
   for (const attachment of attachments) deleteStoredFile(attachment.storedFilename);

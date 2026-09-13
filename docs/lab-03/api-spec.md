@@ -434,6 +434,8 @@ exist (BR-20, AC-04).
   that sends either is ignored, not rejected — they are simply not part of the
   accepted body (BR-22).
 - **201** response: `{ "data": <comment object> }`.
+- A comment moves the Ticket's `updatedAt`. It is activity everyone on the
+  Ticket can see, and the queue is ordered by that field by default.
 
 ### `GET /api/tickets/:id/notes`
 - IT Staff and Administrator only.
@@ -448,6 +450,9 @@ exist (BR-20, AC-04).
   as above (AC-04).
 - Request body and validation identical to a comment (BR-23).
 - **201** response: `{ "data": <note object> }`.
+- A note does **not** move the Ticket's `updatedAt`. A Requester can see that
+  timestamp, and a Ticket that changed with nothing visible having changed would
+  disclose that a note was written (BR-20).
 
 ## 9. Administrator User Endpoints
 

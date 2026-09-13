@@ -234,3 +234,14 @@ export const staffOnly = [
   requirePasswordChanged,
   requireRole("IT_STAFF", "ADMINISTRATOR"),
 ];
+
+/**
+ * Any signed-in role, past the mandatory password change.
+ *
+ * For the endpoints whose answer depends on the *resource* rather than on the
+ * role alone — reading a Ticket or its attachments (api-spec.md §6), where a
+ * Requester may read their own and staff may read any. There is no role gate
+ * here because every role may call them; the ownership rule inside the route is
+ * what refuses, and it refuses with 404 (BR-16), never 403.
+ */
+export const signedIn = [requireAuth, requirePasswordChanged];

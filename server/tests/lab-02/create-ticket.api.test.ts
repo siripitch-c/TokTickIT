@@ -87,12 +87,20 @@ describe("POST /api/tickets", () => {
     expect(saved!.requesterId).toBe(requesterId);
   });
 
-  it("API-CREATE-02: a new Ticket defaults to currentStatus NEW with itPriority unset (BR-02)", async () => {
+  it("API-CREATE-02: a new Ticket defaults to currentStatus NEW, with IT Priority starting as the Requested Priority (BR-02, Lab 3 BR-29)", async () => {
     const response = await post(validBody());
 
     expect(response.status).toBe(201);
     expect(response.body.data.currentStatus).toBe("NEW");
-    expect(response.body.data.itPriority).toBeNull();
+    // Lab 3, Issue #32 — deliberately updated, per the Definition of Done's
+    // allowance for Lab 2 tests that change with a recorded reason. Lab 2 left
+    // IT Priority unset; lab-03 specification.md BR-29 initialises it from the
+    // Requested Priority, so a new Ticket reaches the staff queue already
+    // sortable by it. The Requester still cannot choose it (API-CREATE-03).
+    expect(response.body.data.itPriority).toBe(validBody().requestedPriority);
+    // Lab 3 BR-27: and it starts unassigned.
+    expect(response.body.data.ownerId).toBeNull();
+    expect(response.body.data.owner).toBeNull();
   });
 
   it("API-CREATE-03: client-supplied system fields are ignored, not trusted (BR-03, BR-10)", async () => {
@@ -111,7 +119,9 @@ describe("POST /api/tickets", () => {
     // Ownership comes from the header (BR-10), never from the body.
     expect(ticket.requesterId).toBe(requesterId);
     expect(ticket.ticketNumber).not.toBe("TKT-1999-000001");
-    expect(ticket.itPriority).toBeNull();
+    // Lab 3, Issue #32: IT Priority now starts as the Requested Priority
+    // (BR-29), and the body's "HIGH" is still ignored rather than trusted.
+    expect(ticket.itPriority).toBe("MEDIUM");
     expect(new Date(ticket.createdAt).getFullYear()).toBeGreaterThan(1999);
   });
 

@@ -43,6 +43,12 @@ export interface Ticket {
   createdAt: string;
   updatedAt: string;
   attachments: AttachmentMeta[];
+  // Lab 3, Issue #32 — api-spec.md §5's one Ticket object for every role. The
+  // people on it are actor summaries: id, name and role, never an email.
+  requester: ActorSummary;
+  ownerId: number | null;
+  owner: ActorSummary | null;
+  requesterResolvedAt: string | null;
 }
 
 export interface NewTicket {
@@ -242,11 +248,10 @@ export async function removeAttachment(
 }
 
 /**
- * The download endpoint is Requester-scoped, so it needs the X-Requester-Id
- * header — which a plain <a href> cannot send. The file is fetched here and
- * handed to the browser as an object URL instead, which also means a refusal
- * (a removed attachment, someone else's file) surfaces as an ApiError the
- * screen can show rather than as a broken navigation.
+ * The file is fetched here with the session and handed to the browser as an
+ * object URL, rather than linked to directly. A refusal — a removed attachment,
+ * or one on a Ticket the caller may not read — then surfaces as an ApiError the
+ * screen can show, instead of navigating the tab to a JSON error body.
  */
 export async function downloadAttachment(
   attachment: Pick<AttachmentMeta, "id" | "originalFilename">,
@@ -383,24 +388,7 @@ export interface ActorSummary {
 }
 
 /** A queue row: the §5 Ticket object without `attachments` (§7). */
-export interface StaffTicket {
-  id: number;
-  ticketNumber: string;
-  requesterId: number;
-  requester: ActorSummary;
-  categoryId: number;
-  relatedSystemId: number;
-  summary: string;
-  description: string;
-  requestedPriority: RequestedPriority;
-  itPriority: RequestedPriority | null;
-  currentStatus: CurrentStatus;
-  ownerId: number | null;
-  owner: ActorSummary | null;
-  requesterResolvedAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
+export type StaffTicket = Omit<Ticket, "attachments">;
 
 export type QueueSortField = "ticketNumber" | "createdAt" | "updatedAt" | "itPriority";
 
@@ -437,9 +425,78 @@ export async function fetchStaffTickets(
   return { data: body.data as StaffTicket[], pagination: body.pagination as Pagination };
 }
 
-/** FR-16 — active IT Staff and Administrators, for the Owner filter and, in #32, reassignment. */
+/** FR-16 — active IT Staff and Administrators, for the queue's Owner filter and the reassign control. */
 export async function fetchAssignees(): Promise<ActorSummary[]> {
   const res = await fetch(`${API_URL}/api/staff/assignees`, { ...withSession });
   if (!res.ok) throw await toApiError(res);
   return (await res.json()).data as ActorSummary[];
+}
+
+// ---------------------------------------------------------------------------
+// Lab 3, Issue #32 — Ticket operations, the resolution signal, and the two
+// threads (api-spec.md §7 and §8)
+// ---------------------------------------------------------------------------
+
+async function patchTicket(ticketId: number, operation: string, body: object): Promise<Ticket> {
+  const res = await fetch(`${API_URL}/api/tickets/${ticketId}/${operation}`, {
+    method: "PATCH",
+    ...withSession,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await toApiError(res);
+  return (await res.json()).data as Ticket;
+}
+
+/** FR-15: claim (the caller's own id), reassign, or release with `null`. */
+export function setTicketOwner(ticketId: number, ownerId: number | null): Promise<Ticket> {
+  return patchTicket(ticketId, "owner", { ownerId });
+}
+
+/** FR-17: IT Priority only; Requested Priority never changes (BR-29). */
+export function setItPriority(ticketId: number, itPriority: RequestedPriority): Promise<Ticket> {
+  return patchTicket(ticketId, "it-priority", { itPriority });
+}
+
+/** FR-18: the server answers 409 for any move BR-31 does not permit. */
+export function setTicketStatus(ticketId: number, currentStatus: CurrentStatus): Promise<Ticket> {
+  return patchTicket(ticketId, "status", { currentStatus });
+}
+
+/** FR-12, BR-34: the Requester's signal; it does not change the status. */
+export async function markAppearsResolved(ticketId: number): Promise<Ticket> {
+  const res = await fetch(`${API_URL}/api/tickets/${ticketId}/appears-resolved`, {
+    method: "POST",
+    ...withSession,
+  });
+  if (!res.ok) throw await toApiError(res);
+  return (await res.json()).data as Ticket;
+}
+
+/** api-spec.md §5 — one shape for a Public Comment and an Internal Note. */
+export interface ThreadEntry {
+  id: number;
+  ticketId: number;
+  author: ActorSummary;
+  body: string;
+  createdAt: string;
+}
+
+export type ThreadKind = "comments" | "notes";
+
+export async function fetchThread(ticketId: number, kind: ThreadKind): Promise<ThreadEntry[]> {
+  const res = await fetch(`${API_URL}/api/tickets/${ticketId}/${kind}`, { ...withSession });
+  if (!res.ok) throw await toApiError(res);
+  return (await res.json()).data as ThreadEntry[];
+}
+
+export async function postToThread(ticketId: number, kind: ThreadKind, body: string): Promise<ThreadEntry> {
+  const res = await fetch(`${API_URL}/api/tickets/${ticketId}/${kind}`, {
+    method: "POST",
+    ...withSession,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ body }),
+  });
+  if (!res.ok) throw await toApiError(res);
+  return (await res.json()).data as ThreadEntry;
 }

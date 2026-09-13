@@ -429,6 +429,22 @@ textarea.zg-field--editable {
   font-size: var(--zg-text-xl);
 }
 
+/* Lab 3 ui-spec.md §2.5 — the not-found state. The forbidden frame without its
+   lock, in ordinary text rather than the failure colour, so forbidden,
+   not-found and failure stay distinguishable from one another (§13). */
+.zg-state--not-found {
+  text-align: center;
+  padding: var(--zg-space-5) var(--zg-space-3);
+  color: var(--zg-text-muted);
+  font-size: var(--zg-text-sm);
+}
+
+.zg-state--not-found h1 {
+  font-size: var(--zg-text-lg);
+  color: var(--zg-text);
+  margin: 0 0 var(--zg-space-3);
+}
+
 .zg-skeleton-bar {
   height: 40px;
   border-radius: 6px;
@@ -1307,4 +1323,250 @@ textarea.zg-field--editable {
 .zg-icon-btn:disabled {
   cursor: not-allowed;
   opacity: 0.5;
+}
+
+/* ======================================================================
+   Lab 3, Issue #32 — dialogs, the Operations panel, the two threads and the
+   resolution signal. Tokens only; the two rgba() values are the ones the Lab 2
+   modal already uses.
+   ====================================================================== */
+
+/* ui-spec.md §8.2, §9.3, §11 — the `zg-dialog` shell. */
+.zg-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(30, 42, 36, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--zg-space-3);
+  z-index: 30;
+}
+
+.zg-dialog {
+  background: var(--zg-surface);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  padding: var(--zg-space-4);
+  width: 100%;
+  max-width: 560px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.zg-dialog h2 {
+  margin-top: 0;
+}
+
+/* §8.2: the confirmation is the narrow variant. */
+.zg-confirm-dialog {
+  max-width: 440px;
+}
+
+@media (min-width: 768px) and (max-width: 991px) {
+  /* §11: 90% width, scrolling inside. */
+  .zg-dialog {
+    max-width: 90%;
+  }
+
+  .zg-confirm-dialog {
+    max-width: min(90%, 440px);
+  }
+}
+
+@media (max-width: 767px) {
+  /* §11: a full-screen sheet with its actions pinned to the bottom. */
+  .zg-dialog-backdrop {
+    padding: 0;
+    align-items: stretch;
+  }
+
+  .zg-dialog,
+  .zg-confirm-dialog {
+    max-width: none;
+    max-height: none;
+    height: 100%;
+    border-radius: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .zg-dialog .zg-actions-row {
+    margin-top: auto;
+  }
+
+  .zg-dialog .zg-actions-row > * {
+    flex: 1 1 0;
+    min-height: 44px;
+  }
+}
+
+/* ui-spec.md §8.2 — Operations: one bordered surface panel, three controls. */
+.zg-operations {
+  margin-top: var(--zg-space-4);
+  padding: var(--zg-space-3);
+  background: var(--zg-surface);
+  border: 1px solid var(--zg-border);
+  border-radius: 8px;
+}
+
+.zg-operations-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--zg-space-3);
+  align-items: start;
+}
+
+.zg-operations-control {
+  display: flex;
+  gap: var(--zg-space-2);
+  align-items: center;
+}
+
+.zg-operations-control select {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.zg-inline-status {
+  display: inline-block;
+  margin-top: var(--zg-space-1);
+  font-size: var(--zg-text-sm);
+  color: var(--zg-text-muted);
+}
+
+.zg-inline-status--saved {
+  color: var(--zg-success);
+}
+
+/* §8.2: "a zg-btn--busy-equivalent inline spinner while saving" — the same
+   spinning ring as a busy button, in the panel's own green rather than white. */
+.zg-inline-status--saving::before {
+  content: "";
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: var(--zg-space-1);
+  vertical-align: -1px;
+  border: 2px solid var(--zg-border);
+  border-top-color: var(--zg-secondary);
+  border-radius: 50%;
+  animation: zg-spin 0.7s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zg-inline-status--saving::before {
+    animation: none;
+  }
+}
+
+/* §8.1: a read-only field holding a name and its role badge side by side. */
+.zg-field--with-badge {
+  display: flex;
+  align-items: center;
+  gap: var(--zg-space-2);
+}
+
+@media (max-width: 991px) {
+  .zg-operations-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ui-spec.md §2.7 — `zg-thread`. */
+.zg-thread-panel {
+  margin-top: var(--zg-space-4);
+  padding-top: var(--zg-space-3);
+  border-top: 1px solid var(--zg-border);
+}
+
+.zg-thread {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 var(--zg-space-3);
+}
+
+.zg-thread-entry {
+  padding: var(--zg-space-2) 0;
+  border-bottom: 1px solid var(--zg-border);
+}
+
+.zg-thread-entry-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--zg-space-2);
+}
+
+.zg-thread-author {
+  font-weight: 600;
+}
+
+/* BR-24: plain text, with the author's own line breaks kept. */
+.zg-thread-body {
+  margin: var(--zg-space-1) 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.zg-thread-composer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--zg-space-2);
+}
+
+/* §2.7: starts about 80px tall and may only be resized taller. */
+.zg-thread-input {
+  height: 80px;
+  min-height: 80px;
+  resize: vertical;
+  padding: var(--zg-space-2);
+}
+
+.zg-thread-composer-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--zg-space-2);
+  flex-wrap: wrap;
+}
+
+.zg-char-counter--over {
+  color: var(--zg-error);
+  font-weight: 600;
+}
+
+/* ui-spec.md §2.8 — the internal panel. Border, fill and heading colour are
+   three of its five signals; the heading text, placeholder and button label
+   are the other two, and live in the component. */
+.zg-thread--internal {
+  border-top: none;
+  border-left: 4px solid var(--zg-warning);
+  background: var(--zg-warning-bg);
+  border-radius: 8px;
+  padding: var(--zg-space-3);
+}
+
+.zg-thread--internal .zg-thread-heading {
+  color: var(--zg-warning);
+}
+
+/* ui-spec.md §6 — Problem Appears Resolved. */
+.zg-resolution-row {
+  margin-top: var(--zg-space-4);
+  padding: var(--zg-space-3);
+  border: 1px solid var(--zg-border);
+  border-radius: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--zg-space-2);
+}
+
+.zg-resolution-signalled {
+  margin-top: var(--zg-space-4);
+  padding: var(--zg-space-2) var(--zg-space-3);
+  background: var(--zg-pale);
+  border-radius: 6px;
 }

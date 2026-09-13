@@ -266,8 +266,11 @@ My Tickets, Create Ticket and Ticket Detail keep the layouts in Lab 2 §5–§7
 unchanged at all three breakpoints (BR-44, AC-08). The differences:
 
 - The Development Requester Selection screen and its route are **deleted**.
-- Ticket Detail's read-only `Requester` field now shows the authenticated
-  user's name, taken from `GET /api/auth/me` rather than from a selector.
+- Ticket Detail's read-only `Requester` field now shows the Ticket's own
+  Requester, from the `requester` of the Ticket object (`api-spec.md` §5)
+  rather than from a selector. For a Requester that is their own name; for staff
+  opening the same screen it is the person who raised the Ticket, not
+  themselves.
 - Ticket Detail gains, below the Attachments panel and in this order:
   1. **Public Comments** (`zg-thread`, §2.7) — readable and writable by the
      Requester on their own Ticket (FR-19, AC-14).
@@ -517,7 +520,7 @@ and Lab 2 §2.4 carry all of it.
 | Change Password | form | busy button | per field | toast + navigate | — | — | — | — | callout |
 | My Tickets | list | skeleton | — | — | both (Lab 2) | state | — | — | block |
 | Create Ticket | create | busy button | per field | success panel (Lab 2) | — | state | — | — | callout |
-| Ticket Detail (Requester) | view | skeleton | composer counter | inline + toast | thread empty | state | state | inline (§2.6) | block |
+| Ticket Detail (Requester) | view | skeleton | composer counter | inline (§2.7, §6) | thread empty | state | state | inline (§2.6) | block |
 | Ticket Queue | list | skeleton | — | — | both | state | — | — | block |
 | Ticket Detail (staff) | view + inline edit | per-control spinner | composer counter | inline check | thread empty | state | state | inline (§2.6) | block |
 | User Management | list + create + edit | skeleton / busy button | per field | toast | both | state | — | inline in dialog | block + callout |

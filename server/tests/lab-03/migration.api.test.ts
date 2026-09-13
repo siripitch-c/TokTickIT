@@ -376,6 +376,34 @@ describe("seed data", () => {
     expect(tickets.some((t) => t.owner !== null && !t.owner.isActive)).toBe(true);
   });
 
+  it("MIG-10 / BR-04, BR-20: seeds example Public Comments and Internal Notes, notes only ever by staff", async () => {
+    const onSeeded = { ticket: { description: { contains: "[seed]" } } };
+    const comments = await prisma.publicComment.findMany({
+      where: onSeeded,
+      include: { author: { select: { id: true, role: true } }, ticket: { select: { requesterId: true } } },
+    });
+    const notes = await prisma.internalNote.findMany({
+      where: onSeeded,
+      include: { author: { select: { role: true } } },
+    });
+
+    expect(comments.length).toBeGreaterThan(0);
+    expect(notes.length).toBeGreaterThan(0);
+
+    // A Public Comment is written by the Ticket's own Requester or by staff —
+    // never by some other Requester, which BR-16 would not allow.
+    for (const c of comments) {
+      const byOwner = c.author.id === c.ticket.requesterId;
+      expect(byOwner || c.author.role !== "REQUESTER").toBe(true);
+    }
+    // Both kinds of reply appear, so the seeded data can show a conversation.
+    expect(comments.some((c) => c.author.role === "REQUESTER")).toBe(true);
+    expect(comments.some((c) => c.author.role !== "REQUESTER")).toBe(true);
+
+    // An Internal Note is never written by a Requester (BR-04, BR-20).
+    expect(notes.every((n) => n.author.role !== "REQUESTER")).toBe(true);
+  });
+
   it("MIG-10 / BR-07: no seeded account stores anything but a hash", async () => {
     const users = await prisma.user.findMany({ select: { email: true, passwordHash: true } });
 
@@ -414,6 +442,8 @@ describe("seed data", () => {
       categories: await prisma.category.count(),
       relatedSystems: await prisma.relatedSystem.count(),
       tickets: await prisma.ticket.count(),
+      publicComments: await prisma.publicComment.count(),
+      internalNotes: await prisma.internalNote.count(),
     };
 
     runSeed();
@@ -423,6 +453,8 @@ describe("seed data", () => {
       categories: await prisma.category.count(),
       relatedSystems: await prisma.relatedSystem.count(),
       tickets: await prisma.ticket.count(),
+      publicComments: await prisma.publicComment.count(),
+      internalNotes: await prisma.internalNote.count(),
     }).toEqual(before);
 
     // Idempotent must also mean "does not rewrite what is there": a re-seed

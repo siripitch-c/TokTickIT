@@ -1,8 +1,9 @@
 import express, { Request, Response } from "express";
 import cors from "cors";
-import { requesterOnly, staffOnly } from "./auth.js";
+import { requesterOnly, signedIn, staffOnly } from "./auth.js";
 import { authRoutes } from "./authRoutes.js";
 import { getPrisma } from "./prisma.js";
+import { CURRENT_STATUSES, STATUS_LABEL, canTransition } from "./statusTransitions.js";
 import { nextTicketNumber } from "./ticketNumber.js";
 import { readId, sendError, sendInternalError } from "./requesterContext.js";
 import {
@@ -15,7 +16,7 @@ import {
   storedFilePath,
   toDisplayFilename,
 } from "./uploads.js";
-import type { Attachment, Prisma } from "@prisma/client";
+import type { Attachment, CurrentStatus, Prisma, User } from "@prisma/client";
 import type { NextFunction } from "express";
 import { MulterError } from "multer";
 // getPrisma() is your lazy database handle. Call it INSIDE a route when you
@@ -97,6 +98,50 @@ app.get("/api/related-systems", async (req, res) => {
 // MIG-06).
 
 // ---------------------------------------------------------------------------
+// Lab 3, Issue #32 — the one Ticket object, and which Tickets a caller may
+// read. Shared by every route below that returns or reads a Ticket.
+// ---------------------------------------------------------------------------
+// api-spec.md §5 — the actor summary, the only shape a person is named in.
+// Email is absent on purpose: the Administrator user list is the one place
+// addresses are returned.
+const ACTOR_SUMMARY = { select: { id: true, name: true, role: true } } as const;
+
+// Lab 3, Issue #32 — api-spec.md §5 defines one Ticket object "identical for
+// every role", so there is one shape to test and no branch that could leak by
+// mistake. Every endpoint that returns a Ticket includes its people this way.
+const TICKET_PEOPLE = { requester: ACTOR_SUMMARY, owner: ACTOR_SUMMARY } as const;
+
+/**
+ * The Tickets this caller may read (api-spec.md §6): a Requester their own, IT
+ * Staff and Administrators any (BR-16, BR-17). A where-clause rather than a
+ * check after loading, so a Ticket the caller may not read is never loaded.
+ */
+function readableTickets(user: User): Prisma.TicketWhereInput {
+  return user.role === "REQUESTER" ? { requesterId: user.id } : {};
+}
+
+/**
+ * One Ticket in the api-spec.md §5 shape — people and attachments included —
+ * or null. Every endpoint that answers with a single Ticket builds it here, so
+ * the shape cannot differ between the detail read and the operations.
+ */
+async function loadTicket(where: Prisma.TicketWhereInput) {
+  const ticket = await getPrisma().ticket.findFirst({
+    where,
+    include: {
+      ...TICKET_PEOPLE,
+      // BR-29: removed attachments come too. Their metadata stays part of the
+      // ticket's history; only the file behind them becomes unavailable.
+      // Oldest first, so the list reads in the order they were added.
+      attachments: { orderBy: { uploadedAt: "asc" } },
+    },
+  });
+  if (!ticket) return null;
+  const { attachments, ...fields } = ticket;
+  return { ...fields, attachments: attachments.map(toAttachmentResponse) };
+}
+
+// ---------------------------------------------------------------------------
 // Issue #13 — Create Ticket
 // POST /api/tickets — api-spec.md §4. Requester-scoped: ownership comes from
 // the session (Lab 3 BR-03), never from the request body. Unlike the lenient
@@ -167,10 +212,19 @@ app.post("/api/tickets", requesterOnly, async (req: Request, res: Response) => {
       return sendError(res, 400, "INVALID_RELATED_SYSTEM", "Please choose a related system.", "relatedSystemId");
     }
 
-    // BR-01: number and row commit together. itPriority/currentStatus/timestamps
-    // are all left to the schema defaults, so nothing the client sent for them
-    // can take effect (BR-02, BR-03).
-    const data = { requesterId, categoryId, relatedSystemId, summary, description, requestedPriority };
+    // BR-01: number and row commit together. currentStatus and the timestamps
+    // are left to the schema defaults, and IT Priority starts as the Requested
+    // Priority (Lab 3 BR-29), so nothing the client sent for any of them can
+    // take effect (BR-02, BR-03).
+    const data = {
+      requesterId,
+      categoryId,
+      relatedSystemId,
+      summary,
+      description,
+      requestedPriority,
+      itPriority: requestedPriority,
+    };
     const ticket = await createTicketWithNumber(prisma, data);
 
     res.status(201).json({ data: { ...ticket, attachments: [] } });
@@ -187,6 +241,7 @@ type NewTicketData = {
   summary: string;
   description: string;
   requestedPriority: (typeof REQUESTED_PRIORITIES)[number];
+  itPriority: (typeof REQUESTED_PRIORITIES)[number];
 };
 
 // BR-01: the ticketNumber unique constraint is a safety net behind the atomic
@@ -197,7 +252,7 @@ async function createTicketWithNumber(prisma: ReturnType<typeof getPrisma>, data
     try {
       return await prisma.$transaction(async (tx) => {
         const ticketNumber = await nextTicketNumber(tx, new Date().getFullYear());
-        return tx.ticket.create({ data: { ...data, ticketNumber } });
+        return tx.ticket.create({ data: { ...data, ticketNumber }, include: TICKET_PEOPLE });
       });
     } catch (error) {
       const isDuplicateNumber =
@@ -293,6 +348,7 @@ app.get("/api/tickets", requesterOnly, async (req: Request, res: Response) => {
           : [{ [sortBy]: sortDir }, { ticketNumber: "desc" }],
       skip: (page - 1) * pageSize,
       take: pageSize,
+      include: TICKET_PEOPLE,
     });
 
     res.json({ data, pagination });
@@ -310,12 +366,13 @@ app.get("/api/tickets", requesterOnly, async (req: Request, res: Response) => {
 // own a ticket learns nothing about whether it exists. Reachable by direct URL
 // as well as from the list, and the check runs either way (BR-38).
 // ---------------------------------------------------------------------------
-app.get("/api/tickets/:id", requesterOnly, async (req: Request, res: Response) => {
-  // Lab 3, Issue #30 — identity comes from the session and from nothing the
-  // client can choose (BR-03). `requesterOnly` has already established that
-  // this caller is authenticated, past the mandatory password change, active,
-  // and holds the Requester role, so there is nothing left to re-check here.
-  const requesterId = req.user!.id;
+app.get("/api/tickets/:id", signedIn, async (req: Request, res: Response) => {
+  // Lab 3, Issue #32 — role-aware, as api-spec.md §6 specifies: a Requester
+  // reads only their own Ticket (404 otherwise, BR-16), and IT Staff and
+  // Administrators read any (BR-17). One endpoint rather than a staff copy, so
+  // the ownership rule lives in exactly one place. Identity still comes from
+  // the session and from nothing else (BR-03).
+  const user = req.user!;
 
   const ticketId = readId(req.params.id);
   if (ticketId === null) {
@@ -323,21 +380,11 @@ app.get("/api/tickets/:id", requesterOnly, async (req: Request, res: Response) =
   }
 
   try {
-    const prisma = getPrisma();
-
-    const ticket = await prisma.ticket.findFirst({
-      where: { id: ticketId, requesterId },
-      // BR-29: removed attachments come too. Their metadata stays part of the
-      // ticket's history; only the file behind them becomes unavailable.
-      // Oldest first, so the list reads in the order they were added.
-      include: { attachments: { orderBy: { uploadedAt: "asc" } } },
-    });
+    const ticket = await loadTicket({ id: ticketId, ...readableTickets(user) });
     if (!ticket) {
       return sendError(res, 404, "TICKET_NOT_FOUND", "Ticket not found.");
     }
-
-    const { attachments, ...fields } = ticket;
-    res.json({ data: { ...fields, attachments: attachments.map(toAttachmentResponse) } });
+    res.json({ data: ticket });
   } catch (error) {
     console.error("Error fetching ticket:", error);
     sendInternalError(res);
@@ -491,12 +538,21 @@ async function findOwnedAttachment(attachmentId: number, requesterId: number) {
   });
 }
 
-app.get("/api/attachments/:id", requesterOnly, async (req: Request, res: Response) => {
-  try {
-    const requesterId = req.user!.id;
+/**
+ * An Attachment on a Ticket this caller may read, or null (api-spec.md §6,
+ * FR-21, AC-26). Reading and downloading widen with the Ticket in Lab 3;
+ * uploading and removing stay the Requester's and keep `findOwnedAttachment`.
+ */
+async function findReadableAttachment(attachmentId: number, user: User) {
+  return getPrisma().attachment.findFirst({
+    where: { id: attachmentId, ticket: readableTickets(user) },
+  });
+}
 
+app.get("/api/attachments/:id", signedIn, async (req: Request, res: Response) => {
+  try {
     const attachmentId = readId(req.params.id);
-    const attachment = attachmentId === null ? null : await findOwnedAttachment(attachmentId, requesterId);
+    const attachment = attachmentId === null ? null : await findReadableAttachment(attachmentId, req.user!);
     if (!attachment) {
       return sendError(res, 404, "ATTACHMENT_NOT_FOUND", "Attachment not found.");
     }
@@ -510,12 +566,10 @@ app.get("/api/attachments/:id", requesterOnly, async (req: Request, res: Respons
   }
 });
 
-app.get("/api/attachments/:id/download", requesterOnly, async (req: Request, res: Response) => {
+app.get("/api/attachments/:id/download", signedIn, async (req: Request, res: Response) => {
   try {
-    const requesterId = req.user!.id;
-
     const attachmentId = readId(req.params.id);
-    const attachment = attachmentId === null ? null : await findOwnedAttachment(attachmentId, requesterId);
+    const attachment = attachmentId === null ? null : await findReadableAttachment(attachmentId, req.user!);
 
     // BR-30: a removed attachment is never downloadable by anyone, its owner
     // included. This is the one case where an owned resource still answers 404,
@@ -592,6 +646,328 @@ app.delete("/api/attachments/:id", requesterOnly, async (req: Request, res: Resp
 });
 
 // ---------------------------------------------------------------------------
+// Lab 3, Issue #32 — Ticket operations, the Requester resolution signal, and
+// the two threads (api-spec.md §7 and §8).
+//
+// Every refusal below follows the gate order of api-spec.md §3: a caller in the
+// wrong role gets 403, and a caller in the right role reaching a Ticket they
+// may not see gets 404. The two places where the role decides between those —
+// Internal Notes and the resolution signal — say why where they do it.
+// ---------------------------------------------------------------------------
+
+function ticketNotFound(res: Response): void {
+  sendError(res, 404, "TICKET_NOT_FOUND", "Ticket not found.");
+}
+
+async function ticketExists(where: Prisma.TicketWhereInput): Promise<boolean> {
+  return (await getPrisma().ticket.count({ where })) > 0;
+}
+
+function writeBody(req: Request): Record<string, unknown> {
+  return (req.body ?? {}) as Record<string, unknown>;
+}
+
+// PATCH /api/tickets/:id/owner — FR-15, AC-10, AC-11, BR-25..BR-28.
+// A claim is this same call with the caller's own id: one state change, one
+// set of rules.
+app.patch("/api/tickets/:id/owner", staffOnly, async (req: Request, res: Response) => {
+  const ticketId = readId(req.params.id);
+  if (ticketId === null) return ticketNotFound(res);
+
+  // A number that could name a user, or `null` to release the Ticket (BR-28).
+  // A string such as "7" is refused rather than coerced: request bodies are
+  // validated strictly (BR-42).
+  const raw = writeBody(req).ownerId;
+  const ownerId = typeof raw === "number" ? readId(raw) : null;
+  if (raw !== null && ownerId === null) {
+    return sendError(res, 400, "VALIDATION_ERROR", "Choose an owner, or Unassigned.", "ownerId");
+  }
+
+  try {
+    const prisma = getPrisma();
+    if (!(await ticketExists({ id: ticketId }))) return ticketNotFound(res);
+
+    if (ownerId !== null) {
+      // BR-25 is checked on the incoming owner only. Someone deactivated after
+      // they were assigned stays on the record (BR-26) — nothing here looks at
+      // the value already stored. One message for an unknown, inactive or
+      // Requester account alike: the caller has no need to tell them apart.
+      const assignable = await prisma.user.count({
+        where: { id: ownerId, isActive: true, role: { in: ["IT_STAFF", "ADMINISTRATOR"] } },
+      });
+      if (assignable === 0) {
+        return sendError(res, 400, "INVALID_OWNER", "That person cannot be made the owner of a ticket.", "ownerId");
+      }
+    }
+
+    // BR-28: any IT Staff or Administrator may do this, not only the owner.
+    await prisma.ticket.update({ where: { id: ticketId }, data: { ownerId } });
+    res.json({ data: await loadTicket({ id: ticketId }) });
+  } catch (error) {
+    console.error("Error changing the ticket owner:", error);
+    sendInternalError(res);
+  }
+});
+
+// PATCH /api/tickets/:id/it-priority — FR-17, AC-12, BR-29.
+app.patch("/api/tickets/:id/it-priority", staffOnly, async (req: Request, res: Response) => {
+  const ticketId = readId(req.params.id);
+  if (ticketId === null) return ticketNotFound(res);
+
+  // `null` is refused along with anything else: once set, a Ticket always has
+  // an IT Priority (api-spec.md §7).
+  const itPriority = REQUESTED_PRIORITIES.find((p) => p === writeBody(req).itPriority);
+  if (!itPriority) {
+    return sendError(res, 400, "VALIDATION_ERROR", "Choose an IT Priority of Low, Medium or High.", "itPriority");
+  }
+
+  try {
+    if (!(await ticketExists({ id: ticketId }))) return ticketNotFound(res);
+    // Only IT Priority is written. Requested Priority is what the Requester
+    // said, and it never changes after creation (BR-29, AC-12).
+    await getPrisma().ticket.update({ where: { id: ticketId }, data: { itPriority } });
+    res.json({ data: await loadTicket({ id: ticketId }) });
+  } catch (error) {
+    console.error("Error changing the IT priority:", error);
+    sendInternalError(res);
+  }
+});
+
+// PATCH /api/tickets/:id/status — FR-18, AC-13, BR-31, BR-32.
+app.patch("/api/tickets/:id/status", staffOnly, async (req: Request, res: Response) => {
+  const ticketId = readId(req.params.id);
+  if (ticketId === null) return ticketNotFound(res);
+
+  const next = CURRENT_STATUSES.find((s) => s === writeBody(req).currentStatus);
+  if (!next) {
+    return sendError(res, 400, "VALIDATION_ERROR", "Choose a status.", "currentStatus");
+  }
+
+  // The message names both ends of the attempted move. That is the Ticket's own
+  // state, not another user's data (api-spec.md §7).
+  const conflict = (from: CurrentStatus) =>
+    sendError(
+      res,
+      409,
+      "INVALID_STATUS_TRANSITION",
+      `A ticket cannot move from ${STATUS_LABEL[from]} to ${STATUS_LABEL[next]}.`,
+    );
+
+  try {
+    const prisma = getPrisma();
+    const ticket = await prisma.ticket.findUnique({ where: { id: ticketId }, select: { currentStatus: true } });
+    if (!ticket) return ticketNotFound(res);
+
+    // BR-31 — including its lack of self-transitions, so setting the status a
+    // Ticket already has is a conflict rather than a silent success. The
+    // confirmation BR-33 asks for is the client's: a flag a client could set
+    // unconditionally would not be a safeguard.
+    if (!canTransition(ticket.currentStatus, next)) return conflict(ticket.currentStatus);
+
+    // Conditional on the status just read. Of two people moving the same Ticket
+    // at the same moment, the second gets a 409 describing the state the first
+    // left behind, instead of overwriting it with a move the matrix might not
+    // allow from there.
+    const moved = await prisma.ticket.updateMany({
+      where: { id: ticketId, currentStatus: ticket.currentStatus },
+      data: { currentStatus: next },
+    });
+    if (moved.count === 0) {
+      const now = await prisma.ticket.findUnique({ where: { id: ticketId }, select: { currentStatus: true } });
+      return conflict(now?.currentStatus ?? ticket.currentStatus);
+    }
+
+    res.json({ data: await loadTicket({ id: ticketId }) });
+  } catch (error) {
+    console.error("Error changing the ticket status:", error);
+    sendInternalError(res);
+  }
+});
+
+// BR-34: the signal stops applying once staff have resolved, closed or
+// cancelled the Ticket.
+const PAST_RESOLUTION: CurrentStatus[] = ["RESOLVED", "CLOSED", "CANCELLED"];
+
+// POST /api/tickets/:id/appears-resolved — FR-12, AC-16, BR-05, BR-34.
+app.post("/api/tickets/:id/appears-resolved", signedIn, async (req: Request, res: Response) => {
+  const user = req.user!;
+
+  // Two refusals that differ on purpose (api-spec.md §7). IT Staff and
+  // Administrators may see the Ticket, so a plain 403 tells them nothing new.
+  // Another Requester must not learn the Ticket exists, so they get the 404 the
+  // ownership check below gives any Ticket that is not theirs.
+  if (user.role !== "REQUESTER") {
+    return sendError(res, 403, "FORBIDDEN", "You do not have access to this operation.");
+  }
+
+  const ticketId = readId(req.params.id);
+  if (ticketId === null) return ticketNotFound(res);
+
+  const notApplicable = () =>
+    sendError(res, 409, "RESOLUTION_NOT_APPLICABLE", "This ticket has already been resolved, closed or cancelled.");
+  const alreadyIndicated = () =>
+    sendError(res, 409, "ALREADY_INDICATED", "You have already reported that this problem looks resolved.");
+
+  try {
+    const prisma = getPrisma();
+    const own = { id: ticketId, requesterId: user.id };
+    const ticket = await prisma.ticket.findFirst({
+      where: own,
+      select: { currentStatus: true, requesterResolvedAt: true },
+    });
+    if (!ticket) return ticketNotFound(res);
+    if (PAST_RESOLUTION.includes(ticket.currentStatus)) return notApplicable();
+    if (ticket.requesterResolvedAt !== null) return alreadyIndicated();
+
+    // BR-05: the status is not touched — formally resolving stays with staff.
+    // Conditional, so a double submission cannot rewrite when the Requester
+    // first said it: the signal is a fact with a time, not a toggle.
+    const marked = await prisma.ticket.updateMany({
+      where: { ...own, requesterResolvedAt: null, currentStatus: { notIn: PAST_RESOLUTION } },
+      data: { requesterResolvedAt: new Date() },
+    });
+    if (marked.count === 0) {
+      const now = await prisma.ticket.findFirst({ where: own, select: { requesterResolvedAt: true } });
+      return now?.requesterResolvedAt ? alreadyIndicated() : notApplicable();
+    }
+
+    res.json({ data: await loadTicket(own) });
+  } catch (error) {
+    console.error("Error recording the resolution signal:", error);
+    sendInternalError(res);
+  }
+});
+
+// api-spec.md §5 — the comment and note object, identical for both (BR-22).
+// No `updatedAt`: both are append-only (BR-21).
+const THREAD_ENTRY = { id: true, ticketId: true, author: ACTOR_SUMMARY, body: true, createdAt: true } as const;
+const THREAD_BODY_MIN = 1;
+const THREAD_BODY_MAX = 2000;
+
+/** BR-23: required, trimmed, 1-2000 characters, so whitespace alone is no body. */
+function readThreadBody(req: Request): string | null {
+  return readBoundedText(writeBody(req).body, THREAD_BODY_MIN, THREAD_BODY_MAX);
+}
+
+// GET /api/tickets/:id/comments — BR-04, AC-14.
+app.get("/api/tickets/:id/comments", signedIn, async (req: Request, res: Response) => {
+  const ticketId = readId(req.params.id);
+  if (ticketId === null) return ticketNotFound(res);
+
+  try {
+    // BR-16: a Requester's view of somebody else's Ticket is a Ticket that
+    // does not exist, whichever part of it they ask for.
+    if (!(await ticketExists({ id: ticketId, ...readableTickets(req.user!) }))) return ticketNotFound(res);
+
+    const data = await getPrisma().publicComment.findMany({
+      where: { ticketId },
+      select: THREAD_ENTRY,
+      // Oldest first, so a conversation reads downwards; the id settles two
+      // comments written in the same millisecond.
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    });
+    res.json({ data });
+  } catch (error) {
+    console.error("Error listing comments:", error);
+    sendInternalError(res);
+  }
+});
+
+// POST /api/tickets/:id/comments — FR-19, AC-14, BR-22..BR-24.
+app.post("/api/tickets/:id/comments", signedIn, async (req: Request, res: Response) => {
+  const user = req.user!;
+  const ticketId = readId(req.params.id);
+  if (ticketId === null) return ticketNotFound(res);
+
+  try {
+    // Access before validation, so a Ticket the caller may not see cannot be
+    // probed by the difference between a 404 and a 400.
+    if (!(await ticketExists({ id: ticketId, ...readableTickets(user) }))) return ticketNotFound(res);
+
+    const body = readThreadBody(req);
+    if (body === null) {
+      return sendError(res, 400, "VALIDATION_ERROR", "A comment must be between 1 and 2000 characters.", "body");
+    }
+
+    const prisma = getPrisma();
+    const [data] = await prisma.$transaction([
+      // BR-22: the author and the time come from the session and the server
+      // clock. Anything else the client sent is simply not read.
+      prisma.publicComment.create({ data: { ticketId, authorId: user.id, body }, select: THREAD_ENTRY }),
+      // A comment is activity everyone on the Ticket can see, so it moves Last
+      // Updated and the Ticket rises in the queue's default order.
+      prisma.ticket.update({ where: { id: ticketId }, data: { updatedAt: new Date() } }),
+    ]);
+    res.status(201).json({ data });
+  } catch (error) {
+    console.error("Error posting a comment:", error);
+    sendInternalError(res);
+  }
+});
+
+/**
+ * BR-20, AC-04 — to a Requester, Internal Notes do not exist.
+ *
+ * On their own Ticket, somebody else's, or one that never existed, the answer
+ * is the 404 a missing Ticket gets: not 403, which would confirm the Ticket, and
+ * not an empty list, which would confirm the endpoint. It is decided before the
+ * request is read any further, so not even a validation message can tell a
+ * Requester that there was something to validate.
+ */
+function hidesNotesFrom(user: User): boolean {
+  return user.role === "REQUESTER";
+}
+
+// GET /api/tickets/:id/notes — BR-04, BR-20, AC-04, AC-15.
+app.get("/api/tickets/:id/notes", signedIn, async (req: Request, res: Response) => {
+  const ticketId = readId(req.params.id);
+  if (hidesNotesFrom(req.user!) || ticketId === null) return ticketNotFound(res);
+
+  try {
+    if (!(await ticketExists({ id: ticketId }))) return ticketNotFound(res);
+
+    const data = await getPrisma().internalNote.findMany({
+      where: { ticketId },
+      select: THREAD_ENTRY,
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    });
+    res.json({ data });
+  } catch (error) {
+    console.error("Error listing internal notes:", error);
+    sendInternalError(res);
+  }
+});
+
+// POST /api/tickets/:id/notes — FR-20, AC-15, BR-20, BR-22, BR-23.
+app.post("/api/tickets/:id/notes", signedIn, async (req: Request, res: Response) => {
+  const user = req.user!;
+  const ticketId = readId(req.params.id);
+  if (hidesNotesFrom(user) || ticketId === null) return ticketNotFound(res);
+
+  try {
+    if (!(await ticketExists({ id: ticketId }))) return ticketNotFound(res);
+
+    const body = readThreadBody(req);
+    if (body === null) {
+      return sendError(res, 400, "VALIDATION_ERROR", "A note must be between 1 and 2000 characters.", "body");
+    }
+
+    // Deliberately does *not* move Last Updated, unlike a comment. The
+    // Requester sees that timestamp, and a Ticket that changed with nothing
+    // visible having changed would tell them something hidden had happened
+    // (BR-20).
+    const data = await getPrisma().internalNote.create({
+      data: { ticketId, authorId: user.id, body },
+      select: THREAD_ENTRY,
+    });
+    res.status(201).json({ data });
+  } catch (error) {
+    console.error("Error posting an internal note:", error);
+    sendInternalError(res);
+  }
+});
+
+// ---------------------------------------------------------------------------
 // Lab 3, Issue #31 — IT Staff Ticket Queue
 // GET /api/staff/tickets — api-spec.md §7, FR-13, AC-09, BR-40.
 //
@@ -600,25 +976,10 @@ app.delete("/api/attachments/:id", requesterOnly, async (req: Request, res: Resp
 // list rather than changing meaning with the caller, so the ownership rule for
 // Requesters never shares a code path with a list that deliberately has none.
 // ---------------------------------------------------------------------------
-const CURRENT_STATUSES = [
-  "NEW",
-  "OPEN",
-  "IN_PROGRESS",
-  "WAITING_FOR_REQUESTER",
-  "RESOLVED",
-  "CLOSED",
-  "REOPENED",
-  "CANCELLED",
-] as const;
 const QUEUE_SORT_FIELDS = ["ticketNumber", "createdAt", "updatedAt", "itPriority"] as const;
 // BR-40: larger than the Requester list's 10, because a shared queue is
 // scanned rather than browsed.
 const QUEUE_DEFAULT_PAGE_SIZE = 25;
-
-// api-spec.md §5 — the actor summary, the only shape a person is named in.
-// Email is absent on purpose: the Administrator user list is the one place
-// addresses are returned.
-const ACTOR_SUMMARY = { select: { id: true, name: true, role: true } } as const;
 
 app.get("/api/staff/tickets", staffOnly, async (req: Request, res: Response) => {
   const query = req.query as Record<string, unknown>;
@@ -689,7 +1050,7 @@ app.get("/api/staff/tickets", staffOnly, async (req: Request, res: Response) => 
       take: pageSize,
       // No `attachments`: the queue never renders them per row, and loading
       // them for 25 Tickets at a time would be wasted work (api-spec.md §7).
-      include: { requester: ACTOR_SUMMARY, owner: ACTOR_SUMMARY },
+      include: TICKET_PEOPLE,
     });
 
     res.json({ data, pagination });

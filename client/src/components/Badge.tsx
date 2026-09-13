@@ -1,4 +1,4 @@
-import { CurrentStatus, RequestedPriority } from "../api.js";
+import { CurrentStatus, RequestedPriority, Role } from "../api.js";
 
 // ui-spec.md §2.3 — Requested Priority, IT Priority and Current Status badges.
 //
@@ -67,6 +67,25 @@ export function StatusBadge({ value }: { value: CurrentStatus }) {
     <span className={`zg-badge ${status.className}`} title={`Status: ${status.label}`}>
       {status.glyph && <span aria-hidden="true">{status.glyph} </span>}
       {status.label}
+    </span>
+  );
+}
+
+const ROLE_LABEL: Record<Role, string> = {
+  REQUESTER: "Requester",
+  IT_STAFF: "IT Staff",
+  ADMINISTRATOR: "Administrator",
+};
+
+/**
+ * ui-spec.md §2.3 — deliberately the quietest badge in the system. A role is an
+ * attribute of a person, not a state to scan for, so it never competes with the
+ * status and priority badges beside it.
+ */
+export function RoleBadge({ role }: { role: Role }) {
+  return (
+    <span className="zg-badge zg-badge--role" title={`Role: ${ROLE_LABEL[role]}`}>
+      {ROLE_LABEL[role]}
     </span>
   );
 }
