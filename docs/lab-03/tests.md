@@ -86,10 +86,11 @@ scheme as follows, so a reader looking for them can find them:
 
 ### 2.3 API — Authorization and safe errors — `server/tests/lab-03/authorization.api.test.ts`
 
-Four rows here name endpoints that arrive later in the sprint, so they are
-carried rather than written: API-AUTHZ-02 with the queue (#31), API-AUTHZ-03
-with the staff ticket operations (#32), and API-AUTHZ-04 and API-AUTHZ-05 with
-user management (#33). Pointing them at a path nothing routes yet would assert
+Three rows here name endpoints that arrive later in the sprint, so they are
+carried rather than written: API-AUTHZ-03 with the staff ticket operations
+(#32), and API-AUTHZ-04 and API-AUTHZ-05 with user management (#33).
+API-AUTHZ-02 was carried the same way until the queue it refuses arrived in
+#31. Pointing them at a path nothing routes yet would assert
 a 404 from the fallback handler and read as a passing authorization test, which
 is worse than carrying them honestly.
 
@@ -102,7 +103,7 @@ the defect the row exists to catch.
 | ID | Type | AC / BR | What it tests | Expected result | File | Status |
 |---|---|---|---|---|---|---|
 | API-AUTHZ-01 | API | BR-19 | Table-driven: every protected endpoint with no cookie | 401 `UNAUTHENTICATED` for all of them | `authorization.api.test.ts` | **Pass** |
-| API-AUTHZ-02 | API | AC-07 | Requester → `GET /api/staff/tickets` and `/api/staff/assignees` | 403 `FORBIDDEN` | `authorization.api.test.ts` | Deferred to Issue #31 |
+| API-AUTHZ-02 | API | AC-07 | Requester → `GET /api/staff/tickets` and `/api/staff/assignees` | 403 `FORBIDDEN` | `authorization.api.test.ts` | **Pass** |
 | API-AUTHZ-03 | API | BR-05, BR-32 | Requester → owner, IT-priority and status endpoints on their own Ticket | 403 `FORBIDDEN`; nothing changes | `authorization.api.test.ts` | Deferred to Issue #32 |
 | API-AUTHZ-04 | API | AC-21 | Requester → every `/api/users` endpoint | 403 `FORBIDDEN` | `authorization.api.test.ts` | Deferred to Issue #33 |
 | API-AUTHZ-05 | API | AC-21 | IT Staff → every `/api/users` endpoint | 403 `FORBIDDEN` | `authorization.api.test.ts` | Deferred to Issue #33 |
@@ -119,18 +120,18 @@ the defect the row exists to catch.
 
 | ID | Type | AC / BR | What it tests | Expected result | File | Status |
 |---|---|---|---|---|---|---|
-| API-QUEUE-01 | API | AC-09 | IT Staff queue contents | Tickets from every Requester, each with owner, status and both priorities | `staff-queue.api.test.ts` | Planned |
-| API-QUEUE-02 | API | AC-09, BR-40 | `search` | Matches ticket number and summary, case-insensitive partial | `staff-queue.api.test.ts` | Planned |
-| API-QUEUE-03 | API | AC-09, BR-40 | Each filter alone | Category, requested priority, IT priority and status each narrow correctly | `staff-queue.api.test.ts` | Planned |
-| API-QUEUE-04 | API | BR-40 | `owner` | `unassigned` returns only null-owner rows; an id returns only that owner's | `staff-queue.api.test.ts` | Planned |
-| API-QUEUE-05 | API | BR-40 | Combined filters | AND semantics | `staff-queue.api.test.ts` | Planned |
-| API-QUEUE-06 | API | BR-40 | Each sortable field, both directions | Ordering correct; ties break by `ticketNumber desc` | `staff-queue.api.test.ts` | Planned |
-| API-QUEUE-07 | API | BR-40 | `sortBy=itPriority` | HIGH→MEDIUM→LOW by rank, not alphabetically; nulls last in `desc` | `staff-queue.api.test.ts` | Planned |
-| API-QUEUE-08 | API | BR-40 | Defaults | No parameters gives `updatedAt desc` and `pageSize` 25 | `staff-queue.api.test.ts` | Planned |
-| API-QUEUE-09 | API | AC-28, BR-40 | Every parameter with a junk value | Falls back to that parameter's default; never 400 | `staff-queue.api.test.ts` | Planned |
-| API-QUEUE-10 | API | BR-40 | Page past the end | `data: []` with accurate metadata, not an error | `staff-queue.api.test.ts` | Planned |
-| API-QUEUE-11 | API | BR-40 | Pagination envelope | Same four fields and shape as Lab 2 | `staff-queue.api.test.ts` | Planned |
-| API-QUEUE-12 | API | FR-16, BR-25 | `GET /api/staff/assignees` | Active IT Staff and Administrators only; no Requester, no inactive user, no email field | `staff-queue.api.test.ts` | Planned |
+| API-QUEUE-01 | API | AC-09 | IT Staff queue contents | Tickets from every Requester, each with owner, status and both priorities | `staff-queue.api.test.ts` | **Pass** |
+| API-QUEUE-02 | API | AC-09, BR-40 | `search` | Matches ticket number and summary, case-insensitive partial | `staff-queue.api.test.ts` | **Pass** |
+| API-QUEUE-03 | API | AC-09, BR-40 | Each filter alone | Category, requested priority, IT priority and status each narrow correctly | `staff-queue.api.test.ts` | **Pass** |
+| API-QUEUE-04 | API | BR-40 | `owner` | `unassigned` returns only null-owner rows; an id returns only that owner's | `staff-queue.api.test.ts` | **Pass** |
+| API-QUEUE-05 | API | BR-40 | Combined filters | AND semantics | `staff-queue.api.test.ts` | **Pass** |
+| API-QUEUE-06 | API | BR-40 | Each sortable field, both directions | Ordering correct; ties break by `ticketNumber desc` | `staff-queue.api.test.ts` | **Pass** |
+| API-QUEUE-07 | API | BR-40 | `sortBy=itPriority` | HIGH→MEDIUM→LOW by rank, not alphabetically; nulls last in `desc` and in `asc` | `staff-queue.api.test.ts` | **Pass** |
+| API-QUEUE-08 | API | BR-40 | Defaults | No parameters gives `updatedAt desc` and `pageSize` 25 | `staff-queue.api.test.ts` | **Pass** |
+| API-QUEUE-09 | API | AC-28, BR-40 | Every parameter with a junk value | Falls back to that parameter's default; never 400 | `staff-queue.api.test.ts` | **Pass** |
+| API-QUEUE-10 | API | BR-40 | Page past the end | `data: []` with accurate metadata, not an error | `staff-queue.api.test.ts` | **Pass** |
+| API-QUEUE-11 | API | BR-40 | Pagination envelope | Same four fields and shape as Lab 2 | `staff-queue.api.test.ts` | **Pass** |
+| API-QUEUE-12 | API | FR-16, BR-25 | `GET /api/staff/assignees` | Active IT Staff and Administrators only; no Requester, no inactive user, no email field | `staff-queue.api.test.ts` | **Pass** |
 
 ### 2.5 API — IT Staff ticket operations — `server/tests/lab-03/staff-ticket-detail.api.test.ts`
 
@@ -218,7 +219,7 @@ into another suite.
 | MIG-07 | Migration | AC-03, BR-03 | `X-Requester-Id` after migration | Has no effect on any endpoint, with or without a session | the four Lab 2 Requester suites (also covered by API-AUTHZ-08) | **Pass** |
 | MIG-08 | Regression | BR-44 | Every Lab 2 Requester endpoint under a session | Create, list, detail, upload, download and soft-remove all behave as `docs/lab-02/api-spec.md` describes, except that a missing identity is now 401 rather than 400 | the four Lab 2 Requester suites, which carry MIG-08 in their leading comments | **Pass** |
 | MIG-09 | Migration | BR-45 | Seed idempotency | Running the seed twice leaves the same row counts and no duplicate emails | `migration.api.test.ts` | **Pass** |
-| MIG-10 | Migration | BR-45 | Seed composition | At least 4 active + 1 inactive Requester, 3 active + 1 inactive IT Staff, 1 active Administrator, Tickets across statuses/priorities/assigned and unassigned, plus example comments and notes | `migration.api.test.ts` | **Pass** |
+| MIG-10 | Migration | BR-45 | Seed composition | At least 4 active + 1 inactive Requester, 3 active + 1 inactive IT Staff, 1 active Administrator, Tickets across Requesters, every status, every priority and assigned and unassigned ownership, including an inactive owner (Issue #31); example comments and notes arrive with Issue #32 | `migration.api.test.ts` | **Pass** |
 
 **Error codes inherited from Lab 2.** `INVALID_CATEGORY`,
 `INVALID_RELATED_SYSTEM`, `UNSUPPORTED_FILE_TYPE`, `FILE_TOO_LARGE`,
@@ -269,7 +270,7 @@ route tree.
 | UI-PWD-05 | UI | BR-42 | Wrong current password | Message appears under `Current Password`, not as a screen failure | `ChangePassword.test.tsx` | **Pass** |
 | UI-PWD-06 | UI | AC-02 | Success | `zg-state--success` replaces the form, *then* the updated user is handed up; the navigation itself is UI-ROUTE-05 | `ChangePassword.test.tsx` | **Pass** |
 | UI-SHELL-01 | UI | FR-09, AC-07 | Requester navigation | My Tickets and Create Ticket only; no queue or admin destination rendered at all | `AppShell.test.tsx` | **Pass** |
-| UI-SHELL-02 | UI | FR-09 | IT Staff and Administrator navigation | Queue for staff; User Management first plus Queue for the Administrator | `AppShell.test.tsx` | Deferred to Issues #31 and #33 |
+| UI-SHELL-02 | UI | FR-09 | IT Staff and Administrator navigation | Queue for staff; User Management first plus Queue for the Administrator | `AppShell.test.tsx` | Staff half **Pass**; the Administrator's User Management item is deferred to Issue #33 |
 | UI-SHELL-03 | UI | FR-09 | Header identity | Authenticated name and role badge shown; no Change Requester control anywhere | `AppShell.test.tsx` | **Pass** |
 | UI-SHELL-04 | UI | AC-06 | Logout | Calls the endpoint with the cookie and drops the local user; landing on Login is UI-ROUTE-02 | `AppShell.test.tsx` | **Pass** |
 | UI-SHELL-05 | UI | FR-09 | Mobile panel at 375px | Role items, then name, role badge, Change Password and Log Out as full-width rows | `AppShell.test.tsx` | **Pass** |
@@ -278,15 +279,16 @@ route tree.
 | UI-ROUTE-03 | UI | BR-13 | `GET /me` unreachable | Retryable failure state, not Login | `AppRoutes.test.tsx` | **Pass** |
 | UI-ROUTE-04 | UI | AC-02, BR-02 | `mustChangePassword`, another route typed | The mandatory Change Password screen inside a shell carrying no navigation items — Log Out reachable, Cancel absent | `AppRoutes.test.tsx` | **Pass** |
 | UI-ROUTE-05 | UI | AC-01 | Signed-in Requester at `/` and at `/login` | Both resolve to the role's landing screen | `AppRoutes.test.tsx` | **Pass** |
-| UI-ROUTE-06 | UI | FR-09, AC-07 | Another role's URL typed | The guarded screen does not render and no request is made on its behalf | `AppRoutes.test.tsx` | **Pass** |
-| UI-QUEUE-01 | UI | AC-09 | Desktop table | Nine columns in the specified order, with badges | `StaffTicketQueue.test.tsx` | Planned |
-| UI-QUEUE-02 | UI | AC-09 | Search and filters | Each control issues the right query parameter | `StaffTicketQueue.test.tsx` | Planned |
-| UI-QUEUE-03 | UI | AC-09 | Sorting | Clicking a sortable header starts descending and returns to page 1 | `StaffTicketQueue.test.tsx` | Planned |
-| UI-QUEUE-04 | UI | AC-09 | Pagination | Page size default 25; Previous/Next and page numbers work | `StaffTicketQueue.test.tsx` | Planned |
-| UI-QUEUE-05 | UI | AC-09 | Empty vs no-results | Two distinct blocks; no-results offers Clear Filters | `StaffTicketQueue.test.tsx` | Planned |
-| UI-QUEUE-06 | UI | AC-07 | 403 response | `zg-state--forbidden`, not the generic failure block | `StaffTicketQueue.test.tsx` | Planned |
-| UI-QUEUE-07 | UI | BR-43 | 500 response | Safe failure block with Retry | `StaffTicketQueue.test.tsx` | Planned |
-| UI-QUEUE-08 | UI | AC-09 | Mobile at 375px | Cards, not a table; unassigned tickets visibly flagged | `StaffTicketQueue.test.tsx` | Planned |
+| UI-ROUTE-06 | UI | FR-09, AC-07 | Another role's URL typed | The forbidden state renders with the way back to the person's own landing screen; no request is made on the other role's behalf | `AppRoutes.test.tsx` | **Pass** |
+| UI-ROUTE-07 | UI | FR-14 | IT Staff open `/tickets/:id` | A plain statement that the staff Ticket Detail arrives with Issue #32 — not the forbidden state, which would misreport a route the role may use | `AppRoutes.test.tsx` | **Pass** |
+| UI-QUEUE-01 | UI | AC-09 | Desktop table | Nine columns in the specified order, with badges | `StaffTicketQueue.test.tsx` | **Pass** |
+| UI-QUEUE-02 | UI | AC-09 | Search and filters | Each control issues the right query parameter | `StaffTicketQueue.test.tsx` | **Pass** |
+| UI-QUEUE-03 | UI | AC-09 | Sorting | Clicking a sortable header starts descending and returns to page 1 | `StaffTicketQueue.test.tsx` | **Pass** |
+| UI-QUEUE-04 | UI | AC-09 | Pagination | Page size default 25; Previous/Next and page numbers work | `StaffTicketQueue.test.tsx` | **Pass** |
+| UI-QUEUE-05 | UI | AC-09 | Empty vs no-results | Two distinct blocks; no-results offers Clear Filters | `StaffTicketQueue.test.tsx` | **Pass** |
+| UI-QUEUE-06 | UI | AC-07 | 403 response | `zg-state--forbidden`, not the generic failure block | `StaffTicketQueue.test.tsx` | **Pass** |
+| UI-QUEUE-07 | UI | BR-43 | 500 response | Safe failure block with Retry | `StaffTicketQueue.test.tsx` | **Pass** |
+| UI-QUEUE-08 | UI | AC-09 | Mobile at 375px | Cards, not a table; unassigned tickets visibly flagged | `StaffTicketQueue.test.tsx` | **Pass** |
 | UI-DETAIL-01 | UI | AC-04, BR-20 | Requester view | No Internal Notes panel, heading, empty state or any other trace | `StaffTicketDetail.test.tsx` | Planned |
 | UI-DETAIL-02 | UI | FR-14 | Staff view | Operations panel present; Add and Remove attachment controls absent; Download present | `StaffTicketDetail.test.tsx` | Planned |
 | UI-DETAIL-03 | UI | AC-10, AC-11 | Owner control | Claim sets the signed-in user; the select lists only active staff and Administrators | `StaffTicketDetail.test.tsx` | Planned |
@@ -397,7 +399,7 @@ requires.
 | AC-25 | MIG-06, UI-SHELL-03, E2E-05 |
 | AC-26 | API-TICKET-16, UI-DETAIL-02 |
 | AC-27 | API-USER-02, API-USER-03, UI-USER-02, E2E-10 |
-| AC-28 | API-QUEUE-09 |
+| AC-28 | API-QUEUE-09, UI-QUEUE-02 |
 
 ## 4. Business-Rule Traceability
 
@@ -407,7 +409,7 @@ Every rule has at least one automated test, as `specification.md` §10 requires.
 |---|---|---|---|
 | BR-01 | API-AUTH-01, API-AUTH-04 | BR-24 | UI-DETAIL-08 |
 | BR-02 | API-AUTH-17, API-AUTH-18, UI-PWD-01, UI-ROUTE-04 | BR-25 | API-TICKET-04, API-QUEUE-12 |
-| BR-03 | API-AUTHZ-08, MIG-07 | BR-26 | API-TICKET-19 |
+| BR-03 | API-AUTHZ-08, MIG-07 | BR-26 | API-TICKET-19, API-QUEUE-01, API-QUEUE-04, MIG-10 |
 | BR-04 | API-COMMENT-01, API-COMMENT-02, API-NOTE-06 | BR-27 | API-TICKET-18, MIG-05 |
 | BR-05 | API-AUTHZ-03, API-TICKET-12 | BR-28 | API-TICKET-05, API-TICKET-06 |
 | BR-06 | API-AUTH-02, API-AUTH-03, UI-LOGIN-04 | BR-29 | API-TICKET-07, API-TICKET-18, MIG-04 |
@@ -421,7 +423,7 @@ Every rule has at least one automated test, as `specification.md` §10 requires.
 | BR-14 | API-AUTH-08 | BR-37 | API-USER-13, API-USER-14, UI-USER-06 |
 | BR-15 | API-AUTH-12 | BR-38 | API-USER-15, API-USER-16 |
 | BR-16 | API-AUTHZ-07, API-AUTHZ-09, API-COMMENT-03, API-TICKET-15 | BR-39 | API-USER-19 |
-| BR-17 | API-TICKET-01 | BR-40 | API-QUEUE-02..11 |
+| BR-17 | API-TICKET-01 | BR-40 | API-QUEUE-02..11, UI-QUEUE-02..04 |
 | BR-18 | API-USER-09 | BR-41 | API-USER-01, API-USER-04, API-USER-05 |
 | BR-19 | API-AUTHZ-01, API-AUTHZ-06 | BR-42 | API-AUTH-05, API-COMMENT-04, API-USER-08, API-USER-11 |
 | BR-20 | API-NOTE-02, API-NOTE-03, API-NOTE-04, UI-DETAIL-01 | BR-43 | API-ERR-01, API-ERR-02, UI-LOGIN-05, UI-QUEUE-07 |
@@ -494,8 +496,8 @@ row.
 
 | Suite | Command | Tests | Result |
 |---|---|---|---|
-| Server unit + API + migration | `npm test --prefix server` | **126** | **All passing** as of Issue #30 |
-| Client UI components | `npm test --prefix client` | **67** | **All passing** as of Issue #30 |
+| Server unit + API + migration | `npm test --prefix server` | **144** | **All passing** as of Issue #31 |
+| Client UI components | `npm test --prefix client` | **80** | **All passing** as of Issue #31 |
 | E2E + visual | `npm run test:e2e` | — | Pending — Issue #34 |
 
 ### After Issue #29 — authentication foundation
@@ -526,6 +528,40 @@ regression lost three files for the same reason — the Requester selector, its
 hook and its context no longer exist — and gained the four Lab 3 screen files
 in their place.
 
+### After Issue #31 — IT Staff Ticket Queue
+
+| Area | Files | Cases |
+|---|---|---|
+| Lab 1 and Lab 2 regression | 9 files | 62, unchanged |
+| Lab 3 unit | `password.unit.test.ts`, `session.unit.test.ts` | 10 |
+| Lab 3 authentication API | `auth.api.test.ts` | 27 |
+| Lab 3 authorization API | `authorization.api.test.ts` | 18 |
+| Lab 3 migration and seed | `migration.api.test.ts` | 12 |
+| Lab 3 staff queue API | `staff-queue.api.test.ts` | 15 |
+| Lab 3 client screens | `Login`, `ChangePassword`, `AppShell`, `AppRoutes`, `StaffTicketQueue` | 44 |
+| Lab 2 client regression | 4 files | 36, unchanged |
+
+The authorization suite gained API-AUTHZ-02; the authentication suite gained a
+case putting the password-change gate in front of the two staff endpoints
+(API-AUTH-17); and the seed block gained the Ticket-composition case of MIG-10.
+
+The seed block moved to a database of its own, `toktickit_seed_test`, migrated
+with `prisma migrate deploy` and seeded from nothing. It used to assert against
+the developer database, which the application changes: once Issue #32 lets
+staff claim a Ticket or move its status, or Issue #33 lets an Administrator
+deactivate an account, a seeded row stops looking seeded, and the seed leaves a
+changed row alone. MIG-09 also assumed that database had already been seeded,
+so the first run after the seed gained Tickets would have failed for a reason
+unrelated to idempotency.
+
+API-QUEUE-07 was checked against a deliberate regression: with the explicit
+`nulls: last` removed from the query, PostgreSQL puts an untriaged Ticket first
+in a descending IT Priority sort, and the case fails.
+
+The Lab 2 My Tickets pagination moved into a shared `PaginationBar` component
+that the queue also uses. No Lab 2 test changed; UI-LIST-05 and UI-LIST-06 are
+what show the move preserved its behaviour.
+
 The migration suite creates a scratch database, replays the real migration
 files in order, pauses after the last Lab 2 migration to insert Lab 2-shaped
 rows, applies the two Lab 3 migrations to them, and drops the database
@@ -536,9 +572,9 @@ and it is why AC-08 can be claimed rather than asserted.
 
 ### Deferred within the sprint
 
-- **API-AUTHZ-02, API-AUTHZ-03, API-AUTHZ-04, API-AUTHZ-05** — the role gate
-  against endpoints that do not exist yet: the staff queue (#31), the staff
-  ticket operations (#32), and user management (#33). Written where those
+- **API-AUTHZ-03, API-AUTHZ-04, API-AUTHZ-05** — the role gate against
+  endpoints that do not exist yet: the staff ticket operations (#32) and user
+  management (#33). Written where those
   endpoints are, because a request to an unrouted path answers 404 from the
   fallback handler, and a row asserting that would report a passing
   authorization test for a gate nothing had been applied to.
@@ -550,27 +586,27 @@ and it is why AC-08 can be claimed rather than asserted.
   covers only the four endpoints §6 keeps Requester-only permanently, and a
   separate case pins today's behaviour on these three so that widening them
   fails a test rather than passing silently.
-- **UI-SHELL-02** — IT Staff and Administrator navigation. The destinations
-  themselves arrive with #31 and #33; `NAV_BY_ROLE` carries empty lists for
-  both roles until then, so there is nothing yet to assert beyond what
-  UI-SHELL-01 already proves about absence.
+- **UI-SHELL-02, the Administrator half** — User Management, which leads the
+  Administrator's navigation, arrives with #33. The Ticket Queue item both staff
+  roles carry was written with the queue in #31.
 - **UNIT-03** — the status transition matrix helper is built in Issue #32,
   where the endpoint that consults it is built.
 
 Cleared during the sprint: **API-AUTH-17** and **API-AUTH-18** (Issue #29 built
 the gate, Issue #30 gave it endpoints to stand in front of) and **MIG-06**,
 **MIG-07** and **MIG-08** (Issue #30 removed `GET /api/requesters` and the
-`X-Requester-Id` mechanism with the selector that used them).
+`X-Requester-Id` mechanism with the selector that used them). **API-AUTHZ-02**
+was cleared in Issue #31, with the queue it refuses.
 
 ### Temporary, and deliberately so
 
-- **`ScreenNotYetBuilt` in `App.tsx`.** `ui-spec.md` §3 gives IT Staff and the
-  Administrator a landing route, and Issue #30 lets both roles sign in, but
-  their screens arrive with #31 and #33. With no element on those paths the
-  catch-all route sends them back to the landing they came from and they see a
-  blank page — no shell, no identity, no way to log out. The placeholder exists
-  to prevent that and nothing else, on the paths `ui-spec.md` §3 already fixes,
-  and each of the two issues deletes it by putting the real screen there. It is
+- **`ScreenNotYetBuilt` in `App.tsx`.** It now holds two paths whose screens
+  belong to later issues: `/admin/users`, the Administrator's landing route
+  (#33), and the staff view of `/tickets/:id`, where every queue row leads
+  (#32). Without it an Administrator would sign in to a blank page with no way
+  to log out, and a queue row would lead nowhere a staff member could make
+  sense of. The queue itself replaced its use on `/staff/tickets` in #31; each
+  remaining issue deletes its use by putting the real screen on the path. It is
   recorded here rather than left to be discovered.
 
 ### Standing limitations

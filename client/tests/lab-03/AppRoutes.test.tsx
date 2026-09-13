@@ -1,11 +1,11 @@
 import "@testing-library/jest-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import type { AuthUser, Role } from "../../src/api.js";
 
-// tests.md UI-ROUTE-01..06; ui-spec.md §3; specification.md FR-09, BR-02,
+// tests.md UI-ROUTE-01..07; ui-spec.md §3; specification.md FR-09, BR-02,
 // BR-13, AC-02, AC-07.
 //
 // The screen tests prove each screen behaves; this one proves the application
@@ -21,12 +21,16 @@ import type { AuthUser, Role } from "../../src/api.js";
 const fetchCurrentUser = vi.fn();
 const fetchTickets = vi.fn();
 const fetchCategories = vi.fn();
+const fetchStaffTickets = vi.fn();
+const fetchAssignees = vi.fn();
 
 vi.mock("../../src/api.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../src/api.js")>()),
   fetchCurrentUser: (...args: unknown[]) => fetchCurrentUser(...args),
   fetchTickets: (...args: unknown[]) => fetchTickets(...args),
   fetchCategories: (...args: unknown[]) => fetchCategories(...args),
+  fetchStaffTickets: (...args: unknown[]) => fetchStaffTickets(...args),
+  fetchAssignees: (...args: unknown[]) => fetchAssignees(...args),
 }));
 
 const { AppRoutes } = await import("../../src/App.js");
@@ -59,6 +63,11 @@ beforeEach(() => {
     pagination: { page: 1, pageSize: 25, totalItems: 0, totalPages: 0 },
   });
   fetchCategories.mockResolvedValue([]);
+  fetchStaffTickets.mockResolvedValue({
+    data: [],
+    pagination: { page: 1, pageSize: 25, totalItems: 0, totalPages: 0 },
+  });
+  fetchAssignees.mockResolvedValue([]);
 });
 
 describe("Application routing", () => {
@@ -130,14 +139,53 @@ describe("Application routing", () => {
     expect(screen.queryByRole("button", { name: /sign in/i })).not.toBeInTheDocument();
   });
 
-  it("UI-ROUTE-06 / FR-09, AC-07: another role's URL does not render the Requester screen", async () => {
+  it("UI-ROUTE-05 / AC-01: IT Staff at the root land on the Ticket Queue", async () => {
+    fetchCurrentUser.mockResolvedValue(userWith("IT_STAFF"));
+    renderAt("/");
+
+    expect(await screen.findByRole("heading", { name: "Ticket Queue" })).toBeInTheDocument();
+    await waitFor(() => expect(fetchStaffTickets).toHaveBeenCalled());
+    expect(fetchTickets).not.toHaveBeenCalled();
+  });
+
+  it("UI-ROUTE-06 / FR-09, AC-07: another role's URL renders the forbidden state, with the way back", async () => {
     fetchCurrentUser.mockResolvedValue(userWith("IT_STAFF"));
     renderAt("/my-tickets");
 
-    // The shell renders — they are signed in — but the guarded screen does
-    // not, and no Requester-scoped request is made on their behalf.
-    await waitFor(() => expect(screen.getByTestId("current-user-role")).toHaveTextContent("IT Staff"));
-    expect(screen.queryByRole("link", { name: "My Tickets" })).not.toBeInTheDocument();
+    // ui-spec.md §2.4 and tests.md E2E-04: a refusal the person can read, not a
+    // silent redirect. Changed in Issue #31 — Issue #30 redirected instead.
+    const forbidden = await screen.findByTestId("zg-state-forbidden");
+    expect(within(forbidden).getByRole("link", { name: /back to ticket queue/i })).toHaveAttribute(
+      "href",
+      "/staff/tickets",
+    );
+    // Signed in, so the shell is there; the guarded screen is not, and nothing
+    // is requested on the other role's behalf.
+    expect(screen.getByTestId("current-user-role")).toHaveTextContent("IT Staff");
     expect(fetchTickets).not.toHaveBeenCalled();
+  });
+
+  it("UI-ROUTE-06 / AC-07: a Requester typing the queue's address is refused the same way", async () => {
+    fetchCurrentUser.mockResolvedValue(userWith("REQUESTER"));
+    renderAt("/staff/tickets");
+
+    const forbidden = await screen.findByTestId("zg-state-forbidden");
+    expect(within(forbidden).getByRole("link", { name: /back to my tickets/i })).toHaveAttribute(
+      "href",
+      "/my-tickets",
+    );
+    expect(screen.queryByRole("heading", { name: "Ticket Queue" })).not.toBeInTheDocument();
+    // The client half of AC-07. The server half is API-AUTHZ-02.
+    expect(fetchStaffTickets).not.toHaveBeenCalled();
+  });
+
+  it("UI-ROUTE-07 / FR-14: IT Staff opening a ticket are told its screen is still to come, not refused", async () => {
+    fetchCurrentUser.mockResolvedValue(userWith("IT_STAFF"));
+    renderAt("/tickets/42");
+
+    // The route is theirs (ui-spec.md §8); only the staff view of the screen is
+    // Issue #32's. A forbidden state here would misreport a permitted route.
+    expect(await screen.findByTestId("zg-state-not-built")).toHaveTextContent(/Issue #32/);
+    expect(screen.queryByTestId("zg-state-forbidden")).not.toBeInTheDocument();
   });
 });

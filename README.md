@@ -81,9 +81,9 @@ Request, and Issue #18 merges `lab2-staging` into `main`.
 
 ### Sample tickets for local testing
 
-The seed carries reference data only. To put some tickets in the database —
-needed for trying out My Tickets, and required before the screenshot tests
-under **Test** below:
+The seed creates the tickets the IT Staff Ticket Queue needs (Issue #31). The
+Lab 2 set below is separate: it fills My Tickets for Michael Brown and Jennifer
+Anderson, and is required before the Lab 2 screenshot tests under **Test**:
 
 ```bash
 cd server
@@ -118,6 +118,21 @@ Issue #30 — authorization and Requester regression:
   else is not revealed to exist.
 * Login, Change Password and a role-aware application shell; routing reads the
   session, and no destination a role may not use is rendered.
+
+Issue #31 — IT Staff Ticket Queue:
+
+* `GET /api/staff/tickets` — every Requester's Tickets for IT Staff and
+  Administrators: search, five filters (Owner includes "unassigned"), sorting
+  by ticket number, dates or IT Priority by rank, and 25 per page by default.
+  Every query parameter is lenient.
+* `GET /api/staff/assignees` — the active IT Staff and Administrators a Ticket
+  can be assigned to, as names and roles only.
+* The Ticket Queue screen: nine columns on a desktop, seven on a tablet, cards
+  on a phone.
+* The seed now also creates sixteen Tickets across every status, every
+  priority, three Requesters, and assigned and unassigned ownership.
+* Another role's address shows a "You do not have access" screen instead of
+  silently redirecting.
 
 ### Development sign-in credentials
 
@@ -283,9 +298,12 @@ Sign in as `david.lee@example.edu` to see the mandatory password change: every
 screen and every protected endpoint stays unavailable until a new password is
 saved.
 
-IT Staff and Administrator accounts sign in and reach their own landing
-routes, which currently say the screen arrives with a later issue — the queue
-is Issue #31 and User Management is Issue #33.
+Sign in as `somsak.wattana@example.edu` to see the **Ticket Queue**: every
+Requester's tickets, with search, filters, sorting and pagination, all kept in
+the address so a filtered view can be bookmarked. Administrators carry the queue
+in their navigation too; their landing screen, User Management, arrives with
+Issue #33. Opening a ticket from the queue as staff says that the staff Ticket
+Detail arrives with Issue #32.
 
 ## Production build
 
@@ -315,10 +333,11 @@ The API tests run against the same local PostgreSQL database configured in
 and clean up their own throwaway accounts and tickets rather than reusing the
 seeded demo identities.
 
-The Lab 3 migration suite additionally creates a scratch database named
-`toktickit_migration_test`, replays the migration files into it, and drops it
-again — so the PostgreSQL user in `DATABASE_URL` needs permission to create a
-database.
+The Lab 3 migration suite additionally creates two scratch databases and drops
+them again: `toktickit_migration_test`, where it replays the migration files
+around Lab 2-shaped data, and `toktickit_seed_test`, where it migrates and seeds
+from nothing to check what the seed produces. The PostgreSQL user in
+`DATABASE_URL` therefore needs permission to create a database.
 
 Frontend Tests (Vitest):
 ```bash

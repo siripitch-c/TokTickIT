@@ -24,6 +24,7 @@ const INACTIVE = "auth.inactive@test.invalid";
 const CHANGER = "auth.changer@test.invalid";
 const UNKNOWN = "auth.nobody@test.invalid";
 const PENDING = "auth.pending@test.invalid";
+const PENDING_STAFF = "auth.pending.staff@test.invalid";
 
 const ids: number[] = [];
 
@@ -47,7 +48,13 @@ beforeAll(async () => {
     name: "Auth Pending",
     mustChangePassword: true,
   });
-  ids.push(active.id, inactive.id, changer.id, pending.id);
+  const pendingStaff = await upsertTestUser({
+    email: PENDING_STAFF,
+    name: "Auth Pending Staff",
+    role: "IT_STAFF",
+    mustChangePassword: true,
+  });
+  ids.push(active.id, inactive.id, changer.id, pending.id, pendingStaff.id);
 });
 
 afterAll(async () => {
@@ -394,6 +401,18 @@ describe("The mandatory password change gate", () => {
       // why the client can be told what to do about it (api-spec.md §3).
       expect(res.status).toBe(403);
       expect(res.body.error.code).toBe("PASSWORD_CHANGE_REQUIRED");
+    }
+  });
+
+  it("API-AUTH-17 / BR-02: the gate stands in front of the staff endpoints too", async () => {
+    const cookie = cookieOf(await login(PENDING_STAFF));
+
+    for (const path of ["/api/staff/tickets", "/api/staff/assignees"]) {
+      const res = await request(app).get(path).set("Cookie", cookie);
+      // The account holds the right role and is still refused: gate 3 runs
+      // before gate 4 (api-spec.md §3), whichever role's endpoint it guards.
+      expect(res.status, path).toBe(403);
+      expect(res.body.error.code, path).toBe("PASSWORD_CHANGE_REQUIRED");
     }
   });
 

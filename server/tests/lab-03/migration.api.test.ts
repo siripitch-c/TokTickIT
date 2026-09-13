@@ -5,7 +5,6 @@ import path from "node:path";
 import { PrismaClient } from "@prisma/client";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { app } from "../../src/app.js";
-import { getPrisma } from "../../src/prisma.js";
 
 // tests.md MIG-01..05 — the Lab 2 to Lab 3 migration, against docs/lab-03/
 // specification.md §7 and AC-08.
@@ -21,8 +20,10 @@ import { getPrisma } from "../../src/prisma.js";
 // last Lab 2 one to insert Lab 2-shaped rows, and then applies the two Lab 3
 // migrations to them. What is under test is the SQL that actually ships.
 //
-// MIG-09 and MIG-10 cover the seed, so they run against the ordinary
-// development database at the bottom of this file rather than the scratch one.
+// MIG-09 and MIG-10 cover the seed. They run at the bottom of this file against
+// a second scratch database, migrated and seeded from nothing, so what they
+// assert is what the seed produces rather than whatever the developer database
+// has become since it was last seeded.
 //
 // MIG-06 is at the bottom of this file. MIG-07 (the header is ignored) and
 // MIG-08 (every Lab 2 endpoint under a session) are asserted where they
@@ -276,12 +277,61 @@ describe("Lab 2 to Lab 3 migration", () => {
 });
 
 // ---------------------------------------------------------------------------
-// The seed (handout §5.3, BR-46). These run against the ordinary development
-// database, because the seed is written against `getPrisma()` and that is the
-// database it is meant to populate.
+// The seed (handout §5.3, BR-46), against a database of its own.
+//
+// These used to run against the developer database, which made them assert
+// state the application itself changes: once IT Staff can claim a Ticket or
+// move its status (Issue #32), or an Administrator can deactivate an account
+// (Issue #33), a seeded row stops looking seeded — and the seed deliberately
+// leaves a changed row alone. A database migrated and seeded from nothing is
+// the only place "the seed produces this" can be checked honestly.
+//
+// It is not the migration suite's scratch database: that one holds Lab 2-shaped
+// Tickets numbered without the counter, and the seed's first number would
+// collide with them.
 // ---------------------------------------------------------------------------
+const SEED_DB = "toktickit_seed_test";
+
+function seedUrl(): string {
+  const url = new URL(process.env.DATABASE_URL ?? "");
+  url.pathname = `/${SEED_DB}`;
+  return url.toString();
+}
+
 describe("seed data", () => {
-  const prisma = getPrisma();
+  let prisma: PrismaClient;
+  const onSeedDb = {
+    cwd: path.resolve(import.meta.dirname, "../.."),
+    stdio: "pipe" as const,
+    env: { ...process.env, DATABASE_URL: seedUrl() },
+  };
+  const runSeed = () => execSync("npx tsx prisma/seed.ts", onSeedDb);
+
+  beforeAll(async () => {
+    const admin = new PrismaClient({ datasources: { db: { url: adminUrl() } } });
+    try {
+      await admin.$executeRawUnsafe(`DROP DATABASE IF EXISTS "${SEED_DB}"`);
+      await admin.$executeRawUnsafe(`CREATE DATABASE "${SEED_DB}"`);
+    } finally {
+      await admin.$disconnect();
+    }
+
+    // The shipped migrations, applied the way a fresh clone applies them, then
+    // the seed once. Every case below describes that state.
+    execSync("npx prisma migrate deploy", onSeedDb);
+    runSeed();
+    prisma = new PrismaClient({ datasources: { db: { url: seedUrl() } } });
+  }, 120_000);
+
+  afterAll(async () => {
+    await prisma?.$disconnect();
+    const admin = new PrismaClient({ datasources: { db: { url: adminUrl() } } });
+    try {
+      await admin.$executeRawUnsafe(`DROP DATABASE IF EXISTS "${SEED_DB}"`);
+    } finally {
+      await admin.$disconnect();
+    }
+  });
 
   it("MIG-10 / BR-46: seeds the account mix the handout requires", async () => {
     const counts = await prisma.user.groupBy({
@@ -297,6 +347,33 @@ describe("seed data", () => {
     expect(count("IT_STAFF", true)).toBeGreaterThanOrEqual(3);
     expect(count("IT_STAFF", false)).toBeGreaterThanOrEqual(1);
     expect(count("ADMINISTRATOR", true)).toBeGreaterThanOrEqual(1);
+  });
+
+  it("MIG-10 / BR-26, BR-27: seeds Tickets across Requesters, statuses, priorities and ownership", async () => {
+    const tickets = await prisma.ticket.findMany({
+      where: { description: { contains: "[seed]" } },
+      include: { owner: { select: { isActive: true } } },
+    });
+
+    // specification.md §7: enough spread that every queue filter and sort has
+    // something to tell apart.
+    expect(new Set(tickets.map((t) => t.currentStatus))).toEqual(
+      new Set(["NEW", "OPEN", "IN_PROGRESS", "WAITING_FOR_REQUESTER", "RESOLVED", "CLOSED", "REOPENED", "CANCELLED"]),
+    );
+    expect(new Set(tickets.map((t) => t.requestedPriority)).size).toBe(3);
+    expect(new Set(tickets.map((t) => t.itPriority)).size).toBe(3);
+    expect(new Set(tickets.map((t) => t.requesterId)).size).toBeGreaterThanOrEqual(2);
+    expect(tickets.some((t) => t.ownerId === null)).toBe(true);
+    expect(tickets.some((t) => t.ownerId !== null)).toBe(true);
+
+    // A Lab 3 Ticket always has an IT Priority (BR-29) — only migrated Lab 2
+    // rows may lack one.
+    expect(tickets.every((t) => t.itPriority !== null)).toBe(true);
+    // BR-27: a New Ticket has not been claimed yet.
+    expect(tickets.filter((t) => t.currentStatus === "NEW").every((t) => t.ownerId === null)).toBe(true);
+    // BR-26: an owner stays on the record after their account is deactivated,
+    // so the queue has to be able to show one.
+    expect(tickets.some((t) => t.owner !== null && !t.owner.isActive)).toBe(true);
   });
 
   it("MIG-10 / BR-07: no seeded account stores anything but a hash", async () => {
@@ -330,6 +407,8 @@ describe("seed data", () => {
   });
 
   it("MIG-09 / BR-46: running the seed twice changes nothing", async () => {
+    // The block has already seeded once, so this is the second run — the one
+    // an idempotency claim is actually about.
     const before = {
       users: await prisma.user.count(),
       categories: await prisma.category.count(),
@@ -337,7 +416,7 @@ describe("seed data", () => {
       tickets: await prisma.ticket.count(),
     };
 
-    execSync("npx tsx prisma/seed.ts", { cwd: path.resolve(import.meta.dirname, "../.."), stdio: "pipe" });
+    runSeed();
 
     expect({
       users: await prisma.user.count(),
@@ -351,5 +430,11 @@ describe("seed data", () => {
     // MIG-03 depends on.
     const emails = await prisma.user.findMany({ select: { email: true } });
     expect(new Set(emails.map((e) => e.email)).size).toBe(emails.length);
+
+    const seeded = await prisma.ticket.findMany({
+      where: { description: { contains: "[seed]" } },
+      select: { summary: true },
+    });
+    expect(new Set(seeded.map((t) => t.summary)).size).toBe(seeded.length);
   });
 });

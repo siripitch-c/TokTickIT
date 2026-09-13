@@ -410,6 +410,25 @@ textarea.zg-field--editable {
 
 .zg-state--error { color: var(--zg-error); }
 
+/* Lab 3 ui-spec.md §2.4 — the forbidden state, in the same frame as the Lab 2
+   blocks. Its heading takes focus when it renders (§12). */
+.zg-state--forbidden {
+  text-align: center;
+  padding: var(--zg-space-5) var(--zg-space-3);
+  color: var(--zg-text-muted);
+  font-size: var(--zg-text-sm);
+}
+
+.zg-state--forbidden h1 {
+  font-size: var(--zg-text-lg);
+  color: var(--zg-text);
+  margin: var(--zg-space-2) 0 var(--zg-space-3);
+}
+
+.zg-state--forbidden .zg-state-glyph {
+  font-size: var(--zg-text-xl);
+}
+
 .zg-skeleton-bar {
   height: 40px;
   border-radius: 6px;
@@ -865,6 +884,54 @@ textarea.zg-field--editable {
   color: var(--zg-disabled-text);
 }
 
+/* Lab 3 statuses (ui-spec.md §2.1). Every fill is an existing token. The
+   borders are inset shadows rather than `border`, so a bordered badge is the
+   same height as its neighbours in a badge row. */
+.zg-badge--status-open {
+  background: var(--zg-pale);
+  color: var(--zg-primary);
+  box-shadow: inset 0 0 0 1px var(--zg-primary);
+}
+
+.zg-badge--status-in-progress {
+  background: var(--zg-primary);
+  color: #FFFFFF;
+}
+
+.zg-badge--status-waiting {
+  background: var(--zg-warning-bg);
+  color: var(--zg-warning);
+}
+
+.zg-badge--status-resolved {
+  background: var(--zg-pale);
+  color: var(--zg-success);
+}
+
+.zg-badge--status-closed {
+  background: var(--zg-readonly-bg);
+  color: var(--zg-text-muted);
+}
+
+.zg-badge--status-reopened {
+  background: var(--zg-warning-bg);
+  color: var(--zg-warning);
+  box-shadow: inset 0 0 0 1px var(--zg-warning);
+}
+
+.zg-badge--status-cancelled {
+  background: var(--zg-disabled-bg);
+  color: var(--zg-disabled-text);
+  text-decoration: line-through;
+}
+
+/* Ticket Queue card (ui-spec.md §7.3): an unclaimed ticket is the one thing a
+   staff member scanning a phone is looking for. */
+.zg-owner-unassigned {
+  color: var(--zg-warning);
+  font-weight: 700;
+}
+
 /* ---------- Footer and pagination (§6.1) ---------- */
 
 .zg-list-footer {
@@ -905,8 +972,10 @@ textarea.zg-field--editable {
 
 @media (min-width: 768px) and (max-width: 991px) {
   /* Tablet drops Category from the table to avoid a horizontal scroll; it
-     stays available as a filter (§6.2). */
-  .zg-col-category {
+     stays available as a filter (§6.2). The Ticket Queue starts one column
+     wider and also drops Requested Priority (Lab 3 ui-spec.md §7.2). */
+  .zg-col-category,
+  .zg-col-requested-priority {
     display: none;
   }
 
