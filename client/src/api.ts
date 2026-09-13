@@ -38,7 +38,8 @@ export interface Ticket {
   description: string;
   requestedPriority: RequestedPriority;
   itPriority: RequestedPriority | null;
-  currentStatus: "NEW";
+  // Any of the eight (BR-30): a Requester's own Ticket moves through them too.
+  currentStatus: CurrentStatus;
   createdAt: string;
   updatedAt: string;
   attachments: AttachmentMeta[];
@@ -346,4 +347,99 @@ export async function changePassword(input: {
   });
   if (!res.ok) throw await toApiError(res);
   return (await res.json()).data as AuthUser;
+}
+
+// ---------------------------------------------------------------------------
+// Lab 3, Issue #31 — IT Staff Ticket Queue (api-spec.md §7)
+// ---------------------------------------------------------------------------
+
+/** specification.md BR-30 — every status a Ticket can hold. */
+export type CurrentStatus =
+  | "NEW"
+  | "OPEN"
+  | "IN_PROGRESS"
+  | "WAITING_FOR_REQUESTER"
+  | "RESOLVED"
+  | "CLOSED"
+  | "REOPENED"
+  | "CANCELLED";
+
+export const CURRENT_STATUSES: CurrentStatus[] = [
+  "NEW",
+  "OPEN",
+  "IN_PROGRESS",
+  "WAITING_FOR_REQUESTER",
+  "RESOLVED",
+  "CLOSED",
+  "REOPENED",
+  "CANCELLED",
+];
+
+/** api-spec.md §5 — the only shape a person is named in. Never an email. */
+export interface ActorSummary {
+  id: number;
+  name: string;
+  role: Role;
+}
+
+/** A queue row: the §5 Ticket object without `attachments` (§7). */
+export interface StaffTicket {
+  id: number;
+  ticketNumber: string;
+  requesterId: number;
+  requester: ActorSummary;
+  categoryId: number;
+  relatedSystemId: number;
+  summary: string;
+  description: string;
+  requestedPriority: RequestedPriority;
+  itPriority: RequestedPriority | null;
+  currentStatus: CurrentStatus;
+  ownerId: number | null;
+  owner: ActorSummary | null;
+  requesterResolvedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type QueueSortField = "ticketNumber" | "createdAt" | "updatedAt" | "itPriority";
+
+export interface StaffQueueQuery {
+  search?: string;
+  category?: number;
+  requestedPriority?: RequestedPriority;
+  itPriority?: RequestedPriority;
+  status?: CurrentStatus;
+  owner?: number | "unassigned";
+  sortBy?: QueueSortField;
+  sortDir?: SortDirection;
+  page?: number;
+  pageSize?: number;
+}
+
+export async function fetchStaffTickets(
+  query: StaffQueueQuery = {},
+): Promise<{ data: StaffTicket[]; pagination: Pagination }> {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) {
+    if (value !== undefined && value !== null && value !== "") {
+      params.set(key, String(value));
+    }
+  }
+
+  const search = params.toString();
+  const res = await fetch(`${API_URL}/api/staff/tickets${search ? `?${search}` : ""}`, {
+    ...withSession,
+  });
+  if (!res.ok) throw await toApiError(res);
+
+  const body = await res.json();
+  return { data: body.data as StaffTicket[], pagination: body.pagination as Pagination };
+}
+
+/** FR-16 — active IT Staff and Administrators, for the Owner filter and, in #32, reassignment. */
+export async function fetchAssignees(): Promise<ActorSummary[]> {
+  const res = await fetch(`${API_URL}/api/staff/assignees`, { ...withSession });
+  if (!res.ok) throw await toApiError(res);
+  return (await res.json()).data as ActorSummary[];
 }

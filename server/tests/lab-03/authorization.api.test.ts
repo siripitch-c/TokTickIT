@@ -14,11 +14,10 @@ import { TEST_PASSWORD, upsertTestUser } from "../support/users.js";
 // send, driven straight at the API. Hiding a link proves nothing; refusing the
 // call does.
 //
-// Four rows of §2.3 cannot be written yet because the endpoints they name do
+// Three rows of §2.3 cannot be written yet because the endpoints they name do
 // not exist. They are not skipped silently — tests.md §8 records where each
-// one lands:
+// one lands (API-AUTHZ-02 was written with the queue in Issue #31):
 //
-//   API-AUTHZ-02  Requester -> /api/staff/*      Issue #31
 //   API-AUTHZ-03  Requester -> IT-only fields    Issue #32
 //   API-AUTHZ-04  Requester -> /api/users/*      Issue #33
 //   API-AUTHZ-05  IT Staff  -> /api/users/*      Issue #33
@@ -265,6 +264,24 @@ describe("Gate 2 — authentication", () => {
 
 describe("Gate 4 — role", () => {
   const requesterOnlyCalls = () => protectedCalls().filter((c) => REQUESTER_ONLY.has(c.name));
+
+  it("API-AUTHZ-02 / AC-07: a Requester is refused the queue and the assignee list", async () => {
+    for (const path of ["/api/staff/tickets", "/api/staff/assignees"]) {
+      const res = await request(app).get(path).set("Cookie", ownerCookie);
+
+      // 403, stated plainly: the existence of a queue is not a secret
+      // (api-spec.md §7). The refusal is the server half of AC-07 — hiding the
+      // destination from Requester navigation is only its visible half.
+      expect(res.status, path).toBe(403);
+      expect(res.body.error.code, path).toBe("FORBIDDEN");
+      // The envelope and nothing else: no Ticket, no name, no count.
+      expect(Object.keys(res.body), path).toEqual(["error"]);
+
+      const anonymous = await request(app).get(path);
+      expect(anonymous.status, `${path} without a session`).toBe(401);
+      expect(anonymous.body.error.code, `${path} without a session`).toBe("UNAUTHENTICATED");
+    }
+  });
 
   it("API-AUTHZ-06 / BR-19: IT Staff are refused the Requester-only endpoints", async () => {
     for (const call of requesterOnlyCalls()) {

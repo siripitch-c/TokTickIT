@@ -328,7 +328,8 @@ Query parameters, all optional and all lenient (BR-40, AC-28):
 - Filters combine with AND. Ties break by `ticketNumber desc`, as in Lab 2.
 - `sortBy=itPriority` orders `HIGH` → `MEDIUM` → `LOW` by rank, not
   alphabetically; a null `itPriority` (a Lab 2 row the migration has not
-  touched) sorts last in `desc`.
+  touched) sorts last in `desc`, and last in `asc` as well — an untriaged
+  Ticket has no priority yet, which is not the same as the lowest one.
 - **200** response: the pagination envelope, `data` being an array of Ticket
   objects **without** the `attachments` array — the queue never renders
   attachment detail per row, and loading it for 25 Tickets would be wasteful.

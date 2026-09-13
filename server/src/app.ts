@@ -1,6 +1,6 @@
 import express, { Request, Response } from "express";
 import cors from "cors";
-import { requesterOnly } from "./auth.js";
+import { requesterOnly, staffOnly } from "./auth.js";
 import { authRoutes } from "./authRoutes.js";
 import { getPrisma } from "./prisma.js";
 import { nextTicketNumber } from "./ticketNumber.js";
@@ -15,7 +15,7 @@ import {
   storedFilePath,
   toDisplayFilename,
 } from "./uploads.js";
-import type { Attachment } from "@prisma/client";
+import type { Attachment, Prisma } from "@prisma/client";
 import type { NextFunction } from "express";
 import { MulterError } from "multer";
 // getPrisma() is your lazy database handle. Call it INSIDE a route when you
@@ -99,17 +99,15 @@ app.get("/api/related-systems", async (req, res) => {
 // ---------------------------------------------------------------------------
 // Issue #13 — Create Ticket
 // POST /api/tickets — api-spec.md §4. Requester-scoped: ownership comes from
-// the X-Requester-Id header (BR-10), never from the request body. Unlike the
-// lenient GET query params of BR-18, request bodies are validated strictly and
-// return 400 on the first failure (BR-19..BR-23).
+// the session (Lab 3 BR-03), never from the request body. Unlike the lenient
+// GET query params of BR-18, request bodies are validated strictly and return
+// 400 on the first failure (BR-19..BR-23).
 // ---------------------------------------------------------------------------
 const SUMMARY_MIN = 5;
 const SUMMARY_MAX = 150;
 const DESCRIPTION_MIN = 10;
 const DESCRIPTION_MAX = 2000;
 const REQUESTED_PRIORITIES = ["LOW", "MEDIUM", "HIGH"] as const;
-const REQUESTER_UNAVAILABLE =
-  "The selected Development Requester is no longer available. Choose one again.";
 
 // Trims first, then measures — BR-19/BR-20 length limits apply to real content,
 // so "   " is an empty Summary, not an 8-character one.
@@ -589,6 +587,136 @@ app.delete("/api/attachments/:id", requesterOnly, async (req: Request, res: Resp
     res.json({ data: toAttachmentResponse(removed) });
   } catch (error) {
     console.error("Error removing attachment:", error);
+    sendInternalError(res);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Lab 3, Issue #31 — IT Staff Ticket Queue
+// GET /api/staff/tickets — api-spec.md §7, FR-13, AC-09, BR-40.
+//
+// The staff counterpart of My Tickets: every Requester's Tickets, with the same
+// lenient query contract (AC-28). `GET /api/tickets` stays the Requester's own
+// list rather than changing meaning with the caller, so the ownership rule for
+// Requesters never shares a code path with a list that deliberately has none.
+// ---------------------------------------------------------------------------
+const CURRENT_STATUSES = [
+  "NEW",
+  "OPEN",
+  "IN_PROGRESS",
+  "WAITING_FOR_REQUESTER",
+  "RESOLVED",
+  "CLOSED",
+  "REOPENED",
+  "CANCELLED",
+] as const;
+const QUEUE_SORT_FIELDS = ["ticketNumber", "createdAt", "updatedAt", "itPriority"] as const;
+// BR-40: larger than the Requester list's 10, because a shared queue is
+// scanned rather than browsed.
+const QUEUE_DEFAULT_PAGE_SIZE = 25;
+
+// api-spec.md §5 — the actor summary, the only shape a person is named in.
+// Email is absent on purpose: the Administrator user list is the one place
+// addresses are returned.
+const ACTOR_SUMMARY = { select: { id: true, name: true, role: true } } as const;
+
+app.get("/api/staff/tickets", staffOnly, async (req: Request, res: Response) => {
+  const query = req.query as Record<string, unknown>;
+
+  const search = typeof query.search === "string" && query.search.trim() !== "" ? query.search.trim() : null;
+  const categoryId = readId(query.category);
+  const requestedPriority = REQUESTED_PRIORITIES.find((p) => p === query.requestedPriority);
+  const itPriority = REQUESTED_PRIORITIES.find((p) => p === query.itPriority);
+  const currentStatus = CURRENT_STATUSES.find((s) => s === query.status);
+
+  // `unassigned` or a User id. Anything else — `me` included — is ignored and
+  // the filter simply does not apply (api-spec.md §7).
+  const ownerId = query.owner === "unassigned" ? null : readId(query.owner);
+  const ownerFilter =
+    query.owner === "unassigned" ? { ownerId: null } : ownerId !== null ? { ownerId } : {};
+
+  const sortBy = QUEUE_SORT_FIELDS.find((f) => f === query.sortBy) ?? "updatedAt";
+  const sortDir: Prisma.SortOrder = query.sortDir === "asc" ? "asc" : "desc";
+  const page = readId(query.page) ?? 1;
+  const pageSizeCandidate = Number(query.pageSize);
+  const pageSize = PAGE_SIZES.includes(pageSizeCandidate) ? pageSizeCandidate : QUEUE_DEFAULT_PAGE_SIZE;
+
+  try {
+    const prisma = getPrisma();
+
+    const where = {
+      ...(categoryId !== null ? { categoryId } : {}),
+      ...(requestedPriority ? { requestedPriority } : {}),
+      ...(itPriority ? { itPriority } : {}),
+      ...(currentStatus ? { currentStatus } : {}),
+      ...ownerFilter,
+      ...(search
+        ? {
+            OR: [
+              { ticketNumber: { contains: escapeLikePattern(search), mode: "insensitive" as const } },
+              { summary: { contains: escapeLikePattern(search), mode: "insensitive" as const } },
+            ],
+          }
+        : {}),
+    };
+
+    const totalItems = await prisma.ticket.count({ where });
+    const totalPages = Math.ceil(totalItems / pageSize);
+    const pagination = { page, pageSize, totalItems, totalPages };
+
+    // Lab 2 BR-17, carried over: a page past the end is an empty result with
+    // accurate metadata, not an error.
+    if (page > totalPages) {
+      return res.json({ data: [], pagination });
+    }
+
+    // IT Priority sorts by rank because PostgreSQL orders an enum by its
+    // declaration (LOW, MEDIUM, HIGH), not alphabetically. A null — a migrated
+    // Lab 2 row the backfill did not reach — goes last in both directions:
+    // PostgreSQL would put it *first* in a descending sort, which would push
+    // tickets nobody has triaged above the HIGH ones a queue is read for.
+    const primary: Prisma.TicketOrderByWithRelationInput =
+      sortBy === "itPriority"
+        ? { itPriority: { sort: sortDir, nulls: "last" } }
+        : { [sortBy]: sortDir };
+
+    const data = await prisma.ticket.findMany({
+      where,
+      // Ties resolve by ticketNumber desc, as in Lab 2, so the order is total
+      // and a row cannot drift between pages.
+      orderBy: sortBy === "ticketNumber" ? [{ ticketNumber: sortDir }] : [primary, { ticketNumber: "desc" }],
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      // No `attachments`: the queue never renders them per row, and loading
+      // them for 25 Tickets at a time would be wasted work (api-spec.md §7).
+      include: { requester: ACTOR_SUMMARY, owner: ACTOR_SUMMARY },
+    });
+
+    res.json({ data, pagination });
+  } catch (error) {
+    console.error("Error listing the staff ticket queue:", error);
+    sendInternalError(res);
+  }
+});
+
+// GET /api/staff/assignees — api-spec.md §7, FR-16, BR-25.
+//
+// The narrowest list that makes the Owner filter here and the reassign control
+// in Issue #32 work: actor summaries of active IT Staff and Administrators.
+// It exists so IT Staff never need the Administrator user list, which carries
+// email addresses and activation state.
+app.get("/api/staff/assignees", staffOnly, async (_req: Request, res: Response) => {
+  try {
+    const data = await getPrisma().user.findMany({
+      where: { isActive: true, role: { in: ["IT_STAFF", "ADMINISTRATOR"] } },
+      select: { id: true, name: true, role: true },
+      // Name first for a person reading the list; id breaks a tie between two
+      // people with the same name so the order never changes between loads.
+      orderBy: [{ name: "asc" }, { id: "asc" }],
+    });
+    res.json({ data });
+  } catch (error) {
+    console.error("Error listing assignees:", error);
     sendInternalError(res);
   }
 });

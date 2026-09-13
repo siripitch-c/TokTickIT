@@ -1,19 +1,14 @@
-import {
-  BrowserRouter,
-  Navigate,
-  Outlet,
-  Route,
-  Routes,
-  useLocation,
-  useNavigate,
-} from "react-router-dom";
+import { BrowserRouter, Navigate, Outlet, Route, Routes, useNavigate } from "react-router-dom";
 import AppShell from "./components/AppShell.js";
+import ForbiddenState from "./components/ForbiddenState.js";
 import ChangePassword from "./pages/ChangePassword.js";
 import CreateTicket from "./pages/CreateTicket.js";
 import Login from "./pages/Login.js";
 import MyTickets from "./pages/MyTickets.js";
+import StaffTicketQueue from "./pages/StaffTicketQueue.js";
 import TicketDetail from "./pages/TicketDetail.js";
 import { AuthUser, Role } from "./api.js";
+import { LANDING } from "./lib/landing.js";
 import { UseAuthSession, useAuthSession } from "./lib/useAuthSession.js";
 
 // Lab 3, Issue #30 — routing under a real identity.
@@ -25,13 +20,6 @@ import { UseAuthSession, useAuthSession } from "./lib/useAuthSession.js";
 // is feedback — every one of these routes is refused by the API as well
 // (FR-08), which is what makes hiding a destination a convenience rather than
 // the control.
-
-// ui-spec.md §3: where each role lands, and the route that "/" resolves to.
-const LANDING: Record<Role, string> = {
-  REQUESTER: "/my-tickets",
-  IT_STAFF: "/staff/tickets",
-  ADMINISTRATOR: "/admin/users",
-};
 
 export function AppRoutes() {
   const session = useAuthSession();
@@ -96,7 +84,7 @@ export function AppRoutes() {
   }
 
   const user = session.user;
-  const landing = LANDING[user.role];
+  const landing = LANDING[user.role].path;
 
   return (
     <Routes>
@@ -109,30 +97,34 @@ export function AppRoutes() {
           element={<VoluntaryChangePassword session={session} landing={landing} />}
         />
 
-        {/* ui-spec.md §3 fixes these two paths; only their elements are
-            still missing. */}
-        <Route element={<RoleGuard user={user} allow={["IT_STAFF", "ADMINISTRATOR"]} landing={landing} />}>
-          <Route
-            path="/staff/tickets"
-            element={<ScreenNotYetBuilt screen="The IT Staff ticket queue" issue="Issue #31" />}
-          />
+        <Route element={<RoleGuard user={user} allow={["IT_STAFF", "ADMINISTRATOR"]} />}>
+          <Route path="/staff/tickets" element={<StaffTicketQueue />} />
         </Route>
 
-        <Route element={<RoleGuard user={user} allow={["ADMINISTRATOR"]} landing={landing} />}>
-          <Route
-            path="/admin/users"
-            element={<ScreenNotYetBuilt screen="User Management" issue="Issue #33" />}
-          />
+        <Route element={<RoleGuard user={user} allow={["ADMINISTRATOR"]} />}>
+          <Route path="/admin/users" element={<ScreenNotYetBuilt screen="User Management" issue="Issue #33" />} />
         </Route>
 
-        <Route element={<RoleGuard user={user} allow={["REQUESTER"]} landing={landing} />}>
+        <Route element={<RoleGuard user={user} allow={["REQUESTER"]} />}>
           <Route path="/my-tickets" element={<MyTickets />} />
           <Route path="/tickets/new" element={<CreateTicket />} />
-          {/* BR-38: reachable by direct URL as well as from the list; the
-              server re-checks ownership either way and answers 404 for
-              somebody else's ticket (BR-16). */}
-          <Route path="/tickets/:id" element={<TicketDetail />} />
         </Route>
+
+        {/* ui-spec.md §8: one Ticket Detail route for every role, which is
+            where the queue's rows lead. BR-38: reachable by direct URL as well
+            as from a list, and the server re-checks access either way (404 for
+            another Requester's ticket, BR-16). The staff view of the screen is
+            Issue #32's; until then a staff member sees that said plainly. */}
+        <Route
+          path="/tickets/:id"
+          element={
+            user.role === "REQUESTER" ? (
+              <TicketDetail />
+            ) : (
+              <ScreenNotYetBuilt screen="Ticket Detail for IT Staff" issue="Issue #32" />
+            )
+          }
+        />
       </Route>
 
       <Route path="*" element={<Navigate to={landing} replace />} />
@@ -141,16 +133,16 @@ export function AppRoutes() {
 }
 
 /**
- * A landing route whose screen belongs to a later issue.
+ * A route whose screen belongs to a later issue.
  *
- * ui-spec.md §3 gives all three roles a landing route, but the queue arrives
- * with Issue #31 and User Management with Issue #33. Without an element on
- * those paths a signed-in IT Staff member or Administrator lands on an
- * unmatched route, which the catch-all sends straight back to the landing they
- * came from: a blank page, with no shell and no way to log out.
+ * User Management — the Administrator's landing route — arrives with Issue #33,
+ * and the staff view of Ticket Detail with Issue #32. Without an element on
+ * those paths an Administrator would sign in to a blank page with no shell and
+ * no way to log out, and a queue row would lead nowhere a staff member could
+ * make sense of.
  *
- * It exists to prevent that and for no other reason. Issues #31 and #33 delete
- * it by putting the real screen on the path it is already holding.
+ * It exists to prevent that and for no other reason. Each issue deletes its use
+ * by putting the real screen on the path it is already holding.
  */
 function ScreenNotYetBuilt({ screen, issue }: { screen: string; issue: string }) {
   return (
@@ -190,25 +182,16 @@ function VoluntaryChangePassword({
 /**
  * FR-09, AC-07 — a role never renders a destination it may not use.
  *
- * It redirects rather than showing the forbidden state: this fires only when
- * somebody types another role's URL, and their own landing screen is a more
- * useful answer than a refusal. The forbidden state belongs to a screen that
- * *did* render and then got a 403 from the API, which is the case that proves
- * the server is the control.
+ * Another role's URL renders the forbidden state (ui-spec.md §2.4 and §7.4,
+ * tests.md E2E-04). Issue #30 redirected to the person's own landing screen
+ * instead, which departed from that contract: a silent redirect leaves somebody
+ * who followed a link wondering where it went, while the refusal says what
+ * happened and offers the way back. The API refuses the same request anyway
+ * (FR-08) — this is what the person sees, not what protects the data.
  */
-function RoleGuard({
-  user,
-  allow,
-  landing,
-}: {
-  user: AuthUser;
-  allow: Role[];
-  landing: string;
-}) {
-  const location = useLocation();
-
+function RoleGuard({ user, allow }: { user: AuthUser; allow: Role[] }) {
   if (!allow.includes(user.role)) {
-    return <Navigate to={landing} replace state={{ blocked: location.pathname }} />;
+    return <ForbiddenState role={user.role} />;
   }
   // The context has to be passed on, not just the children: every `Outlet`
   // sets the context its own descendants read, so a bare one here would

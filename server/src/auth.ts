@@ -221,3 +221,16 @@ export function requireRole(...roles: Role[]) {
  * of the three and quietly lose the third.
  */
 export const requesterOnly = [requireAuth, requirePasswordChanged, requireRole("REQUESTER")];
+
+/**
+ * The IT Staff Ticket endpoints of api-spec.md §7, in the same gate order.
+ *
+ * Administrators hold these too: the authorization matrix in specification.md
+ * §5 grants them the Ticket operations, and a role that may own a Ticket has to
+ * be able to find one in the queue.
+ */
+export const staffOnly = [
+  requireAuth,
+  requirePasswordChanged,
+  requireRole("IT_STAFF", "ADMINISTRATOR"),
+];
