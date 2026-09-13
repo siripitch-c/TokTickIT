@@ -24,12 +24,11 @@ interface UploadRow {
 }
 
 interface Props {
-  requesterId: number;
   ticketId: number;
   initialAttachments: AttachmentMeta[];
 }
 
-export default function AttachmentSection({ requesterId, ticketId, initialAttachments }: Props) {
+export default function AttachmentSection({ ticketId, initialAttachments }: Props) {
   const [attachments, setAttachments] = useState<AttachmentMeta[]>(initialAttachments);
   const [uploads, setUploads] = useState<UploadRow[]>([]);
   const [adding, setAdding] = useState(false);
@@ -57,7 +56,7 @@ export default function AttachmentSection({ requesterId, ticketId, initialAttach
 
   async function startUpload(row: UploadRow) {
     try {
-      const created = await uploadAttachment(requesterId, ticketId, row.file);
+      const created = await uploadAttachment(ticketId, row.file);
       setAttachments((current) => [...current, created]);
       setUploads((current) => current.filter((u) => u.key !== row.key));
     } catch (error) {
@@ -116,7 +115,7 @@ export default function AttachmentSection({ requesterId, ticketId, initialAttach
   async function handleDownload(attachment: AttachmentMeta) {
     setActionError(null);
     try {
-      await downloadAttachment(requesterId, attachment);
+      await downloadAttachment(attachment);
     } catch (error) {
       setActionError(
         error instanceof ApiError ? error.message : "That file could not be downloaded. Please try again.",
@@ -145,7 +144,7 @@ export default function AttachmentSection({ requesterId, ticketId, initialAttach
     setRemoving(true);
     setReasonError(null);
     try {
-      const updated = await removeAttachment(requesterId, removeTarget.id, trimmed);
+      const updated = await removeAttachment(removeTarget.id, trimmed);
       setAttachments((current) => current.map((a) => (a.id === updated.id ? updated : a)));
       setRemoveTarget(null);
     } catch (error) {

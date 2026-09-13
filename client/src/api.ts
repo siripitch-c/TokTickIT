@@ -3,22 +3,9 @@ const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 // ---------------------------------------------------------------------------
 // Issue #12 — Data model foundation & Requester context
 // ---------------------------------------------------------------------------
-export interface Requester {
-  id: number;
-  name: string;
-}
-
-// api-spec.md §3: GET /api/requesters -> { data: [...] }, active only, no
-// requester context header required. Throws on any non-2xx response so the
-// caller can show BR-08's safe error state.
-export async function fetchRequesters(): Promise<Requester[]> {
-  const res = await fetch(`${API_URL}/api/requesters`);
-  if (!res.ok) {
-    throw new Error("Failed to load Development Requesters");
-  }
-  const body = await res.json();
-  return body.data as Requester[];
-}
+// The `Requester` type and `fetchRequesters` are gone with the Development
+// Requester selector: `GET /api/requesters` no longer exists (api-spec.md §6,
+// AC-25). The signed-in user is `AuthUser`, further down.
 
 // ---------------------------------------------------------------------------
 // Issue #13 — Create Ticket
@@ -102,14 +89,24 @@ async function toApiError(response: Response): Promise<ApiError> {
   return new ApiError(response.status, "INTERNAL_ERROR", SAFE_FALLBACK_MESSAGE);
 }
 
-// The Lab 2 Development Requester context header (api-spec.md §1) — a testing
-// mechanism, not authentication (BR-04/BR-40).
-function requesterHeaders(requesterId: number): Record<string, string> {
-  return { "X-Requester-Id": String(requesterId) };
-}
+// Lab 3, Issue #30 — every Requester-scoped call now carries the session
+// cookie instead of an `X-Requester-Id` header. `credentials: "include"` is
+// what makes the browser send it across origins (client :5173, API :3000), so
+// a call that forgets it is not merely insecure — it is unauthenticated
+// (api-spec.md §1, BR-03).
+const withSession: RequestInit = { credentials: "include" };
 
+// Categories and Related Systems stay public (api-spec.md §3): they are
+// neither personal nor sensitive, and the Create Ticket screen needs them
+// before anything role-specific happens.
+//
+// They are still sent with the session, because api-spec.md §1 makes that the
+// client's rule for *every* request, not only the protected ones. §3 says the
+// server does not require a session here; it does not say the client must
+// withhold one. Two fetch shapes would be a standing invitation to reach for
+// the wrong one on an endpoint that later stops being public.
 async function fetchReference(path: string): Promise<ReferenceItem[]> {
-  const res = await fetch(`${API_URL}${path}`);
+  const res = await fetch(`${API_URL}${path}`, { ...withSession });
   if (!res.ok) throw await toApiError(res);
   const body = await res.json();
   return body.data as ReferenceItem[];
@@ -123,10 +120,11 @@ export function fetchRelatedSystems(): Promise<ReferenceItem[]> {
   return fetchReference("/api/related-systems");
 }
 
-export async function createTicket(requesterId: number, ticket: NewTicket): Promise<Ticket> {
+export async function createTicket(ticket: NewTicket): Promise<Ticket> {
   const res = await fetch(`${API_URL}/api/tickets`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...requesterHeaders(requesterId) },
+    ...withSession,
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(ticket),
   });
   if (!res.ok) throw await toApiError(res);
@@ -140,7 +138,6 @@ export async function createTicket(requesterId: number, ticket: NewTicket): Prom
  * rolls back the Ticket or the uploads that already worked.
  */
 export async function uploadAttachment(
-  requesterId: number,
   ticketId: number,
   file: File,
 ): Promise<AttachmentMeta> {
@@ -149,7 +146,7 @@ export async function uploadAttachment(
 
   const res = await fetch(`${API_URL}/api/tickets/${ticketId}/attachments`, {
     method: "POST",
-    headers: requesterHeaders(requesterId),
+    ...withSession,
     body: form,
   });
   if (!res.ok) throw await toApiError(res);
@@ -191,7 +188,6 @@ export interface TicketListQuery {
  * simply left out rather than sent as empty strings for it to ignore.
  */
 export async function fetchTickets(
-  requesterId: number,
   query: TicketListQuery = {},
 ): Promise<{ data: TicketSummary[]; pagination: Pagination }> {
   const params = new URLSearchParams();
@@ -203,7 +199,7 @@ export async function fetchTickets(
 
   const search = params.toString();
   const res = await fetch(`${API_URL}/api/tickets${search ? `?${search}` : ""}`, {
-    headers: requesterHeaders(requesterId),
+    ...withSession,
   });
   if (!res.ok) throw await toApiError(res);
 
@@ -216,9 +212,9 @@ export async function fetchTickets(
 // ---------------------------------------------------------------------------
 
 /** api-spec.md §4: the full Ticket, attachments included, removed ones too (BR-29). */
-export async function fetchTicket(requesterId: number, ticketId: number): Promise<Ticket> {
+export async function fetchTicket(ticketId: number): Promise<Ticket> {
   const res = await fetch(`${API_URL}/api/tickets/${ticketId}`, {
-    headers: requesterHeaders(requesterId),
+    ...withSession,
   });
   if (!res.ok) throw await toApiError(res);
   const body = await res.json();
@@ -230,13 +226,13 @@ export async function fetchTicket(requesterId: number, ticketId: number): Promis
  * so the response is the updated metadata rather than an empty body (BR-29).
  */
 export async function removeAttachment(
-  requesterId: number,
   attachmentId: number,
   removalReason: string,
 ): Promise<AttachmentMeta> {
   const res = await fetch(`${API_URL}/api/attachments/${attachmentId}`, {
     method: "DELETE",
-    headers: { "Content-Type": "application/json", ...requesterHeaders(requesterId) },
+    ...withSession,
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ removalReason }),
   });
   if (!res.ok) throw await toApiError(res);
@@ -252,11 +248,10 @@ export async function removeAttachment(
  * screen can show rather than as a broken navigation.
  */
 export async function downloadAttachment(
-  requesterId: number,
   attachment: Pick<AttachmentMeta, "id" | "originalFilename">,
 ): Promise<void> {
   const res = await fetch(`${API_URL}/api/attachments/${attachment.id}/download`, {
-    headers: requesterHeaders(requesterId),
+    ...withSession,
   });
   if (!res.ok) throw await toApiError(res);
 
@@ -273,4 +268,82 @@ export async function downloadAttachment(
     // Released on the next tick so the click has taken the blob first.
     setTimeout(() => URL.revokeObjectURL(url), 0);
   }
+}
+
+// ---------------------------------------------------------------------------
+// Lab 3, Issue #30 — authentication (api-spec.md §4).
+//
+// Every call here sends `credentials: "include"`, which is what makes the
+// browser attach and store the `tt_session` cookie across origins: the client
+// is on :5173 and the API on :3000, so without it the cookie is silently
+// dropped and every request looks unauthenticated (api-spec.md §1).
+// ---------------------------------------------------------------------------
+
+export type Role = "REQUESTER" | "IT_STAFF" | "ADMINISTRATOR";
+
+/** The safe user object of api-spec.md §4 — never carries a password hash. */
+export interface AuthUser {
+  id: number;
+  name: string;
+  email: string;
+  role: Role;
+  isActive: boolean;
+  mustChangePassword: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Lab 2's `ApiError` and `toApiError` above already carry the envelope's
+// `field` through to the screen, which is exactly what ui-spec.md §5 needs for
+// a wrong current password: 400 with `field: "currentPassword"` has to land
+// under that control, not as a screen-level failure. They are reused here
+// rather than duplicated.
+
+export async function login(email: string, password: string): Promise<AuthUser> {
+  const res = await fetch(`${API_URL}/api/auth/login`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!res.ok) throw await toApiError(res);
+  return (await res.json()).data as AuthUser;
+}
+
+export async function logout(): Promise<void> {
+  await fetch(`${API_URL}/api/auth/logout`, { method: "POST", credentials: "include" });
+  // Deliberately not throwing on a non-2xx: the only failure that matters here
+  // is one the user could act on, and there is none. A session that was
+  // already gone, or an API that cannot be reached, both end the same way —
+  // the client drops its user and shows Login.
+}
+
+/**
+ * The signed-in user, or null when there is no session.
+ *
+ * 401 is an answer, not a failure: it is how the server says "nobody is signed
+ * in", which is exactly what the application asks on every page load. Anything
+ * else is a real failure and throws, so a broken API cannot be mistaken for a
+ * signed-out state (BR-13).
+ */
+export async function fetchCurrentUser(): Promise<AuthUser | null> {
+  const res = await fetch(`${API_URL}/api/auth/me`, { credentials: "include" });
+  if (res.status === 401) return null;
+  if (!res.ok) throw await toApiError(res);
+  return (await res.json()).data as AuthUser;
+}
+
+export async function changePassword(input: {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}): Promise<AuthUser> {
+  const res = await fetch(`${API_URL}/api/auth/change-password`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw await toApiError(res);
+  return (await res.json()).data as AuthUser;
 }

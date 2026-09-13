@@ -1,9 +1,10 @@
 import express, { Request, Response } from "express";
 import cors from "cors";
+import { requesterOnly } from "./auth.js";
 import { authRoutes } from "./authRoutes.js";
 import { getPrisma } from "./prisma.js";
 import { nextTicketNumber } from "./ticketNumber.js";
-import { readId, readRequesterId, sendError, sendInternalError } from "./requesterContext.js";
+import { readId, sendError, sendInternalError } from "./requesterContext.js";
 import {
   ATTACHMENT_TYPE_HELP,
   allowedExtensionFor,
@@ -89,32 +90,11 @@ app.get("/api/related-systems", async (req, res) => {
   }
 });
 
-// ---------------------------------------------------------------------------
-// Issue #12 — Data model foundation & Requester context
-// GET /api/requesters — api-spec.md §3. No requester context header needed;
-// this endpoint powers the Selection screen itself (BR-05, BR-35).
-// Only active Requesters are returned; email is intentionally omitted.
-// ---------------------------------------------------------------------------
-app.get("/api/requesters", async (req, res) => {
-  try {
-    const prisma = getPrisma();
-    const requesters = await prisma.user.findMany({
-      // Lab 3, Issue #29: `Requester` is now `User` and holds IT Staff and
-      // Administrators too, so this list has to say which role it wants.
-      // Without the filter the Lab 2 selector would start offering staff
-      // accounts as Requester identities. The endpoint itself is removed in
-      // Issue #30, together with the selector that is its only caller
-      // (api-spec.md §6, AC-25).
-      where: { isActive: true, role: "REQUESTER" },
-      orderBy: { id: "asc" },
-      select: { id: true, name: true }, // email intentionally omitted (api-spec.md §3)
-    });
-    res.json({ data: requesters });
-  } catch (error) {
-    console.error("Error fetching requesters:", error);
-    res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Something went wrong. Please try again." } });
-  }
-});
+// GET /api/requesters is gone. It existed only to populate the Development
+// Requester selector, and it handed a list of real people to any caller with
+// no session at all. Lab 3 takes identity from the session instead, so the
+// endpoint has no caller and no reason to exist (api-spec.md §6, AC-25,
+// MIG-06).
 
 // ---------------------------------------------------------------------------
 // Issue #13 — Create Ticket
@@ -139,11 +119,12 @@ function readBoundedText(value: unknown, min: number, max: number): string | nul
   return trimmed.length >= min && trimmed.length <= max ? trimmed : null;
 }
 
-app.post("/api/tickets", async (req, res) => {
-  const requesterId = readRequesterId(req);
-  if (requesterId === null) {
-    return sendError(res, 400, "VALIDATION_ERROR", "A valid X-Requester-Id header is required.");
-  }
+app.post("/api/tickets", requesterOnly, async (req: Request, res: Response) => {
+  // Lab 3, Issue #30 — identity comes from the session and from nothing the
+  // client can choose (BR-03). `requesterOnly` has already established that
+  // this caller is authenticated, past the mandatory password change, active,
+  // and holds the Requester role, so there is nothing left to re-check here.
+  const requesterId = req.user!.id;
 
   const body = (req.body ?? {}) as Record<string, unknown>;
 
@@ -177,19 +158,10 @@ app.post("/api/tickets", async (req, res) => {
 
     // An inactive Category/RelatedSystem is rejected exactly like an unknown
     // one (BR-21) — the client only ever offers active rows anyway.
-    const [requester, category, relatedSystem] = await Promise.all([
-      prisma.user.findFirst({ where: { id: requesterId, isActive: true, role: "REQUESTER" }, select: { id: true } }),
+    const [category, relatedSystem] = await Promise.all([
       prisma.category.findFirst({ where: { id: categoryId, isActive: true }, select: { id: true } }),
       prisma.relatedSystem.findFirst({ where: { id: relatedSystemId, isActive: true }, select: { id: true } }),
     ]);
-    // The header has to name a Requester the selector could actually offer.
-    // Without this an unknown id reached the foreign key and came back as a
-    // 500 — bad input, not an unexpected fault — and an inactive Requester
-    // could still create tickets, leaving BR-05/BR-35 enforced only in the UI,
-    // which BR-11 does not allow.
-    if (!requester) {
-      return sendError(res, 400, "VALIDATION_ERROR", REQUESTER_UNAVAILABLE);
-    }
     if (!category) {
       return sendError(res, 400, "INVALID_CATEGORY", "Please choose a category.", "categoryId");
     }
@@ -260,11 +232,12 @@ function escapeLikePattern(value: string): string {
 const PAGE_SIZES = [10, 25, 50];
 const DEFAULT_PAGE_SIZE = 10;
 
-app.get("/api/tickets", async (req, res) => {
-  const requesterId = readRequesterId(req);
-  if (requesterId === null) {
-    return sendError(res, 400, "VALIDATION_ERROR", "A valid X-Requester-Id header is required.");
-  }
+app.get("/api/tickets", requesterOnly, async (req: Request, res: Response) => {
+  // Lab 3, Issue #30 — identity comes from the session and from nothing the
+  // client can choose (BR-03). `requesterOnly` has already established that
+  // this caller is authenticated, past the mandatory password change, active,
+  // and holds the Requester role, so there is nothing left to re-check here.
+  const requesterId = req.user!.id;
 
   const query = req.query as Record<string, unknown>;
 
@@ -282,14 +255,6 @@ app.get("/api/tickets", async (req, res) => {
 
   try {
     const prisma = getPrisma();
-
-    const requester = await prisma.user.findFirst({
-      where: { id: requesterId, isActive: true, role: "REQUESTER" },
-      select: { id: true },
-    });
-    if (!requester) {
-      return sendError(res, 400, "VALIDATION_ERROR", REQUESTER_UNAVAILABLE);
-    }
 
     const where = {
       requesterId,
@@ -347,11 +312,12 @@ app.get("/api/tickets", async (req, res) => {
 // own a ticket learns nothing about whether it exists. Reachable by direct URL
 // as well as from the list, and the check runs either way (BR-38).
 // ---------------------------------------------------------------------------
-app.get("/api/tickets/:id", async (req, res) => {
-  const requesterId = readRequesterId(req);
-  if (requesterId === null) {
-    return sendError(res, 400, "VALIDATION_ERROR", "A valid X-Requester-Id header is required.");
-  }
+app.get("/api/tickets/:id", requesterOnly, async (req: Request, res: Response) => {
+  // Lab 3, Issue #30 — identity comes from the session and from nothing the
+  // client can choose (BR-03). `requesterOnly` has already established that
+  // this caller is authenticated, past the mandatory password change, active,
+  // and holds the Requester role, so there is nothing left to re-check here.
+  const requesterId = req.user!.id;
 
   const ticketId = readId(req.params.id);
   if (ticketId === null) {
@@ -360,14 +326,6 @@ app.get("/api/tickets/:id", async (req, res) => {
 
   try {
     const prisma = getPrisma();
-
-    const requester = await prisma.user.findFirst({
-      where: { id: requesterId, isActive: true, role: "REQUESTER" },
-      select: { id: true },
-    });
-    if (!requester) {
-      return sendError(res, 400, "VALIDATION_ERROR", REQUESTER_UNAVAILABLE);
-    }
 
     const ticket = await prisma.ticket.findFirst({
       where: { id: ticketId, requesterId },
@@ -429,11 +387,12 @@ function receiveAttachment(req: Request, res: Response, next: NextFunction) {
   });
 }
 
-app.post("/api/tickets/:id/attachments", receiveAttachment, async (req, res) => {
-  const requesterId = readRequesterId(req);
-  if (requesterId === null) {
-    return sendError(res, 400, "VALIDATION_ERROR", "A valid X-Requester-Id header is required.");
-  }
+app.post("/api/tickets/:id/attachments", requesterOnly, receiveAttachment, async (req: Request, res: Response) => {
+  // Lab 3, Issue #30 — identity comes from the session and from nothing the
+  // client can choose (BR-03). `requesterOnly` has already established that
+  // this caller is authenticated, past the mandatory password change, active,
+  // and holds the Requester role, so there is nothing left to re-check here.
+  const requesterId = req.user!.id;
 
   const ticketId = readId(req.params.id);
   if (ticketId === null) {
@@ -447,14 +406,6 @@ app.post("/api/tickets/:id/attachments", receiveAttachment, async (req, res) => 
 
   try {
     const prisma = getPrisma();
-
-    const requester = await prisma.user.findFirst({
-      where: { id: requesterId, isActive: true, role: "REQUESTER" },
-      select: { id: true },
-    });
-    if (!requester) {
-      return sendError(res, 400, "VALIDATION_ERROR", REQUESTER_UNAVAILABLE);
-    }
 
     // BR-12: a Ticket owned by someone else is reported as missing, so ticket
     // existence never leaks across Requesters.
@@ -535,25 +486,6 @@ class AttachmentLimitReached extends Error {}
 const REMOVAL_REASON_MIN = 5;
 const REMOVAL_REASON_MAX = 200;
 
-/** Resolves the caller, or writes the 400 and returns null. */
-async function resolveActiveRequester(req: Request, res: Response): Promise<number | null> {
-  const requesterId = readRequesterId(req);
-  if (requesterId === null) {
-    sendError(res, 400, "VALIDATION_ERROR", "A valid X-Requester-Id header is required.");
-    return null;
-  }
-
-  const requester = await getPrisma().user.findFirst({
-    where: { id: requesterId, isActive: true, role: "REQUESTER" },
-    select: { id: true },
-  });
-  if (!requester) {
-    sendError(res, 400, "VALIDATION_ERROR", REQUESTER_UNAVAILABLE);
-    return null;
-  }
-  return requesterId;
-}
-
 /** The owned Attachment, or null — the caller answers 404 either way (BR-12). */
 async function findOwnedAttachment(attachmentId: number, requesterId: number) {
   return getPrisma().attachment.findFirst({
@@ -561,10 +493,9 @@ async function findOwnedAttachment(attachmentId: number, requesterId: number) {
   });
 }
 
-app.get("/api/attachments/:id", async (req, res) => {
+app.get("/api/attachments/:id", requesterOnly, async (req: Request, res: Response) => {
   try {
-    const requesterId = await resolveActiveRequester(req, res);
-    if (requesterId === null) return;
+    const requesterId = req.user!.id;
 
     const attachmentId = readId(req.params.id);
     const attachment = attachmentId === null ? null : await findOwnedAttachment(attachmentId, requesterId);
@@ -581,10 +512,9 @@ app.get("/api/attachments/:id", async (req, res) => {
   }
 });
 
-app.get("/api/attachments/:id/download", async (req, res) => {
+app.get("/api/attachments/:id/download", requesterOnly, async (req: Request, res: Response) => {
   try {
-    const requesterId = await resolveActiveRequester(req, res);
-    if (requesterId === null) return;
+    const requesterId = req.user!.id;
 
     const attachmentId = readId(req.params.id);
     const attachment = attachmentId === null ? null : await findOwnedAttachment(attachmentId, requesterId);
@@ -619,10 +549,9 @@ app.get("/api/attachments/:id/download", async (req, res) => {
   }
 });
 
-app.delete("/api/attachments/:id", async (req, res) => {
+app.delete("/api/attachments/:id", requesterOnly, async (req: Request, res: Response) => {
   try {
-    const requesterId = await resolveActiveRequester(req, res);
-    if (requesterId === null) return;
+    const requesterId = req.user!.id;
 
     const attachmentId = readId(req.params.id);
     const attachment = attachmentId === null ? null : await findOwnedAttachment(attachmentId, requesterId);

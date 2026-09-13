@@ -1,0 +1,143 @@
+import "@testing-library/jest-dom";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
+import type { AuthUser, Role } from "../../src/api.js";
+
+// tests.md UI-ROUTE-01..06; ui-spec.md §3; specification.md FR-09, BR-02,
+// BR-13, AC-02, AC-07.
+//
+// The screen tests prove each screen behaves; this one proves the application
+// puts the right screen in front of the right person. That decision is not any
+// one screen's — Login does not navigate, it hands the user up — so asserting
+// it inside Login.test.tsx would be asserting something Login does not do.
+//
+// It exercises the real `useAuthSession` against a mocked `fetchCurrentUser`,
+// so the three states and the routing that reads them are tested together.
+// None of this is the security control: every route below is also refused by
+// the API (API-AUTHZ-01..11). What it protects is the person, not the data.
+
+const fetchCurrentUser = vi.fn();
+const fetchTickets = vi.fn();
+const fetchCategories = vi.fn();
+
+vi.mock("../../src/api.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../src/api.js")>()),
+  fetchCurrentUser: (...args: unknown[]) => fetchCurrentUser(...args),
+  fetchTickets: (...args: unknown[]) => fetchTickets(...args),
+  fetchCategories: (...args: unknown[]) => fetchCategories(...args),
+}));
+
+const { AppRoutes } = await import("../../src/App.js");
+
+function userWith(role: Role, mustChangePassword = false): AuthUser {
+  return {
+    id: 11,
+    name: "Jennifer Anderson",
+    email: "jennifer.anderson@example.edu",
+    role,
+    isActive: true,
+    mustChangePassword,
+    createdAt: "2026-05-12T09:14:00.000Z",
+    updatedAt: "2026-09-12T08:02:00.000Z",
+  };
+}
+
+function renderAt(path: string) {
+  return render(
+    <MemoryRouter initialEntries={[path]}>
+      <AppRoutes />
+    </MemoryRouter>,
+  );
+}
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  fetchTickets.mockResolvedValue({
+    data: [],
+    pagination: { page: 1, pageSize: 25, totalItems: 0, totalPages: 0 },
+  });
+  fetchCategories.mockResolvedValue([]);
+});
+
+describe("Application routing", () => {
+  it("UI-ROUTE-01 / BR-13: while the session is unknown, neither Login nor the application is shown", () => {
+    // A pending answer is not "signed out". Flashing Login and then replacing
+    // it is how a signed-in user is told they were logged out when they were
+    // not.
+    fetchCurrentUser.mockReturnValue(new Promise(() => {}));
+    renderAt("/my-tickets");
+
+    expect(screen.getByTestId("zg-state-loading")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /sign in/i })).not.toBeInTheDocument();
+  });
+
+  it("UI-ROUTE-02 / FR-01: signed out, a deep URL lands on Login rather than a broken screen", async () => {
+    fetchCurrentUser.mockResolvedValue(null);
+    renderAt("/tickets/42");
+
+    expect(await screen.findByRole("button", { name: /sign in/i })).toBeInTheDocument();
+    expect(fetchTickets).not.toHaveBeenCalled();
+  });
+
+  it("UI-ROUTE-03 / BR-13: an unreachable server is a retryable failure, not a sign-out", async () => {
+    fetchCurrentUser.mockRejectedValue(new TypeError("Failed to fetch"));
+    renderAt("/my-tickets");
+
+    expect(await screen.findByTestId("zg-state-error")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /retry/i })).toBeInTheDocument();
+    // Telling someone to sign in again when the problem is the network sends
+    // them to re-enter a password that was never the issue.
+    expect(screen.queryByRole("button", { name: /sign in/i })).not.toBeInTheDocument();
+  });
+
+  it("UI-ROUTE-04 / AC-02, BR-02: on an initial password, every typed route returns to Change Password", async () => {
+    const user = userEvent.setup();
+    fetchCurrentUser.mockResolvedValue(userWith("REQUESTER", true));
+    renderAt("/my-tickets");
+
+    expect(await screen.findByTestId("zg-initial-password-banner")).toBeInTheDocument();
+    // ui-spec.md §5: the shell renders, without navigation items. Not a
+    // full-page screen — this user is signed in, and the one action BR-02
+    // leaves them has to stay reachable.
+    expect(screen.getByTestId("current-user-name")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "My Tickets" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /cancel/i })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /profile/i }));
+    expect(screen.getByRole("menuitem", { name: /log out/i })).toBeInTheDocument();
+    // api-spec.md §4 keeps logout available during a mandatory change, so
+    // somebody who cannot remember the initial password they were sent is not
+    // trapped on this screen with no way off it.
+    expect(screen.queryByRole("menuitem", { name: /change password/i })).not.toBeInTheDocument();
+  });
+
+  it("UI-ROUTE-05 / AC-01: a signed-in Requester at the root lands on their own screen", async () => {
+    fetchCurrentUser.mockResolvedValue(userWith("REQUESTER"));
+    renderAt("/");
+
+    expect(await screen.findByRole("link", { name: "My Tickets" })).toBeInTheDocument();
+    await waitFor(() => expect(fetchTickets).toHaveBeenCalled());
+    expect(screen.queryByRole("button", { name: /sign in/i })).not.toBeInTheDocument();
+  });
+
+  it("UI-ROUTE-05 / AC-01: Login has nothing left to offer someone already signed in", async () => {
+    fetchCurrentUser.mockResolvedValue(userWith("REQUESTER"));
+    renderAt("/login");
+
+    expect(await screen.findByRole("link", { name: "My Tickets" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /sign in/i })).not.toBeInTheDocument();
+  });
+
+  it("UI-ROUTE-06 / FR-09, AC-07: another role's URL does not render the Requester screen", async () => {
+    fetchCurrentUser.mockResolvedValue(userWith("IT_STAFF"));
+    renderAt("/my-tickets");
+
+    // The shell renders — they are signed in — but the guarded screen does
+    // not, and no Requester-scoped request is made on their behalf.
+    await waitFor(() => expect(screen.getByTestId("current-user-role")).toHaveTextContent("IT Staff"));
+    expect(screen.queryByRole("link", { name: "My Tickets" })).not.toBeInTheDocument();
+    expect(fetchTickets).not.toHaveBeenCalled();
+  });
+});

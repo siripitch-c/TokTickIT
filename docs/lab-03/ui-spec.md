@@ -184,9 +184,14 @@ mobile hamburger. What changes:
 - **Mobile (<768px)**: the hamburger panel carries the role's nav items, then a
   divider, then the user's name with role badge, Change Password, and Log Out
   as full-width rows ≥44px.
-- **Unauthenticated**: the shell does not render at all. Login and Change
-  Password are full-page screens with only the wordmark above them, so there is
-  no header offering navigation to someone who has none.
+- **Unauthenticated**: the shell does not render at all. Login is a full-page
+  screen with only the wordmark above it, so there is no header offering
+  navigation to someone who has none.
+- **Signed in but holding an initial password**: the shell *does* render, with
+  no navigation items — see §5. The distinction matters: this person is
+  authenticated, and Log Out is the one action `specification.md` BR-02 and
+  `api-spec.md` §4 deliberately leave them. A full-page screen would strand
+  somebody who cannot produce the initial password they were sent.
 
 ## 4. Login Screen
 

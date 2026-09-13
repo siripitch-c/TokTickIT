@@ -3,7 +3,7 @@ import { Link, useOutletContext, useParams } from "react-router-dom";
 import {
   ApiError,
   ReferenceItem,
-  Requester,
+  AuthUser,
   Ticket,
   fetchCategories,
   fetchRelatedSystems,
@@ -20,7 +20,7 @@ import { readId } from "../lib/ids.js";
 type DetailState = "loading" | "ready" | "not-found" | "error";
 
 export default function TicketDetail() {
-  const requester = useOutletContext<Requester>();
+  const user = useOutletContext<AuthUser>();
   const { id } = useParams<{ id: string }>();
   const ticketId = readId(id);
 
@@ -55,7 +55,7 @@ export default function TicketDetail() {
     setState("loading");
     setTicket(null);
 
-    fetchTicket(requester.id, ticketId)
+    fetchTicket(ticketId)
       .then((loaded) => {
         if (!current) return;
         setTicket(loaded);
@@ -71,7 +71,7 @@ export default function TicketDetail() {
     return () => {
       current = false;
     };
-  }, [requester.id, ticketId]);
+  }, [user.id, ticketId]);
 
   const nameOf = (list: ReferenceItem[], lookupId: number) =>
     list.find((item) => item.id === lookupId)?.name ?? "—";
@@ -141,7 +141,7 @@ export default function TicketDetail() {
       </div>
 
       <div className="zg-field-row zg-field-row--4">
-        <ReadOnly label="Requester" value={requester.name} />
+        <ReadOnly label="Requester" value={user.name} />
         <BadgeField label="Requested Priority">
           <PriorityBadge value={ticket.requestedPriority} label="Requested priority" />
         </BadgeField>
@@ -161,7 +161,6 @@ export default function TicketDetail() {
       <hr className="zg-detail-divider" />
 
       <AttachmentSection
-        requesterId={requester.id}
         ticketId={ticket.id}
         initialAttachments={ticket.attachments}
       />

@@ -172,3 +172,52 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   req.user = user;
   next();
 }
+
+/**
+ * Gate 3 — BR-02, AC-02.
+ *
+ * A user holding an initial password reaches nothing but the three operations
+ * that let them leave that state: read the current user, change the password,
+ * and log out. This is the enforcement point; the client's redirect is only
+ * its visible half, which is the whole distinction the handout draws between
+ * feedback and a security control.
+ */
+export function requirePasswordChanged(req: Request, res: Response, next: NextFunction): void {
+  if (req.user?.mustChangePassword) {
+    sendError(
+      res,
+      403,
+      "PASSWORD_CHANGE_REQUIRED",
+      "Choose a new password before using the application.",
+    );
+    return;
+  }
+  next();
+}
+
+/**
+ * Gate 4 — the role check the authorization matrix in specification.md §5
+ * describes.
+ *
+ * It answers 403, never 404: a caller in the wrong role is told plainly,
+ * because the *existence* of a queue or a user list is not a secret. Hiding
+ * another user's resource is a different job, done by the ownership checks
+ * inside each route, and those answer 404 (BR-16, BR-19).
+ */
+export function requireRole(...roles: Role[]) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    if (!req.user || !roles.includes(req.user.role)) {
+      sendError(res, 403, "FORBIDDEN", "You do not have access to this operation.");
+      return;
+    }
+    next();
+  };
+}
+
+/**
+ * The three gates every Requester-scoped Lab 2 route now runs behind, in the
+ * order api-spec.md §3 fixes: authenticated, past the password change, and
+ * holding the Requester role. Exported as one array so no route can apply two
+ * of the three and quietly lose the third.
+ */
+export const requesterOnly = [requireAuth, requirePasswordChanged, requireRole("REQUESTER")];

@@ -5,11 +5,18 @@ import os from "node:os";
 import path from "node:path";
 import { app } from "../../src/app.js";
 import { getPrisma } from "../../src/prisma.js";
+import { signIn } from "../support/session.js";
 import { upsertTestUser } from "../support/users.js";
 
 // tests.md API-ATT-01..05 and API-ATT-12 (the upload half of the attachment
 // lifecycle — metadata, download, and soft removal arrive with Issue #15).
 // specification.md BR-11, BR-26..BR-28, BR-32, BR-33; api-spec.md §5.
+//
+// Lab 3, Issue #30 — this suite is also part of the evidence for
+// `docs/lab-03/tests.md` MIG-08: every Lab 2 Requester endpoint still behaves
+// as `docs/lab-02/api-spec.md` describes once identity comes from the session,
+// the one deliberate change being that a missing identity is now 401 rather
+// than 400 (BR-44, AC-08).
 // Runs against a temporary uploads directory so real files are never written
 // into the repository (tests.md §1).
 
@@ -18,6 +25,9 @@ const prisma = getPrisma();
 let uploadDir = "";
 let requesterId = 0;
 let otherRequesterId = 0;
+// Lab 3, Issue #30: the suite signs in and replays cookies (api-spec.md §1).
+let ownerCookie = "";
+let otherCookie = "";
 let ticketId = 0;
 let foreignTicketId = 0;
 
@@ -28,10 +38,10 @@ const ONE_MB = 1024 * 1024;
 // non-empty and distinguishable between cases.
 const bytes = (size: number) => Buffer.alloc(size, 0x41);
 
-async function createTicketFor(owner: number, summary: string) {
+async function createTicketFor(cookie: string, summary: string) {
   const response = await request(app)
     .post("/api/tickets")
-    .set("X-Requester-Id", String(owner))
+    .set("Cookie", cookie)
     .send({
       categoryId: (await prisma.category.findFirstOrThrow({ where: { isActive: true } })).id,
       relatedSystemId: (await prisma.relatedSystem.findFirstOrThrow({ where: { isActive: true } })).id,
@@ -46,10 +56,10 @@ async function createTicketFor(owner: number, summary: string) {
 const upload = (
   targetTicketId: number,
   file: { buffer: Buffer; filename: string; contentType?: string },
-  callerId: number | null = requesterId,
+  cookie: string | null = ownerCookie,
 ) => {
   const req = request(app).post(`/api/tickets/${targetTicketId}/attachments`);
-  if (callerId !== null) req.set("X-Requester-Id", String(callerId));
+  if (cookie !== null) req.set("Cookie", cookie);
   return req.attach("file", file.buffer, {
     filename: file.filename,
     contentType: file.contentType,
@@ -64,9 +74,11 @@ beforeAll(async () => {
   const other = await upsertTestUser({ email: "attachments.other@test.invalid", name: "Attachment Other" });
   requesterId = owner.id;
   otherRequesterId = other.id;
+  ownerCookie = await signIn(owner.email);
+  otherCookie = await signIn(other.email);
 
-  ticketId = await createTicketFor(requesterId, "Attachment fixture ticket");
-  foreignTicketId = await createTicketFor(otherRequesterId, "Foreign attachment fixture ticket");
+  ticketId = await createTicketFor(ownerCookie, "Attachment fixture ticket");
+  foreignTicketId = await createTicketFor(otherCookie, "Foreign attachment fixture ticket");
 });
 
 afterEach(async () => {
@@ -332,7 +344,7 @@ describe("POST /api/tickets/:id/attachments", () => {
     for (const badId of ["abc", "-1", "0", "99999999999999999999", "2147483648"]) {
       const response = await request(app)
         .post(`/api/tickets/${badId}/attachments`)
-        .set("X-Requester-Id", String(requesterId))
+        .set("Cookie", ownerCookie)
         .attach("file", file.buffer, { filename: file.filename, contentType: file.contentType });
 
       expect(response.status, `ticket id ${badId}`).toBe(404);
@@ -340,14 +352,15 @@ describe("POST /api/tickets/:id/attachments", () => {
     }
   });
 
-  it("requires the X-Requester-Id header (api-spec.md §1)", async () => {
+  it("MIG-07 / AC-25: uploading without a session is 401 (api-spec.md §1)", async () => {
+    // Rewritten for Lab 3 — the header this replaced is no longer read.
     const response = await upload(
       ticketId,
       { buffer: bytes(32), filename: "evidence.png", contentType: "image/png" },
       null,
     );
-    expect(response.status).toBe(400);
-    expect(response.body.error.code).toBe("VALIDATION_ERROR");
+    expect(response.status).toBe(401);
+    expect(response.body.error.code).toBe("UNAUTHENTICATED");
   });
 });
 
@@ -373,7 +386,7 @@ describe("Attachment metadata, download and removal", () => {
 
     const response = await request(app)
       .get(`/api/attachments/${attachment.id}/download`)
-      .set("X-Requester-Id", String(requesterId))
+      .set("Cookie", ownerCookie)
       .buffer(true)
       .parse((res, callback) => {
         const chunks: Buffer[] = [];
@@ -393,7 +406,7 @@ describe("Attachment metadata, download and removal", () => {
 
     const response = await request(app)
       .get(`/api/attachments/${attachment.id}`)
-      .set("X-Requester-Id", String(requesterId));
+      .set("Cookie", ownerCookie);
 
     expect(response.status).toBe(200);
     expect(Object.keys(response.body.data).sort()).toEqual([
@@ -414,7 +427,7 @@ describe("Attachment metadata, download and removal", () => {
 
     const response = await request(app)
       .delete(`/api/attachments/${attachment.id}`)
-      .set("X-Requester-Id", String(requesterId))
+      .set("Cookie", ownerCookie)
       .send({ removalReason: "Uploaded the wrong screenshot by mistake" });
 
     expect(response.status).toBe(200);
@@ -430,7 +443,7 @@ describe("Attachment metadata, download and removal", () => {
 
     const metadata = await request(app)
       .get(`/api/attachments/${attachment.id}`)
-      .set("X-Requester-Id", String(requesterId));
+      .set("Cookie", ownerCookie);
     expect(metadata.status).toBe(200);
     expect(metadata.body.data.removedReason).toBe("Uploaded the wrong screenshot by mistake");
   });
@@ -439,13 +452,13 @@ describe("Attachment metadata, download and removal", () => {
     const attachment = await freshAttachment();
     await request(app)
       .delete(`/api/attachments/${attachment.id}`)
-      .set("X-Requester-Id", String(requesterId))
+      .set("Cookie", ownerCookie)
       .send({ removalReason: "No longer relevant to this ticket" })
       .expect(200);
 
     const response = await request(app)
       .get(`/api/attachments/${attachment.id}/download`)
-      .set("X-Requester-Id", String(requesterId));
+      .set("Cookie", ownerCookie);
 
     // The one case where an owned resource still 404s, and deliberately so.
     expect(response.status).toBe(404);
@@ -459,7 +472,7 @@ describe("Attachment metadata, download and removal", () => {
     for (const removalReason of rejected) {
       const response = await request(app)
         .delete(`/api/attachments/${attachment.id}`)
-        .set("X-Requester-Id", String(requesterId))
+        .set("Cookie", ownerCookie)
         .send({ removalReason });
 
       expect(response.status, `reason ${JSON.stringify(removalReason)}`).toBe(400);
@@ -474,7 +487,7 @@ describe("Attachment metadata, download and removal", () => {
     // The lower boundary is accepted, and measured after trimming.
     const atMinimum = await request(app)
       .delete(`/api/attachments/${attachment.id}`)
-      .set("X-Requester-Id", String(requesterId))
+      .set("Cookie", ownerCookie)
       .send({ removalReason: "  wrong  " });
     expect(atMinimum.status).toBe(200);
     expect(atMinimum.body.data.removedReason).toBe("wrong");
@@ -484,13 +497,13 @@ describe("Attachment metadata, download and removal", () => {
     const attachment = await freshAttachment();
     await request(app)
       .delete(`/api/attachments/${attachment.id}`)
-      .set("X-Requester-Id", String(requesterId))
+      .set("Cookie", ownerCookie)
       .send({ removalReason: "First and only removal" })
       .expect(200);
 
     const again = await request(app)
       .delete(`/api/attachments/${attachment.id}`)
-      .set("X-Requester-Id", String(requesterId))
+      .set("Cookie", ownerCookie)
       .send({ removalReason: "Trying to remove it a second time" });
 
     expect(again.status).toBe(409);
@@ -506,13 +519,13 @@ describe("Attachment metadata, download and removal", () => {
 
     const metadata = await request(app)
       .get(`/api/attachments/${attachment.id}`)
-      .set("X-Requester-Id", String(otherRequesterId));
+      .set("Cookie", otherCookie);
     const download = await request(app)
       .get(`/api/attachments/${attachment.id}/download`)
-      .set("X-Requester-Id", String(otherRequesterId));
+      .set("Cookie", otherCookie);
     const removal = await request(app)
       .delete(`/api/attachments/${attachment.id}`)
-      .set("X-Requester-Id", String(otherRequesterId))
+      .set("Cookie", otherCookie)
       .send({ removalReason: "Not mine to remove, but trying anyway" });
 
     for (const response of [metadata, download, removal]) {
@@ -523,7 +536,7 @@ describe("Attachment metadata, download and removal", () => {
     // A nonexistent id answers identically, so ownership is not detectable.
     const missing = await request(app)
       .get("/api/attachments/999999")
-      .set("X-Requester-Id", String(otherRequesterId));
+      .set("Cookie", otherCookie);
     expect(missing.body).toEqual(metadata.body);
 
     // And the attempt changed nothing.
@@ -557,19 +570,22 @@ describe("Attachment metadata, download and removal", () => {
     expect(ticket!.attachments.map((a) => a.id).sort()).toEqual([first.id, second.id].sort());
   });
 
-  it("an unusable attachment id is a 404, and the header rules still apply", async () => {
+  it("an unusable attachment id is a 404, and an unauthenticated caller is 401", async () => {
     for (const badId of ["abc", "-1", "0", "99999999999999999999"]) {
       const response = await request(app)
         .get(`/api/attachments/${badId}`)
-        .set("X-Requester-Id", String(requesterId));
+        .set("Cookie", ownerCookie);
       expect(response.status, `id ${badId}`).toBe(404);
       expect(response.body.error.code).toBe("ATTACHMENT_NOT_FOUND");
     }
 
+    // Lab 3, Issue #30: no session is 401. The order matters — the gate runs
+    // before the route, so an unauthenticated caller cannot even learn whether
+    // the id they asked about is a real attachment.
     const attachment = await freshAttachment();
-    const noHeader = await request(app).get(`/api/attachments/${attachment.id}`);
-    expect(noHeader.status).toBe(400);
-    expect(noHeader.body.error.code).toBe("VALIDATION_ERROR");
+    const noSession = await request(app).get(`/api/attachments/${attachment.id}`);
+    expect(noSession.status).toBe(401);
+    expect(noSession.body.error.code).toBe("UNAUTHENTICATED");
   });
 });
 
@@ -591,7 +607,7 @@ describe("Attachment file missing from disk", () => {
     try {
       const response = await request(app)
         .get(`/api/attachments/${orphan.id}/download`)
-        .set("X-Requester-Id", String(requesterId));
+        .set("Cookie", ownerCookie);
 
       expect(response.status).toBe(500);
       expect(response.body.error.code).toBe("INTERNAL_ERROR");
@@ -601,7 +617,7 @@ describe("Attachment file missing from disk", () => {
       // Its metadata is still readable; only the file is gone.
       const metadata = await request(app)
         .get(`/api/attachments/${orphan.id}`)
-        .set("X-Requester-Id", String(requesterId));
+        .set("Cookie", ownerCookie);
       expect(metadata.status).toBe(200);
       expect(metadata.body.data.originalFilename).toBe("vanished.png");
     } finally {

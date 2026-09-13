@@ -81,26 +81,39 @@ scheme as follows, so a reader looking for them can find them:
 | API-AUTH-14 | API | BR-09, BR-12 | Successful password change | 200, `mustChangePassword:false`, old password fails, other sessions of that user are gone, the current one survives | `auth.api.test.ts` | **Pass** |
 | API-AUTH-15 | API | BR-42 | Wrong `currentPassword` | 400 with `field:"currentPassword"` — not 401 | `auth.api.test.ts` | **Pass** |
 | API-AUTH-16 | API | BR-08, BR-09 | Change-password validation | Too short, too long, same as current, mismatched confirmation each answer 400 with the right `field` | `auth.api.test.ts` | **Pass** |
-| API-AUTH-17 | API | AC-02, BR-02 | `mustChangePassword` user calls any other endpoint | 403 `PASSWORD_CHANGE_REQUIRED` | `auth.api.test.ts` | Deferred to Issue #30 |
-| API-AUTH-18 | API | BR-02 | The three exempt endpoints while `mustChangePassword` | `me`, `change-password` and `logout` all work | `auth.api.test.ts` | Deferred to Issue #30 |
+| API-AUTH-17 | API | AC-02, BR-02 | `mustChangePassword` user calls any other endpoint | 403 `PASSWORD_CHANGE_REQUIRED` | `auth.api.test.ts` | **Pass** |
+| API-AUTH-18 | API | BR-02 | The three exempt endpoints while `mustChangePassword` | `me`, `change-password` and `logout` all work | `auth.api.test.ts` | **Pass** |
 
 ### 2.3 API — Authorization and safe errors — `server/tests/lab-03/authorization.api.test.ts`
 
+Four rows here name endpoints that arrive later in the sprint, so they are
+carried rather than written: API-AUTHZ-02 with the queue (#31), API-AUTHZ-03
+with the staff ticket operations (#32), and API-AUTHZ-04 and API-AUTHZ-05 with
+user management (#33). Pointing them at a path nothing routes yet would assert
+a 404 from the fallback handler and read as a passing authorization test, which
+is worse than carrying them honestly.
+
+The rows that could be written are, and two of them were widened while being
+written: API-AUTHZ-01 and API-AUTHZ-06 drive a table of *every* endpoint behind
+`requesterOnly` rather than the one or two the row names, because BR-19 is a
+claim about all of them and a gate forgotten on the seventh route is exactly
+the defect the row exists to catch.
+
 | ID | Type | AC / BR | What it tests | Expected result | File | Status |
 |---|---|---|---|---|---|---|
-| API-AUTHZ-01 | API | BR-19 | Table-driven: every protected endpoint with no cookie | 401 `UNAUTHENTICATED` for all of them | `authorization.api.test.ts` | Planned |
-| API-AUTHZ-02 | API | AC-07 | Requester → `GET /api/staff/tickets` and `/api/staff/assignees` | 403 `FORBIDDEN` | `authorization.api.test.ts` | Planned |
-| API-AUTHZ-03 | API | BR-05, BR-32 | Requester → owner, IT-priority and status endpoints on their own Ticket | 403 `FORBIDDEN`; nothing changes | `authorization.api.test.ts` | Planned |
-| API-AUTHZ-04 | API | AC-21 | Requester → every `/api/users` endpoint | 403 `FORBIDDEN` | `authorization.api.test.ts` | Planned |
-| API-AUTHZ-05 | API | AC-21 | IT Staff → every `/api/users` endpoint | 403 `FORBIDDEN` | `authorization.api.test.ts` | Planned |
-| API-AUTHZ-06 | API | BR-19 | IT Staff → `POST /api/tickets` and `GET /api/tickets` | 403 `FORBIDDEN` | `authorization.api.test.ts` | Planned |
-| API-AUTHZ-07 | API | BR-16 | Requester → another Requester's Ticket | 404, body identical to a Ticket id that never existed | `authorization.api.test.ts` | Planned |
-| API-AUTHZ-08 | API | AC-03, AC-25, BR-03 | Requester sends `X-Requester-Id` naming someone else | Header ignored; own data returned; never the other user's | `authorization.api.test.ts` | Planned |
-| API-AUTHZ-09 | API | BR-16 | Requester → attachment metadata and download on another's Ticket | 404 `ATTACHMENT_NOT_FOUND` both times | `authorization.api.test.ts` | Planned |
-| API-AUTHZ-10 | API | AC-24, BR-12 | Administrator deactivates a user holding a live session | The next request on that session answers 401 | `authorization.api.test.ts` | Planned |
-| API-AUTHZ-11 | API | BR-07 | Sweep every endpoint's success and error bodies | No `passwordHash`, no session identifier in any of them | `authorization.api.test.ts` | Planned |
-| API-ERR-01 | API | BR-43 | Forced internal failure | 500 `INTERNAL_ERROR` with a generic message; no stack trace, SQL, or file path | `authorization.api.test.ts` | Planned |
-| API-ERR-02 | API | BR-43 | Envelope shape on 401, 403, 404, 409 | All four use the `api-spec.md` §1 envelope, never Express's HTML page | `authorization.api.test.ts` | Planned |
+| API-AUTHZ-01 | API | BR-19 | Table-driven: every protected endpoint with no cookie | 401 `UNAUTHENTICATED` for all of them | `authorization.api.test.ts` | **Pass** |
+| API-AUTHZ-02 | API | AC-07 | Requester → `GET /api/staff/tickets` and `/api/staff/assignees` | 403 `FORBIDDEN` | `authorization.api.test.ts` | Deferred to Issue #31 |
+| API-AUTHZ-03 | API | BR-05, BR-32 | Requester → owner, IT-priority and status endpoints on their own Ticket | 403 `FORBIDDEN`; nothing changes | `authorization.api.test.ts` | Deferred to Issue #32 |
+| API-AUTHZ-04 | API | AC-21 | Requester → every `/api/users` endpoint | 403 `FORBIDDEN` | `authorization.api.test.ts` | Deferred to Issue #33 |
+| API-AUTHZ-05 | API | AC-21 | IT Staff → every `/api/users` endpoint | 403 `FORBIDDEN` | `authorization.api.test.ts` | Deferred to Issue #33 |
+| API-AUTHZ-06 | API | BR-19 | IT Staff and Administrator → every endpoint `api-spec.md` §6 keeps to the Requester role | 403 `FORBIDDEN`, and nothing written | `authorization.api.test.ts` | **Pass** |
+| API-AUTHZ-07 | API | BR-16 | Requester → another Requester's Ticket | 404, body identical to a Ticket id that never existed | `authorization.api.test.ts` | **Pass** |
+| API-AUTHZ-08 | API | AC-03, AC-25, BR-03 | Requester sends `X-Requester-Id`, and a `requesterId` in the body, naming someone else | Both ignored; own data returned and stored; never the other user's | `authorization.api.test.ts` | **Pass** |
+| API-AUTHZ-09 | API | BR-16 | Requester → attachment metadata and download on another's Ticket | 404 `ATTACHMENT_NOT_FOUND` both times | `authorization.api.test.ts` | **Pass** |
+| API-AUTHZ-10 | API | AC-24, BR-12 | Administrator deactivates a user holding a live session | The next request on that session answers 401 | `authorization.api.test.ts` | **Pass** |
+| API-AUTHZ-11 | API | BR-07 | Sweep every endpoint's success and error bodies | No `passwordHash`, no session identifier in any of them | `authorization.api.test.ts` | **Pass** |
+| API-ERR-01 | API | BR-43 | Forced internal failure | 500 `INTERNAL_ERROR` with a generic message; no stack trace, SQL, or file path | `authorization.api.test.ts` | **Pass** |
+| API-ERR-02 | API | BR-43 | Envelope shape on 401, 403, 404, 409 | All four use the `api-spec.md` §1 envelope, never Express's HTML page | `authorization.api.test.ts` | **Pass** |
 
 ### 2.4 API — IT Staff queue — `server/tests/lab-03/staff-queue.api.test.ts`
 
@@ -201,9 +214,9 @@ into another suite.
 | MIG-03 | Migration | AC-08, BR-36 | Migrated account state | `role: REQUESTER`, `mustChangePassword: true`, no usable password until changed, and every migrated `email` stored lower-cased | `migration.api.test.ts` | **Pass** |
 | MIG-04 | Migration | BR-29 | `itPriority` backfill | Every migrated Ticket has `itPriority` equal to its `requestedPriority` | `migration.api.test.ts` | **Pass** |
 | MIG-05 | Migration | BR-27 | Ownership of migrated Tickets | `ownerId` is null — unassigned | `migration.api.test.ts` | **Pass** |
-| MIG-06 | Migration | AC-25 | `GET /api/requesters` | 404 `NOT_FOUND`; the route is gone | `migration.api.test.ts` | Deferred to Issue #30 |
-| MIG-07 | Migration | AC-03, BR-03 | `X-Requester-Id` after migration | Has no effect on any endpoint, with or without a session | `migration.api.test.ts` | Deferred to Issue #30 |
-| MIG-08 | Regression | BR-44 | Every Lab 2 Requester endpoint under a session | Create, list, detail, upload, download and soft-remove all behave as `docs/lab-02/api-spec.md` describes, except that a missing identity is now 401 rather than 400 | `migration.api.test.ts` | Deferred to Issue #30 |
+| MIG-06 | Migration | AC-25 | `GET /api/requesters` | 404 `NOT_FOUND`; the route is gone | `migration.api.test.ts` | **Pass** |
+| MIG-07 | Migration | AC-03, BR-03 | `X-Requester-Id` after migration | Has no effect on any endpoint, with or without a session | the four Lab 2 Requester suites (also covered by API-AUTHZ-08) | **Pass** |
+| MIG-08 | Regression | BR-44 | Every Lab 2 Requester endpoint under a session | Create, list, detail, upload, download and soft-remove all behave as `docs/lab-02/api-spec.md` describes, except that a missing identity is now 401 rather than 400 | the four Lab 2 Requester suites, which carry MIG-08 in their leading comments | **Pass** |
 | MIG-09 | Migration | BR-45 | Seed idempotency | Running the seed twice leaves the same row counts and no duplicate emails | `migration.api.test.ts` | **Pass** |
 | MIG-10 | Migration | BR-45 | Seed composition | At least 4 active + 1 inactive Requester, 3 active + 1 inactive IT Staff, 1 active Administrator, Tickets across statuses/priorities/assigned and unassigned, plus example comments and notes | `migration.api.test.ts` | **Pass** |
 
@@ -223,25 +236,49 @@ navigation and the authenticated identity display belong to the shell, not to
 any one screen, and testing them inside `Login.test.tsx` would hide them from
 anyone looking for them.
 
+`AppRoutes.test.tsx` is a seventh, added during Issue #30 for the same reason.
+Three rows below — UI-LOGIN-03, UI-PWD-01 and UI-SHELL-04 — were written
+expecting a screen to *navigate*, and none of them does: `Login` hands the
+signed-in user up and `AppShell` hands the sign-out up, because the routing
+decision belongs to `AppRoutes` and reads the session, not the screen.
+Asserting it inside a screen test would assert something the screen does not
+do. The UI-ROUTE rows assert it where it happens, driving the real
+`useAuthSession` against a mocked `fetchCurrentUser`, so the session states and
+the routing that reads them are proven together rather than each against a
+stub. They also close the client half of AC-07 now instead of leaving it to
+E2E-04 in Issue #34.
+
+It earned its place on the first run: it found that `RoleGuard` rendered a bare
+`Outlet`, which replaced the shell's outlet context with `undefined` and left
+every Requester screen without a signed-in user. Nothing else caught it — the
+screen tests each supply their own context, so none of them renders the real
+route tree.
+
 | ID | Type | AC / BR | What it tests | Expected result | File | Status |
 |---|---|---|---|---|---|---|
-| UI-LOGIN-01 | UI | FR-01 | Initial render | Email, password, show/hide toggle, Sign In; no "forgot password" or "create account" link | `Login.test.tsx` | Planned |
-| UI-LOGIN-02 | UI | BR-42 | Empty submit | Per-field messages below each control; no request sent | `Login.test.tsx` | Planned |
-| UI-LOGIN-03 | UI | AC-01 | Successful login | Navigates to the role's landing route | `Login.test.tsx` | Planned |
-| UI-LOGIN-04 | UI | AC-05, BR-06 | 401 response | One safe callout; both values kept; password not cleared | `Login.test.tsx` | Planned |
-| UI-LOGIN-05 | UI | BR-43 | Network failure | Safe failure callout; Sign In usable again | `Login.test.tsx` | Planned |
-| UI-LOGIN-06 | UI | FR-01 | Busy state | Button busy and disabled, fields disabled, `aria-busy` set | `Login.test.tsx` | Planned |
-| UI-PWD-01 | UI | AC-02, BR-02 | Mandatory mode | Banner shown; no navigation items; a typed route returns here | `ChangePassword.test.tsx` | Planned |
-| UI-PWD-02 | UI | FR-06 | Voluntary mode | Navigation intact, no banner, Cancel returns to the previous screen | `ChangePassword.test.tsx` | Planned |
-| UI-PWD-03 | UI | BR-08 | Length rule | Helper text visible before any error; 7 and 73 characters rejected inline | `ChangePassword.test.tsx` | Planned |
-| UI-PWD-04 | UI | BR-09 | Mismatch and reuse | Confirmation mismatch and "same as current" each show under the right field | `ChangePassword.test.tsx` | Planned |
-| UI-PWD-05 | UI | BR-42 | Wrong current password | Message appears under `Current Password`, not as a screen failure | `ChangePassword.test.tsx` | Planned |
-| UI-PWD-06 | UI | AC-02 | Success | Navigates to the role's landing route | `ChangePassword.test.tsx` | Planned |
-| UI-SHELL-01 | UI | FR-09, AC-07 | Requester navigation | My Tickets and Create Ticket only; no queue or admin destination rendered at all | `AppShell.test.tsx` | Planned |
-| UI-SHELL-02 | UI | FR-09 | IT Staff and Administrator navigation | Queue for staff; User Management first plus Queue for the Administrator | `AppShell.test.tsx` | Planned |
-| UI-SHELL-03 | UI | FR-09 | Header identity | Authenticated name and role badge shown; no Change Requester control anywhere | `AppShell.test.tsx` | Planned |
-| UI-SHELL-04 | UI | AC-06 | Logout | Calls the endpoint and lands on Login | `AppShell.test.tsx` | Planned |
-| UI-SHELL-05 | UI | FR-09 | Mobile panel at 375px | Role items, then name, role badge, Change Password and Log Out as full-width rows | `AppShell.test.tsx` | Planned |
+| UI-LOGIN-01 | UI | FR-01 | Initial render | Email, password, show/hide toggle, Sign In; no "forgot password" or "create account" link | `Login.test.tsx` | **Pass** |
+| UI-LOGIN-02 | UI | BR-42 | Empty submit | Per-field messages below each control; no request sent | `Login.test.tsx` | **Pass** |
+| UI-LOGIN-03 | UI | AC-01 | Successful login | The signed-in user is handed up with `credentials: "include"` sent; the landing route itself is UI-ROUTE-05 | `Login.test.tsx` | **Pass** |
+| UI-LOGIN-04 | UI | AC-05, BR-06 | 401 response | One safe callout; both values kept; password not cleared | `Login.test.tsx` | **Pass** |
+| UI-LOGIN-05 | UI | BR-43 | Network failure | Safe failure callout; Sign In usable again | `Login.test.tsx` | **Pass** |
+| UI-LOGIN-06 | UI | FR-01 | Busy state | Button busy and disabled, fields disabled, `aria-busy` set | `Login.test.tsx` | **Pass** |
+| UI-PWD-01 | UI | AC-02, BR-02 | Mandatory mode | Banner shown and no way out of the screen; the typed-route half is UI-ROUTE-04 | `ChangePassword.test.tsx` | **Pass** |
+| UI-PWD-02 | UI | FR-06 | Voluntary mode | Navigation intact, no banner, Cancel returns to the previous screen | `ChangePassword.test.tsx` | **Pass** |
+| UI-PWD-03 | UI | BR-08 | Length rule | Helper text visible before any error; 7 and 73 characters rejected inline | `ChangePassword.test.tsx` | **Pass** |
+| UI-PWD-04 | UI | BR-09 | Mismatch and reuse | Confirmation mismatch and "same as current" each show under the right field | `ChangePassword.test.tsx` | **Pass** |
+| UI-PWD-05 | UI | BR-42 | Wrong current password | Message appears under `Current Password`, not as a screen failure | `ChangePassword.test.tsx` | **Pass** |
+| UI-PWD-06 | UI | AC-02 | Success | `zg-state--success` replaces the form, *then* the updated user is handed up; the navigation itself is UI-ROUTE-05 | `ChangePassword.test.tsx` | **Pass** |
+| UI-SHELL-01 | UI | FR-09, AC-07 | Requester navigation | My Tickets and Create Ticket only; no queue or admin destination rendered at all | `AppShell.test.tsx` | **Pass** |
+| UI-SHELL-02 | UI | FR-09 | IT Staff and Administrator navigation | Queue for staff; User Management first plus Queue for the Administrator | `AppShell.test.tsx` | Deferred to Issues #31 and #33 |
+| UI-SHELL-03 | UI | FR-09 | Header identity | Authenticated name and role badge shown; no Change Requester control anywhere | `AppShell.test.tsx` | **Pass** |
+| UI-SHELL-04 | UI | AC-06 | Logout | Calls the endpoint with the cookie and drops the local user; landing on Login is UI-ROUTE-02 | `AppShell.test.tsx` | **Pass** |
+| UI-SHELL-05 | UI | FR-09 | Mobile panel at 375px | Role items, then name, role badge, Change Password and Log Out as full-width rows | `AppShell.test.tsx` | **Pass** |
+| UI-ROUTE-01 | UI | BR-13 | Session not yet resolved | The loading state — neither Login nor the application, so a signed-in user never sees a false sign-out | `AppRoutes.test.tsx` | **Pass** |
+| UI-ROUTE-02 | UI | FR-01 | Signed out, deep URL typed | Login renders; no Requester-scoped request is made | `AppRoutes.test.tsx` | **Pass** |
+| UI-ROUTE-03 | UI | BR-13 | `GET /me` unreachable | Retryable failure state, not Login | `AppRoutes.test.tsx` | **Pass** |
+| UI-ROUTE-04 | UI | AC-02, BR-02 | `mustChangePassword`, another route typed | The mandatory Change Password screen inside a shell carrying no navigation items — Log Out reachable, Cancel absent | `AppRoutes.test.tsx` | **Pass** |
+| UI-ROUTE-05 | UI | AC-01 | Signed-in Requester at `/` and at `/login` | Both resolve to the role's landing screen | `AppRoutes.test.tsx` | **Pass** |
+| UI-ROUTE-06 | UI | FR-09, AC-07 | Another role's URL typed | The guarded screen does not render and no request is made on its behalf | `AppRoutes.test.tsx` | **Pass** |
 | UI-QUEUE-01 | UI | AC-09 | Desktop table | Nine columns in the specified order, with badges | `StaffTicketQueue.test.tsx` | Planned |
 | UI-QUEUE-02 | UI | AC-09 | Search and filters | Each control issues the right query parameter | `StaffTicketQueue.test.tsx` | Planned |
 | UI-QUEUE-03 | UI | AC-09 | Sorting | Clicking a sortable header starts descending and returns to page 1 | `StaffTicketQueue.test.tsx` | Planned |
@@ -276,8 +313,8 @@ The handout's §10 names accessibility among the coverage students must identify
 and Part 9 grades focus behaviour. Lab 3 adds no accessibility *rule* of its
 own — Lab 2 §9 and `ui-spec.md` §12 are the contract — but it adds controls the
 rules have to be proven against, so they get rows rather than living only in the
-§5 checklist. A seventh client file, for the same reason `AppShell.test.tsx`
-exists: these assertions span screens.
+§5 checklist. An eighth client file, for the same reason `AppShell.test.tsx`
+and `AppRoutes.test.tsx` exist: these assertions span screens.
 
 | ID | Type | AC / BR | What it tests | Expected result | File | Status |
 |---|---|---|---|---|---|---|
@@ -333,13 +370,13 @@ requires.
 
 | AC | Evidence IDs |
 |---|---|
-| AC-01 | API-AUTH-01, UI-LOGIN-03, E2E-01 |
-| AC-02 | API-AUTH-17, API-AUTH-18, UI-PWD-01, UI-PWD-06, E2E-02 |
+| AC-01 | API-AUTH-01, UI-LOGIN-03, UI-ROUTE-05, E2E-01 |
+| AC-02 | API-AUTH-17, API-AUTH-18, UI-PWD-01, UI-PWD-06, UI-ROUTE-04, E2E-02 |
 | AC-03 | API-AUTHZ-08, MIG-07 |
 | AC-04 | API-NOTE-02, API-NOTE-03, UI-DETAIL-01 |
 | AC-05 | API-AUTH-04, UI-LOGIN-04, E2E-03 |
-| AC-06 | API-AUTH-11, UI-SHELL-04, E2E-01 |
-| AC-07 | API-AUTHZ-02, UI-SHELL-01, UI-QUEUE-06, E2E-04 |
+| AC-06 | API-AUTH-11, UI-SHELL-04, UI-ROUTE-02, E2E-01 |
+| AC-07 | API-AUTHZ-02, API-AUTHZ-06, UI-SHELL-01, UI-ROUTE-06, UI-QUEUE-06, E2E-04 |
 | AC-08 | MIG-01, MIG-02, MIG-03, E2E-05 |
 | AC-09 | API-QUEUE-01..11, UI-QUEUE-01..08, E2E-06, E2E-12 |
 | AC-10 | API-TICKET-02, UI-DETAIL-03, E2E-07 |
@@ -369,7 +406,7 @@ Every rule has at least one automated test, as `specification.md` §10 requires.
 | BR | Evidence IDs | BR | Evidence IDs |
 |---|---|---|---|
 | BR-01 | API-AUTH-01, API-AUTH-04 | BR-24 | UI-DETAIL-08 |
-| BR-02 | API-AUTH-17, API-AUTH-18, UI-PWD-01 | BR-25 | API-TICKET-04, API-QUEUE-12 |
+| BR-02 | API-AUTH-17, API-AUTH-18, UI-PWD-01, UI-ROUTE-04 | BR-25 | API-TICKET-04, API-QUEUE-12 |
 | BR-03 | API-AUTHZ-08, MIG-07 | BR-26 | API-TICKET-19 |
 | BR-04 | API-COMMENT-01, API-COMMENT-02, API-NOTE-06 | BR-27 | API-TICKET-18, MIG-05 |
 | BR-05 | API-AUTHZ-03, API-TICKET-12 | BR-28 | API-TICKET-05, API-TICKET-06 |
@@ -380,7 +417,7 @@ Every rule has at least one automated test, as `specification.md` §10 requires.
 | BR-10 | API-AUTH-11 | BR-33 | UI-DETAIL-06 |
 | BR-11 | UNIT-04, API-AUTH-13 | BR-34 | API-TICKET-12, API-TICKET-13, API-TICKET-14 |
 | BR-12 | API-AUTH-14, API-AUTHZ-10, API-USER-17 | BR-35 | API-USER-06, API-USER-10, API-USER-17, API-USER-18 |
-| BR-13 | API-AUTH-09, API-AUTH-10 | BR-36 | UNIT-05, API-AUTH-06, API-USER-07, API-USER-12, MIG-03 |
+| BR-13 | API-AUTH-09, API-AUTH-10, UI-ROUTE-01, UI-ROUTE-03 | BR-36 | UNIT-05, API-AUTH-06, API-USER-07, API-USER-12, MIG-03 |
 | BR-14 | API-AUTH-08 | BR-37 | API-USER-13, API-USER-14, UI-USER-06 |
 | BR-15 | API-AUTH-12 | BR-38 | API-USER-15, API-USER-16 |
 | BR-16 | API-AUTHZ-07, API-AUTHZ-09, API-COMMENT-03, API-TICKET-15 | BR-39 | API-USER-19 |
@@ -457,8 +494,8 @@ row.
 
 | Suite | Command | Tests | Result |
 |---|---|---|---|
-| Server unit + API + migration | `npm test --prefix server` | **107** | **All passing** as of Issue #29 |
-| Client UI components | `npm test --prefix client` | — | Pending — first Lab 3 screens land in Issue #30 |
+| Server unit + API + migration | `npm test --prefix server` | **126** | **All passing** as of Issue #30 |
+| Client UI components | `npm test --prefix client` | **67** | **All passing** as of Issue #30 |
 | E2E + visual | `npm run test:e2e` | — | Pending — Issue #34 |
 
 ### After Issue #29 — authentication foundation
@@ -470,6 +507,25 @@ row.
 | Lab 3 authentication API | `auth.api.test.ts` | 22 |
 | Lab 3 migration and seed | `migration.api.test.ts` | 10 |
 
+### After Issue #30 — authorization and Requester regression
+
+| Area | Files | Cases |
+|---|---|---|
+| Lab 1 and Lab 2 regression | 9 files | 62, all still passing on session identity |
+| Lab 3 unit | `password.unit.test.ts`, `session.unit.test.ts` | 10 |
+| Lab 3 authentication API | `auth.api.test.ts` | 26 |
+| Lab 3 authorization API | `authorization.api.test.ts` | 17 |
+| Lab 3 migration and seed | `migration.api.test.ts` | 11 |
+| Lab 3 client screens | `Login`, `ChangePassword`, `AppShell`, `AppRoutes` | 31 |
+| Lab 2 client regression | 4 files | 36 |
+
+The Lab 2 server regression is three cases smaller than after Issue #29 because
+`requesters.api.test.ts` was deleted with the endpoint it covered (AC-25). Its
+replacement is MIG-06, which asserts the route is gone. The Lab 2 client
+regression lost three files for the same reason — the Requester selector, its
+hook and its context no longer exist — and gained the four Lab 3 screen files
+in their place.
+
 The migration suite creates a scratch database, replays the real migration
 files in order, pauses after the last Lab 2 migration to insert Lab 2-shaped
 rows, applies the two Lab 3 migrations to them, and drops the database
@@ -480,19 +536,42 @@ and it is why AC-08 can be claimed rather than asserted.
 
 ### Deferred within the sprint
 
-- **API-AUTH-17, API-AUTH-18** — the password-change gate on endpoints *other*
-  than the three exempt ones. Issue #29 builds the gate, but the Lab 2 routes
-  still take their identity from the `X-Requester-Id` header, so there is no
-  gated endpoint to point these at yet. They land with Issue #30, which moves
-  those routes onto the session. The gate itself is written in the same issue
-  rather than shipped ahead of the tests that exercise it.
-- **MIG-06, MIG-07, MIG-08** — `GET /api/requesters` is still served and the
-  `X-Requester-Id` header still works, because the Lab 2 client is still the
-  only client and removing either would break the running application
-  mid-sprint. Both are removed in Issue #30, with the selector, and these three
-  are written there.
+- **API-AUTHZ-02, API-AUTHZ-03, API-AUTHZ-04, API-AUTHZ-05** — the role gate
+  against endpoints that do not exist yet: the staff queue (#31), the staff
+  ticket operations (#32), and user management (#33). Written where those
+  endpoints are, because a request to an unrouted path answers 404 from the
+  fallback handler, and a row asserting that would report a passing
+  authorization test for a gate nothing had been applied to.
+- **The role gate on `GET /api/tickets/:id`, `GET /api/attachments/:id` and
+  `GET /api/attachments/:id/download`.** `api-spec.md` §6 widens all three from
+  Requester-only to "anyone who may read the parent Ticket" (BR-17, FR-21,
+  AC-26). Issue #30 leaves them Requester-only, because deciding what a staff
+  caller sees on a Ticket is the work of Issue #32. API-AUTHZ-06 therefore
+  covers only the four endpoints §6 keeps Requester-only permanently, and a
+  separate case pins today's behaviour on these three so that widening them
+  fails a test rather than passing silently.
+- **UI-SHELL-02** — IT Staff and Administrator navigation. The destinations
+  themselves arrive with #31 and #33; `NAV_BY_ROLE` carries empty lists for
+  both roles until then, so there is nothing yet to assert beyond what
+  UI-SHELL-01 already proves about absence.
 - **UNIT-03** — the status transition matrix helper is built in Issue #32,
   where the endpoint that consults it is built.
+
+Cleared during the sprint: **API-AUTH-17** and **API-AUTH-18** (Issue #29 built
+the gate, Issue #30 gave it endpoints to stand in front of) and **MIG-06**,
+**MIG-07** and **MIG-08** (Issue #30 removed `GET /api/requesters` and the
+`X-Requester-Id` mechanism with the selector that used them).
+
+### Temporary, and deliberately so
+
+- **`ScreenNotYetBuilt` in `App.tsx`.** `ui-spec.md` §3 gives IT Staff and the
+  Administrator a landing route, and Issue #30 lets both roles sign in, but
+  their screens arrive with #31 and #33. With no element on those paths the
+  catch-all route sends them back to the landing they came from and they see a
+  blank page — no shell, no identity, no way to log out. The placeholder exists
+  to prevent that and nothing else, on the paths `ui-spec.md` §3 already fixes,
+  and each of the two issues deletes it by putting the real screen there. It is
+  recorded here rather than left to be discovered.
 
 ### Standing limitations
 
