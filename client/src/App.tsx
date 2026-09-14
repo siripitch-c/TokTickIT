@@ -7,6 +7,7 @@ import Login from "./pages/Login.js";
 import MyTickets from "./pages/MyTickets.js";
 import StaffTicketQueue from "./pages/StaffTicketQueue.js";
 import TicketDetail from "./pages/TicketDetail.js";
+import UserManagement from "./pages/UserManagement.js";
 import { AuthUser, Role } from "./api.js";
 import { LANDING } from "./lib/landing.js";
 import { UseAuthSession, useAuthSession } from "./lib/useAuthSession.js";
@@ -102,7 +103,7 @@ export function AppRoutes() {
         </Route>
 
         <Route element={<RoleGuard user={user} allow={["ADMINISTRATOR"]} />}>
-          <Route path="/admin/users" element={<ScreenNotYetBuilt screen="User Management" issue="Issue #33" />} />
+          <Route path="/admin/users" element={<UserManagement onOwnAccountChanged={session.adopt} />} />
         </Route>
 
         <Route element={<RoleGuard user={user} allow={["REQUESTER"]} />}>
@@ -120,25 +121,6 @@ export function AppRoutes() {
 
       <Route path="*" element={<Navigate to={landing} replace />} />
     </Routes>
-  );
-}
-
-/**
- * A route whose screen belongs to a later issue.
- *
- * User Management — the Administrator's landing route — arrives with Issue #33.
- * Without an element on that path an Administrator would sign in to a blank
- * page with no shell and no way to log out.
- *
- * It exists to prevent that and for no other reason. Issue #33 deletes it by
- * putting the real screen on the path it is already holding.
- */
-function ScreenNotYetBuilt({ screen, issue }: { screen: string; issue: string }) {
-  return (
-    <div data-testid="zg-state-not-built" className="zg-state--empty">
-      <p>{screen} is not part of this increment.</p>
-      <p>It arrives with {issue}.</p>
-    </div>
   );
 }
 

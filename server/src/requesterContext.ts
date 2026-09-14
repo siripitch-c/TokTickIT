@@ -36,3 +36,12 @@ export function sendError(
 export function sendInternalError(res: Response): void {
   sendError(res, 500, "INTERNAL_ERROR", "Something went wrong. Please try again.");
 }
+
+// `contains` becomes a LIKE pattern, where % and _ are wildcards and \ is the
+// escape character. Without this a search for "50%" matches every row, and
+// "month_end" matches any character where the underscore is — neither of which
+// is a partial match. The value itself is still a bound parameter, so this is
+// about correctness, not injection. Shared by every searchable list.
+export function escapeLikePattern(value: string): string {
+  return value.replace(/[\\%_]/g, (char) => `\\${char}`);
+}

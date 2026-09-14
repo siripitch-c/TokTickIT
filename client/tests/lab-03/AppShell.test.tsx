@@ -1,12 +1,12 @@
 import "@testing-library/jest-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import AppShell from "../../src/components/AppShell.js";
 import type { AuthUser, Role } from "../../src/api.js";
 
-// tests.md UI-SHELL-01..05 (UI-SHELL-02 in part — see below); ui-spec.md §3; specification.md FR-09, AC-06,
+// tests.md UI-SHELL-01..05; ui-spec.md §3; specification.md FR-09, AC-06,
 // AC-07.
 //
 // The navigation assertions here are about what a person *sees*. They are not
@@ -60,18 +60,22 @@ describe("Application shell", () => {
     expect(screen.queryByRole("link", { name: /user management/i })).not.toBeInTheDocument();
   });
 
-  it("UI-SHELL-02 / FR-09: IT Staff and an Administrator carry the Ticket Queue and nothing of the Requester's", () => {
-    // The staff half of the row. The Administrator's User Management item —
-    // listed first in their navigation — arrives with Issue #33.
-    for (const role of ["IT_STAFF", "ADMINISTRATOR"] as const) {
-      const { unmount } = renderShell(userWith(role));
+  it("UI-SHELL-02 / FR-09: IT Staff carry the Ticket Queue; an Administrator carries User Management first, then the Queue", () => {
+    const staff = renderShell(userWith("IT_STAFF"));
+    const staffNav = screen.getByRole("navigation", { name: "Main" });
+    expect(within(staffNav).getAllByRole("link").map((link) => [link.textContent, link.getAttribute("href")])).toEqual([
+      ["Ticket Queue", "/staff/tickets"],
+    ]);
+    staff.unmount();
 
-      expect(screen.getByRole("link", { name: "Ticket Queue" })).toHaveAttribute("href", "/staff/tickets");
-      expect(screen.queryByRole("link", { name: "My Tickets" })).not.toBeInTheDocument();
-      expect(screen.queryByRole("link", { name: "Create Ticket" })).not.toBeInTheDocument();
-
-      unmount();
-    }
+    renderShell(userWith("ADMINISTRATOR"));
+    const adminNav = screen.getByRole("navigation", { name: "Main" });
+    // ui-spec.md §3: account management reads as the Administrator's job, and
+    // the queue as somewhere they go deliberately. Nothing of the Requester's.
+    expect(within(adminNav).getAllByRole("link").map((link) => [link.textContent, link.getAttribute("href")])).toEqual([
+      ["User Management", "/admin/users"],
+      ["Ticket Queue", "/staff/tickets"],
+    ]);
   });
 
   it("UI-SHELL-03 / FR-09: the header names who is signed in and in what role", () => {

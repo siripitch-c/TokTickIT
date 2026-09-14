@@ -5,7 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import type { AuthUser, Role } from "../../src/api.js";
 
-// tests.md UI-ROUTE-01..07; ui-spec.md §3; specification.md FR-09, BR-02,
+// tests.md UI-ROUTE-01..07 and the route half of UI-USER-09; ui-spec.md §3; specification.md FR-09, BR-02,
 // BR-13, AC-02, AC-07.
 //
 // The screen tests prove each screen behaves; this one proves the application
@@ -25,6 +25,7 @@ const fetchStaffTickets = vi.fn();
 const fetchAssignees = vi.fn();
 const fetchTicket = vi.fn();
 const fetchRelatedSystems = vi.fn();
+const fetchUsers = vi.fn();
 
 vi.mock("../../src/api.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../src/api.js")>()),
@@ -35,6 +36,7 @@ vi.mock("../../src/api.js", async (importOriginal) => ({
   fetchAssignees: (...args: unknown[]) => fetchAssignees(...args),
   fetchTicket: (...args: unknown[]) => fetchTicket(...args),
   fetchRelatedSystems: (...args: unknown[]) => fetchRelatedSystems(...args),
+  fetchUsers: (...args: unknown[]) => fetchUsers(...args),
 }));
 
 const { AppRoutes } = await import("../../src/App.js");
@@ -75,6 +77,7 @@ beforeEach(() => {
   // Left pending: these cases are about which screen renders, not its content.
   fetchTicket.mockReturnValue(new Promise(() => {}));
   fetchRelatedSystems.mockResolvedValue([]);
+  fetchUsers.mockResolvedValue([]);
 });
 
 describe("Application routing", () => {
@@ -155,6 +158,28 @@ describe("Application routing", () => {
     expect(fetchTickets).not.toHaveBeenCalled();
   });
 
+  it("UI-ROUTE-05 / AC-01: an Administrator at the root lands on User Management", async () => {
+    fetchCurrentUser.mockResolvedValue(userWith("ADMINISTRATOR"));
+    renderAt("/");
+
+    expect(await screen.findByRole("heading", { name: "User Management" })).toBeInTheDocument();
+    await waitFor(() => expect(fetchUsers).toHaveBeenCalled());
+  });
+
+  it("UI-USER-09 / AC-21: IT Staff typing the User Management address are refused, and no account is requested", async () => {
+    fetchCurrentUser.mockResolvedValue(userWith("IT_STAFF"));
+    renderAt("/admin/users");
+
+    const forbidden = await screen.findByTestId("zg-state-forbidden");
+    expect(within(forbidden).getByRole("link", { name: /back to ticket queue/i })).toHaveAttribute(
+      "href",
+      "/staff/tickets",
+    );
+    expect(screen.queryByRole("heading", { name: "User Management" })).not.toBeInTheDocument();
+    // The client half of AC-21. The server half is API-AUTHZ-04 and API-AUTHZ-05.
+    expect(fetchUsers).not.toHaveBeenCalled();
+  });
+
   it("UI-ROUTE-06 / FR-09, AC-07: another role's URL renders the forbidden state, with the way back", async () => {
     fetchCurrentUser.mockResolvedValue(userWith("IT_STAFF"));
     renderAt("/my-tickets");
@@ -196,6 +221,5 @@ describe("Application routing", () => {
     await waitFor(() => expect(fetchTicket).toHaveBeenCalledWith(42));
     expect(screen.getByTestId("zg-state-loading")).toBeInTheDocument();
     expect(screen.queryByTestId("zg-state-forbidden")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("zg-state-not-built")).not.toBeInTheDocument();
   });
 });

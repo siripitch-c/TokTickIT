@@ -153,6 +153,17 @@ Issue #32 — IT Staff Ticket operations:
   Priority.
 * The seed adds example comments and notes to some of its tickets.
 
+Issue #33 — Administrator user management:
+
+* `GET`, `POST` and `PATCH /api/users` and `POST /api/users/:id/initial-password`,
+  for Administrators only. There is no delete: deactivation is the only way an
+  account stops working.
+* Email addresses are unique whatever their capitalisation; deactivating an
+  account ends its open sessions at once; an Administrator cannot deactivate or
+  demote themselves; and the last active Administrator cannot be removed.
+* User Management: the list, search and role filter, and the Create and Edit
+  dialogs, with an accessible focus trap shared by every dialog in the app.
+
 ### Development sign-in credentials
 
 Every seeded account uses the same **local-development password**:
@@ -320,12 +331,17 @@ saved.
 Sign in as `somsak.wattana@example.edu` to see the **Ticket Queue**: every
 Requester's tickets, with search, filters, sorting and pagination, all kept in
 the address so a filtered view can be bookmarked. Administrators carry the queue
-in their navigation too; their landing screen, User Management, arrives with
-Issue #33. Opening a ticket from the queue shows the staff Ticket Detail: claim
+in their navigation too. Opening a ticket from the queue shows the staff Ticket Detail: claim
 or reassign it, set its IT Priority, move its status (Closed and Cancelled ask
 first), and write Public Comments and Internal Notes. Signed in as the ticket's
 Requester, the same screen shows the Public Comments and a **Problem Appears
 Resolved** button instead, and never any trace of Internal Notes.
+
+Sign in as `anong.kittisak@example.edu` for **User Management**: every account,
+with search and a role filter, a Create User dialog, and an Edit dialog for name,
+email, role and status with a separate section for setting a new initial
+password. It will not let an Administrator deactivate or demote their own
+account, nor remove the last active Administrator.
 
 ## Production build
 
@@ -355,11 +371,13 @@ The API tests run against the same local PostgreSQL database configured in
 and clean up their own throwaway accounts and tickets rather than reusing the
 seeded demo identities.
 
-The Lab 3 migration suite additionally creates two scratch databases and drops
-them again: `toktickit_migration_test`, where it replays the migration files
-around Lab 2-shaped data, and `toktickit_seed_test`, where it migrates and seeds
-from nothing to check what the seed produces. The PostgreSQL user in
-`DATABASE_URL` therefore needs permission to create a database.
+The Lab 3 suites additionally create three scratch databases and drop them
+again: `toktickit_migration_test`, where the migration files are replayed around
+Lab 2-shaped data; `toktickit_seed_test`, where the seed runs from nothing; and
+`toktickit_users_test`, where the user-management suite can make any account the
+last active Administrator without touching the development database. The
+PostgreSQL user in `DATABASE_URL` therefore needs permission to create a
+database.
 
 Frontend Tests (Vitest):
 ```bash

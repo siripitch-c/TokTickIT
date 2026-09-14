@@ -17,14 +17,13 @@ import {
   refused,
   renderDetail,
 } from "../support/ticketServer.js";
+import { ADMIN, mockUsers, refused as refuseUser, renderUsers } from "../support/userServer.js";
 
 // tests.md A11Y-01..09; ui-spec.md §12; Lab 2 ui-spec.md §9.
 //
-// These span screens, which is why they have a file of their own. Every row
-// whose subject exists is written here. Two parts wait for the Administrator
-// dialogs of Issue #33 and are recorded in tests.md §8 rather than skipped:
-// A11Y-01 and A11Y-03 for those dialogs' fields and inline 409s, and A11Y-05
-// for their focus handling.
+// These span screens, which is why they have a file of their own. Every row is
+// written in full: the Administrator dialogs that three of them also name
+// arrived with Issue #33.
 
 beforeEach(() => {
   vi.restoreAllMocks();
@@ -43,6 +42,30 @@ describe("Labels and controls", () => {
     expect(screen.getByLabelText(/^Current Password/)).toBeInTheDocument();
     expect(screen.getByLabelText(/^New Password/)).toBeInTheDocument();
     expect(screen.getByLabelText(/^Confirm New Password/)).toBeInTheDocument();
+  });
+
+  it("A11Y-01: every field in the Create and Edit User dialogs is reachable by its visible label", async () => {
+    mockUsers();
+    const user = userEvent.setup();
+    renderUsers(ADMIN);
+    await screen.findByTestId("user-table");
+
+    await user.click(screen.getByRole("button", { name: "+ Create User" }));
+    let dialog = screen.getByRole("dialog");
+    for (const label of [/^Name/, /^Email/, /^Role/, /^Initial Password/]) {
+      expect(within(dialog).getByLabelText(label)).toBeInTheDocument();
+    }
+    // The radio pair is a named group, and each choice is labelled on its own.
+    expect(within(dialog).getByRole("group", { name: /Status/ })).toBeInTheDocument();
+    expect(within(dialog).getByLabelText("Active")).toBeInTheDocument();
+    expect(within(dialog).getByLabelText("Inactive")).toBeInTheDocument();
+    await user.keyboard("{Escape}");
+
+    await user.click(screen.getByRole("button", { name: "Edit Somsak Wattana" }));
+    dialog = screen.getByRole("dialog");
+    for (const label of [/^Name/, /^Email/, /^Role/, /^New Initial Password/]) {
+      expect(within(dialog).getByLabelText(label)).toBeInTheDocument();
+    }
   });
 
   it("A11Y-02: a password toggle carries a title and an aria-label that both change with its state", async () => {
@@ -105,6 +128,26 @@ describe("Announced refusals", () => {
     await user.click(screen.getByRole("button", { name: "Problem Appears Resolved" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/already been resolved/);
+  });
+
+  it("A11Y-03: an inline 409 in a user dialog is announced", async () => {
+    mockUsers({
+      write: (method) =>
+        method === "PATCH"
+          ? refuseUser(409, "EMAIL_ALREADY_EXISTS", "An account with this email address already exists.", "email")
+          : undefined,
+    });
+    const user = userEvent.setup();
+    renderUsers(ADMIN);
+    await screen.findByTestId("user-table");
+
+    await user.click(screen.getByRole("button", { name: "Edit Somsak Wattana" }));
+    const dialog = screen.getByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: "Save Changes" }));
+
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "An account with this email address already exists.",
+    );
   });
 });
 
@@ -169,6 +212,42 @@ describe("Dialogs and changing controls", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(status).toHaveFocus();
     expect(server.calls.some((call) => call.method === "PATCH")).toBe(false);
+  });
+
+  it("A11Y-05: Create User and Edit User hold focus, and return it to the control that opened them", async () => {
+    mockUsers();
+    const user = userEvent.setup();
+    renderUsers(ADMIN);
+    await screen.findByTestId("user-table");
+
+    const create = screen.getByRole("button", { name: "+ Create User" });
+    await user.click(create);
+    let dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveAttribute("aria-modal", "true");
+
+    // Focus starts on the first field.
+    const name = within(dialog).getByLabelText(/^Name/);
+    expect(name).toHaveFocus();
+
+    // Tab from the last control and Shift+Tab from the first both stay inside.
+    const submit = within(dialog).getByRole("button", { name: "Create User" });
+    submit.focus();
+    await user.tab();
+    expect(name).toHaveFocus();
+    await user.tab({ shift: true });
+    expect(submit).toHaveFocus();
+
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(create).toHaveFocus();
+
+    const edit = screen.getByRole("button", { name: "Edit Bella Admin" });
+    await user.click(edit);
+    dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByLabelText(/^Name/)).toHaveFocus();
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(edit).toHaveFocus();
   });
 
   it("A11Y-07: the status select is described by a line naming the current status, which follows the status", async () => {

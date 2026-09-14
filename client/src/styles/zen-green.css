@@ -1570,3 +1570,119 @@ textarea.zg-field--editable {
   background: var(--zg-pale);
   border-radius: 6px;
 }
+
+/* ======================================================================
+   Lab 3, Issue #33 — User Management (ui-spec.md §9) and the success toast
+   (§9.3). Tokens only; the shadow is the one the dialog already uses.
+   ====================================================================== */
+
+.zg-user-role-filter {
+  min-width: 200px;
+  margin-bottom: 0;
+}
+
+/* §9.1: status is text, not a badge, so it never reads as a ticket status. */
+.zg-user-status--active {
+  color: var(--zg-text);
+}
+
+.zg-user-status--inactive {
+  color: var(--zg-text-muted);
+}
+
+.zg-user-cards {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.zg-user-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--zg-space-1);
+  background: var(--zg-surface);
+  border: 1px solid var(--zg-border);
+  border-radius: 8px;
+  padding: var(--zg-space-3);
+  margin-bottom: var(--zg-space-2);
+  overflow-wrap: anywhere;
+}
+
+.zg-user-card-name {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--zg-space-2);
+}
+
+.zg-user-card .zg-btn--secondary {
+  min-height: 44px;
+  margin-top: var(--zg-space-2);
+}
+
+/* §9.3: Status is a radio pair inside its own fieldset. */
+.zg-radio-group {
+  border: none;
+  padding: 0;
+  margin: 0 0 var(--zg-space-3);
+}
+
+.zg-radio {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--zg-space-1);
+  min-height: 44px;
+  margin-right: var(--zg-space-4);
+}
+
+/* §9.4: disabled on one's own account, with the reason beneath it. */
+.zg-radio-group--disabled {
+  color: var(--zg-disabled-text);
+}
+
+/* §9.4: Set New Initial Password is a separate bordered section. */
+.zg-dialog-section {
+  margin-top: var(--zg-space-4);
+  padding: var(--zg-space-3);
+  border: 1px solid var(--zg-border);
+  border-radius: 8px;
+}
+
+.zg-dialog-section h3 {
+  margin: 0 0 var(--zg-space-2);
+  font-size: var(--zg-text-base);
+}
+
+.zg-dialog-section .zg-actions-row {
+  margin-top: var(--zg-space-2);
+}
+
+.zg-toast {
+  position: fixed;
+  right: var(--zg-space-4);
+  bottom: var(--zg-space-4);
+  z-index: 40;
+  max-width: min(420px, calc(100% - 2 * var(--zg-space-4)));
+  text-align: left;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+
+@media (max-width: 767px) {
+  .zg-user-role-filter {
+    flex: 1 1 100%;
+  }
+
+  /* §11: the dialog's own actions sit at the bottom of its sheet. */
+  .zg-dialog form {
+    display: flex;
+    flex-direction: column;
+    flex: 1 0 auto;
+  }
+
+  .zg-toast {
+    left: var(--zg-space-3);
+    right: var(--zg-space-3);
+    bottom: var(--zg-space-3);
+    max-width: none;
+  }
+}

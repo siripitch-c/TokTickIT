@@ -38,8 +38,11 @@ const NAV_BY_ROLE: Record<Role, NavItem[]> = {
   IT_STAFF: [{ to: "/staff/tickets", label: "Ticket Queue" }],
   // ui-spec.md §3 lists User Management first for the Administrator and the
   // Queue second, so account management reads as their job and the queue as
-  // somewhere they go deliberately. User Management arrives with Issue #33.
-  ADMINISTRATOR: [{ to: "/staff/tickets", label: "Ticket Queue" }],
+  // somewhere they go deliberately.
+  ADMINISTRATOR: [
+    { to: "/admin/users", label: "User Management" },
+    { to: "/staff/tickets", label: "Ticket Queue" },
+  ],
 };
 
 const ROLE_LABEL: Record<Role, string> = {
