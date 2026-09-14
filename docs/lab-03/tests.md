@@ -86,13 +86,11 @@ scheme as follows, so a reader looking for them can find them:
 
 ### 2.3 API — Authorization and safe errors — `server/tests/lab-03/authorization.api.test.ts`
 
-Two rows here name endpoints that arrive later in the sprint, so they are
-carried rather than written: API-AUTHZ-04 and API-AUTHZ-05, with user
-management (#33). API-AUTHZ-02 and API-AUTHZ-03 were carried the same way until
-the queue (#31) and the staff Ticket operations (#32) they refuse arrived.
-Pointing them at a path nothing routes yet would assert a 404 from the fallback
-handler and read as a passing authorization test, which is worse than carrying
-them honestly.
+Every row here is written. API-AUTHZ-02 to API-AUTHZ-05 name endpoints that
+arrived later in the sprint, and each was carried until its endpoints existed —
+the queue (#31), the staff Ticket operations (#32) and user management (#33) —
+because pointing them at a path nothing routed yet would have asserted a 404
+from the fallback handler and read as a passing authorization test.
 
 The rows that could be written are, and two of them were widened while being
 written: API-AUTHZ-01 and API-AUTHZ-06 drive a table of *every* endpoint behind
@@ -101,15 +99,19 @@ claim about all of them and a gate forgotten on the seventh route is exactly
 the defect the row exists to catch. Issue #32 added its eight endpoints to
 API-AUTHZ-01 the same way, and turned the API-AUTHZ-06 case that pinned three
 read endpoints as Requester-only into one that pins them as the only three open
-to staff.
+to staff. Issue #33 wrote API-AUTHZ-04 and API-AUTHZ-05 as the same kind of
+table — every user-management endpoint, plus a `DELETE` that does not exist —
+and moved API-AUTHZ-10 onto the Administrator endpoint that really deactivates
+an account, so it now also proves the sessions are deleted rather than only
+refused.
 
 | ID | Type | AC / BR | What it tests | Expected result | File | Status |
 |---|---|---|---|---|---|---|
 | API-AUTHZ-01 | API | BR-19 | Table-driven: every protected endpoint with no cookie | 401 `UNAUTHENTICATED` for all of them | `authorization.api.test.ts` | **Pass** |
 | API-AUTHZ-02 | API | AC-07 | Requester → `GET /api/staff/tickets` and `/api/staff/assignees` | 403 `FORBIDDEN` | `authorization.api.test.ts` | **Pass** |
 | API-AUTHZ-03 | API | BR-05, BR-32 | Requester → owner, IT-priority and status endpoints on their own Ticket | 403 `FORBIDDEN`; nothing changes | `authorization.api.test.ts` | **Pass** |
-| API-AUTHZ-04 | API | AC-21 | Requester → every `/api/users` endpoint | 403 `FORBIDDEN` | `authorization.api.test.ts` | Deferred to Issue #33 |
-| API-AUTHZ-05 | API | AC-21 | IT Staff → every `/api/users` endpoint | 403 `FORBIDDEN` | `authorization.api.test.ts` | Deferred to Issue #33 |
+| API-AUTHZ-04 | API | AC-21 | Requester → every `/api/users` endpoint | 403 `FORBIDDEN` | `authorization.api.test.ts` | **Pass** |
+| API-AUTHZ-05 | API | AC-21 | IT Staff → every `/api/users` endpoint | 403 `FORBIDDEN` | `authorization.api.test.ts` | **Pass** |
 | API-AUTHZ-06 | API | BR-19 | IT Staff and Administrator → every endpoint `api-spec.md` §6 keeps to the Requester role | 403 `FORBIDDEN`, and nothing written | `authorization.api.test.ts` | **Pass** |
 | API-AUTHZ-07 | API | BR-16 | Requester → another Requester's Ticket | 404, body identical to a Ticket id that never existed | `authorization.api.test.ts` | **Pass** |
 | API-AUTHZ-08 | API | AC-03, AC-25, BR-03 | Requester sends `X-Requester-Id`, and a `requesterId` in the body, naming someone else | Both ignored; own data returned and stored; never the other user's | `authorization.api.test.ts` | **Pass** |
@@ -183,27 +185,27 @@ to staff.
 
 | ID | Type | AC / BR | What it tests | Expected result | File | Status |
 |---|---|---|---|---|---|---|
-| API-USER-01 | API | FR-22, BR-41 | User list | All users including inactive, ordered by name ascending | `users-admin.api.test.ts` | Planned |
-| API-USER-02 | API | AC-27 | Search | Partial, case-insensitive match on name and on email | `users-admin.api.test.ts` | Planned |
-| API-USER-03 | API | AC-27 | Role filter | Only that role; combines with search | `users-admin.api.test.ts` | Planned |
-| API-USER-04 | API | BR-41 | Junk query values | Ignored; full list returned; never 400 | `users-admin.api.test.ts` | Planned |
-| API-USER-05 | API | BR-41 | Response shape | A plain `data` array with no pagination metadata | `users-admin.api.test.ts` | Planned |
-| API-USER-06 | API | AC-22, BR-35 | Create a user | 201; exactly one role; `mustChangePassword: true` | `users-admin.api.test.ts` | Planned |
-| API-USER-07 | API | AC-17, BR-36 | Duplicate email, including a different capitalisation | 409 `EMAIL_ALREADY_EXISTS`; no user created | `users-admin.api.test.ts` | Planned |
-| API-USER-08 | API | BR-42 | Creation validation | Name length, email format, missing `isActive`, password length each 400 with the right `field` | `users-admin.api.test.ts` | Planned |
-| API-USER-09 | API | BR-18 | Role as an array, or an unknown value | 400; no user created, and no first-element fallback | `users-admin.api.test.ts` | Planned |
-| API-USER-10 | API | AC-23, BR-35 | Edit name, email, role and activation state | Each persists; omitted fields are untouched | `users-admin.api.test.ts` | Planned |
-| API-USER-10b | API | BR-42 | `PATCH` and set-initial-password on an id that does not exist | 404 `USER_NOT_FOUND` for both | `users-admin.api.test.ts` | Planned |
-| API-USER-11 | API | BR-42 | `PATCH` with none of the four fields | 400 `VALIDATION_ERROR` | `users-admin.api.test.ts` | Planned |
-| API-USER-12 | API | BR-36 | Edit to an email another user holds | 409 `EMAIL_ALREADY_EXISTS` | `users-admin.api.test.ts` | Planned |
-| API-USER-13 | API | AC-20, BR-37 | Administrator deactivates themselves | 409 `SELF_DEACTIVATION`; account still active | `users-admin.api.test.ts` | Planned |
-| API-USER-14 | API | BR-37 | Administrator changes their own role away from Administrator | 409 `SELF_DEACTIVATION` | `users-admin.api.test.ts` | Planned |
-| API-USER-15 | API | AC-19, BR-38 | Deactivate the last active Administrator | 409 `LAST_ACTIVE_ADMINISTRATOR`; still active | `users-admin.api.test.ts` | Planned |
-| API-USER-16 | API | AC-19, BR-38 | Re-role the last active Administrator | 409; role unchanged | `users-admin.api.test.ts` | Planned |
-| API-USER-17 | API | AC-18, BR-12, BR-35 | Set a new initial password | `mustChangePassword: true`; that user's sessions are deleted | `users-admin.api.test.ts` | Planned |
-| API-USER-18 | API | AC-18 | Log in with the new initial password | Succeeds, then every other endpoint answers 403 `PASSWORD_CHANGE_REQUIRED`; the old password fails | `users-admin.api.test.ts` | Planned |
-| API-USER-19 | API | BR-39 | `DELETE /api/users/:id` | 404 `NOT_FOUND` — the route does not exist | `users-admin.api.test.ts` | Planned |
-| API-USER-20 | API | BR-07 | Every user response | No `passwordHash`, and the initial password is never echoed | `users-admin.api.test.ts` | Planned |
+| API-USER-01 | API | FR-22, BR-41 | User list | All users including inactive, ordered by name ascending | `users-admin.api.test.ts` | **Pass** |
+| API-USER-02 | API | AC-27 | Search | Partial, case-insensitive match on name and on email | `users-admin.api.test.ts` | **Pass** |
+| API-USER-03 | API | AC-27 | Role filter | Only that role; combines with search | `users-admin.api.test.ts` | **Pass** |
+| API-USER-04 | API | BR-41 | Junk query values | Ignored; full list returned; never 400 | `users-admin.api.test.ts` | **Pass** |
+| API-USER-05 | API | BR-41 | Response shape | A plain `data` array with no pagination metadata | `users-admin.api.test.ts` | **Pass** |
+| API-USER-06 | API | AC-22, BR-35 | Create a user | 201; exactly one role; `mustChangePassword: true` | `users-admin.api.test.ts` | **Pass** |
+| API-USER-07 | API | AC-17, BR-36 | Duplicate email, including a different capitalisation | 409 `EMAIL_ALREADY_EXISTS`; no user created | `users-admin.api.test.ts` | **Pass** |
+| API-USER-08 | API | BR-42 | Creation validation | Name length, email format, missing `isActive`, password length each 400 with the right `field` | `users-admin.api.test.ts` | **Pass** |
+| API-USER-09 | API | BR-18 | Role as an array, or an unknown value | 400; no user created, and no first-element fallback | `users-admin.api.test.ts` | **Pass** |
+| API-USER-10 | API | AC-23, BR-35 | Edit name, email, role and activation state | Each persists; omitted fields are untouched | `users-admin.api.test.ts` | **Pass** |
+| API-USER-10b | API | BR-42 | `PATCH` and set-initial-password on an id that does not exist | 404 `USER_NOT_FOUND` for both | `users-admin.api.test.ts` | **Pass** |
+| API-USER-11 | API | BR-42 | `PATCH` with none of the four fields | 400 `VALIDATION_ERROR` | `users-admin.api.test.ts` | **Pass** |
+| API-USER-12 | API | BR-36 | Edit to an email another user holds | 409 `EMAIL_ALREADY_EXISTS` | `users-admin.api.test.ts` | **Pass** |
+| API-USER-13 | API | AC-20, BR-37 | Administrator deactivates themselves | 409 `SELF_DEACTIVATION`; account still active | `users-admin.api.test.ts` | **Pass** |
+| API-USER-14 | API | BR-37 | Administrator changes their own role away from Administrator | 409 `SELF_DEACTIVATION` | `users-admin.api.test.ts` | **Pass** |
+| API-USER-15 | API | AC-19, BR-38 | Deactivate the last active Administrator | 409 `LAST_ACTIVE_ADMINISTRATOR`; still active | `users-admin.api.test.ts` | **Pass** |
+| API-USER-16 | API | AC-19, BR-38 | Re-role the last active Administrator | 409; role unchanged | `users-admin.api.test.ts` | **Pass** |
+| API-USER-17 | API | AC-18, BR-12, BR-35 | Set a new initial password | `mustChangePassword: true`; that user's sessions are deleted | `users-admin.api.test.ts` | **Pass** |
+| API-USER-18 | API | AC-18 | Log in with the new initial password | Succeeds, then every other endpoint answers 403 `PASSWORD_CHANGE_REQUIRED`; the old password fails | `users-admin.api.test.ts` | **Pass** |
+| API-USER-19 | API | BR-39 | `DELETE /api/users/:id` | 404 `NOT_FOUND` — the route does not exist | `users-admin.api.test.ts` | **Pass** |
+| API-USER-20 | API | BR-07 | Every user response | No `passwordHash`, and the initial password is never echoed | `users-admin.api.test.ts` | **Pass** |
 
 ### 2.8 Migration and Lab 2 regression — `server/tests/lab-03/migration.api.test.ts`
 
@@ -273,7 +275,7 @@ route tree.
 | UI-PWD-05 | UI | BR-42 | Wrong current password | Message appears under `Current Password`, not as a screen failure | `ChangePassword.test.tsx` | **Pass** |
 | UI-PWD-06 | UI | AC-02 | Success | `zg-state--success` replaces the form, *then* the updated user is handed up; the navigation itself is UI-ROUTE-05 | `ChangePassword.test.tsx` | **Pass** |
 | UI-SHELL-01 | UI | FR-09, AC-07 | Requester navigation | My Tickets and Create Ticket only; no queue or admin destination rendered at all | `AppShell.test.tsx` | **Pass** |
-| UI-SHELL-02 | UI | FR-09 | IT Staff and Administrator navigation | Queue for staff; User Management first plus Queue for the Administrator | `AppShell.test.tsx` | Staff half **Pass**; the Administrator's User Management item is deferred to Issue #33 |
+| UI-SHELL-02 | UI | FR-09 | IT Staff and Administrator navigation | Queue for staff; User Management first plus Queue for the Administrator | `AppShell.test.tsx` | **Pass** |
 | UI-SHELL-03 | UI | FR-09 | Header identity | Authenticated name and role badge shown; no Change Requester control anywhere | `AppShell.test.tsx` | **Pass** |
 | UI-SHELL-04 | UI | AC-06 | Logout | Calls the endpoint with the cookie and drops the local user; landing on Login is UI-ROUTE-02 | `AppShell.test.tsx` | **Pass** |
 | UI-SHELL-05 | UI | FR-09 | Mobile panel at 375px | Role items, then name, role badge, Change Password and Log Out as full-width rows | `AppShell.test.tsx` | **Pass** |
@@ -281,7 +283,7 @@ route tree.
 | UI-ROUTE-02 | UI | FR-01 | Signed out, deep URL typed | Login renders; no Requester-scoped request is made | `AppRoutes.test.tsx` | **Pass** |
 | UI-ROUTE-03 | UI | BR-13 | `GET /me` unreachable | Retryable failure state, not Login | `AppRoutes.test.tsx` | **Pass** |
 | UI-ROUTE-04 | UI | AC-02, BR-02 | `mustChangePassword`, another route typed | The mandatory Change Password screen inside a shell carrying no navigation items — Log Out reachable, Cancel absent | `AppRoutes.test.tsx` | **Pass** |
-| UI-ROUTE-05 | UI | AC-01 | Signed-in Requester at `/` and at `/login` | Both resolve to the role's landing screen | `AppRoutes.test.tsx` | **Pass** |
+| UI-ROUTE-05 | UI | AC-01 | Each role at `/`, and a Requester at `/login` | Each resolves to its role's landing screen: My Tickets, the Ticket Queue, User Management | `AppRoutes.test.tsx` | **Pass** |
 | UI-ROUTE-06 | UI | FR-09, AC-07 | Another role's URL typed | The forbidden state renders with the way back to the person's own landing screen; no request is made on the other role's behalf | `AppRoutes.test.tsx` | **Pass** |
 | UI-ROUTE-07 | UI | FR-14 | IT Staff open `/tickets/:id` | The Ticket Detail screen asks for that Ticket — not the forbidden state, which would misreport a route the role may use | `AppRoutes.test.tsx` | **Pass** |
 | UI-QUEUE-01 | UI | AC-09 | Desktop table | Nine columns in the specified order, with badges | `StaffTicketQueue.test.tsx` | **Pass** |
@@ -302,15 +304,15 @@ route tree.
 | UI-DETAIL-08 | UI | BR-23, BR-24 | Comment composer | Counter, disabled submit when empty or over 2000, and a body containing markup rendered as literal text | `StaffTicketDetail.test.tsx` | **Pass** |
 | UI-DETAIL-09 | UI | AC-15 | The two threads | Internal panel carries its warning border, lock header, distinct placeholder and "Add Internal Note" button; the panels are never adjacent | `StaffTicketDetail.test.tsx` | **Pass** |
 | UI-DETAIL-10 | UI | AC-16, BR-34 | Problem Appears Resolved | Present for the owning Requester; absent for staff; replaced by a dated line once set | `StaffTicketDetail.test.tsx` | **Pass** |
-| UI-USER-01 | UI | FR-22 | User list | Name, Email, Role badge, Status, Edit — five columns, no sort headers, no pagination | `UserManagement.test.tsx` | Planned |
-| UI-USER-02 | UI | AC-27 | Search and role filter | Both issue the right query; clearing search restores the list | `UserManagement.test.tsx` | Planned |
-| UI-USER-03 | UI | AC-22 | Create dialog | All five fields; role is single-select; helper text states the password rule | `UserManagement.test.tsx` | Planned |
-| UI-USER-04 | UI | AC-17 | Duplicate email 409 | Inline message on the Email field; dialog stays open with values kept | `UserManagement.test.tsx` | Planned |
-| UI-USER-05 | UI | AC-23 | Edit dialog | Pre-filled; Set New Initial Password is a separate section with its own button | `UserManagement.test.tsx` | Planned |
-| UI-USER-06 | UI | AC-20, BR-37 | Editing one's own account | Status and Role disabled with an explanatory helper line | `UserManagement.test.tsx` | Planned |
-| UI-USER-07 | UI | AC-19 | Last-Administrator 409 | Inline message; the control reverts | `UserManagement.test.tsx` | Planned |
-| UI-USER-08 | UI | AC-18 | Set new initial password | Confirmation line shown; the password is never redisplayed | `UserManagement.test.tsx` | Planned |
-| UI-USER-09 | UI | AC-21 | Non-Administrator reaches the route | `zg-state--forbidden` | `UserManagement.test.tsx` | Planned |
+| UI-USER-01 | UI | FR-22 | User list | Name, Email, Role badge, Status, Edit — five columns, no sort headers, no pagination | `UserManagement.test.tsx` | **Pass** |
+| UI-USER-02 | UI | AC-27 | Search and role filter | Both issue the right query; clearing search restores the list | `UserManagement.test.tsx` | **Pass** |
+| UI-USER-03 | UI | AC-22 | Create dialog | All five fields; role is single-select; helper text states the password rule | `UserManagement.test.tsx` | **Pass** |
+| UI-USER-04 | UI | AC-17 | Duplicate email 409 | Inline message on the Email field; dialog stays open with values kept | `UserManagement.test.tsx` | **Pass** |
+| UI-USER-05 | UI | AC-23 | Edit dialog | Pre-filled; Set New Initial Password is a separate section with its own button | `UserManagement.test.tsx` | **Pass** |
+| UI-USER-06 | UI | AC-20, BR-37 | Editing one's own account | Status and Role disabled with an explanatory helper line | `UserManagement.test.tsx` | **Pass** |
+| UI-USER-07 | UI | AC-19 | Last-Administrator 409 | Inline message; the control reverts | `UserManagement.test.tsx` | **Pass** |
+| UI-USER-08 | UI | AC-18 | Set new initial password | Confirmation line shown; the password is never redisplayed | `UserManagement.test.tsx` | **Pass** |
+| UI-USER-09 | UI | AC-21 | Non-Administrator reaches the route | `zg-state--forbidden` | `UserManagement.test.tsx` | **Pass** |
 
 ### 2.10 Accessibility — `client/tests/lab-03/accessibility.test.tsx`
 
@@ -322,17 +324,16 @@ rules have to be proven against, so they get rows rather than living only in the
 and `AppRoutes.test.tsx` exist: these assertions span screens.
 
 Written in Issue #32, when the first dialog, the two threads and the not-found
-state existed. Every row whose subject exists is written in full; the three
-that also name the Administrator dialogs of #33 say in their Status which half
-is still to come.
+state existed, and completed in Issue #33 with the Create and Edit User dialogs
+that A11Y-01, A11Y-03 and A11Y-05 also name.
 
 | ID | Type | AC / BR | What it tests | Expected result | File | Status |
 |---|---|---|---|---|---|---|
-| A11Y-01 | UI | ui-spec §12 | Label association | Every field on Login, Change Password and both user dialogs is reachable by its visible label text | `accessibility.test.tsx` | Login and Change Password **Pass**; the user dialogs are deferred to Issue #33 |
+| A11Y-01 | UI | ui-spec §12 | Label association | Every field on Login, Change Password and both user dialogs is reachable by its visible label text | `accessibility.test.tsx` | **Pass** |
 | A11Y-02 | UI | ui-spec §12 | Password show/hide toggles | Carry `title` and `aria-label`, and the label changes with the state | `accessibility.test.tsx` | **Pass** |
-| A11Y-03 | UI | ui-spec §12 | Announced refusals | The login failure callout and every inline 409 message carry `role="alert"` | `accessibility.test.tsx` | Login callout and every Issue #32 inline 409 **Pass**; the user dialogs are deferred to Issue #33 |
+| A11Y-03 | UI | ui-spec §12 | Announced refusals | The login failure callout and every inline 409 message carry `role="alert"` | `accessibility.test.tsx` | **Pass** |
 | A11Y-04 | UI | ui-spec §12, BR-20 | Internal Notes heading | A real heading in the document outline, positioned before its composer | `accessibility.test.tsx` | **Pass** |
-| A11Y-05 | UI | ui-spec §12 | Dialog focus | Create User, Edit User and the status confirmation trap focus and return it to the trigger on close | `accessibility.test.tsx` | Status confirmation **Pass**; Create and Edit User are deferred to Issue #33 |
+| A11Y-05 | UI | ui-spec §12 | Dialog focus | Create User, Edit User and the status confirmation trap focus and return it to the trigger on close | `accessibility.test.tsx` | **Pass** |
 | A11Y-06 | UI | ui-spec §12 | Colour is never the only signal | All eight status badges, all three priority badges and all three role badges render their label text | `accessibility.test.tsx` | **Pass** |
 | A11Y-07 | UI | ui-spec §12 | Status select description | Carries `aria-describedby` naming the current status, since its option list changes with it | `accessibility.test.tsx` | **Pass** |
 | A11Y-08 | UI | ui-spec §12 | Refusal states take focus | `zg-state--forbidden` and `zg-state--not-found` move focus to their heading | `accessibility.test.tsx` | **Pass** |
@@ -504,8 +505,8 @@ row.
 
 | Suite | Command | Tests | Result |
 |---|---|---|---|
-| Server unit + API + migration | `npm test --prefix server` | **191** | **All passing** as of Issue #32 |
-| Client UI components | `npm test --prefix client` | **109** | **All passing** as of Issue #32 |
+| Server unit + API + migration | `npm test --prefix server` | **216** | **All passing** as of Issue #33 |
+| Client UI components | `npm test --prefix client` | **132** | **All passing** as of Issue #33 |
 | E2E + visual | `npm run test:e2e` | — | Pending — Issue #34 |
 
 ### After Issue #29 — authentication foundation
@@ -624,6 +625,85 @@ comments, notes and attachments before the Ticket itself. None of those
 relations cascade, so a demo or e2e Ticket someone had commented on would
 otherwise stop either script with a foreign-key error.
 
+### After Issue #33 — Administrator user management
+
+| Area | Files | Cases |
+|---|---|---|
+| Lab 1 and Lab 2 regression | 9 files | 62, unchanged |
+| Lab 3 unit | `password.unit.test.ts`, `session.unit.test.ts`, `status-transitions.unit.test.ts` | 14 |
+| Lab 3 authentication API | `auth.api.test.ts` | 28 |
+| Lab 3 authorization API | `authorization.api.test.ts` | 22 |
+| Lab 3 migration and seed | `migration.api.test.ts` | 13 |
+| Lab 3 staff queue API | `staff-queue.api.test.ts` | 15 |
+| Lab 3 staff ticket operations API | `staff-ticket-detail.api.test.ts` | 24 |
+| Lab 3 comments and notes API | `comments-notes.api.test.ts` | 15 |
+| Lab 3 user management API | `users-admin.api.test.ts` | 23 |
+| Lab 3 client screens | `Login`, `ChangePassword`, `AppShell`, `AppRoutes`, `StaffTicketQueue`, `StaffTicketDetail`, `UserManagement` | 82 |
+| Lab 3 accessibility | `accessibility.test.tsx` | 14 |
+| Lab 2 client regression | 4 files | 36, unchanged |
+
+**The user-management suite has a database of its own.** `toktickit_users_test`
+is migrated from nothing for it and dropped afterwards. The Administrator safety
+rules can only be exercised by arranging who else is an active Administrator —
+deactivating every other one to make somebody the last — and doing that to the
+developer database would leave its seeded Administrator deactivated if a run were
+interrupted halfway. It also lets API-USER-01 to API-USER-05 assert the whole
+list, because every account in it was made by the suite.
+
+**Two decisions the contract did not make, now written into `api-spec.md` §9.**
+When the last active Administrator deactivates or re-roles their own account,
+both BR-37 and BR-38 apply; the answer is `LAST_ACTIVE_ADMINISTRATOR`. The caller
+is always an active Administrator, so the last one can only be reached on their
+own account, and checking the self rule first would have made that refusal —
+API-USER-15, API-USER-16, UI-USER-07 and its own message in `ui-spec.md` §9.4 —
+reachable only in a race. And §9 said both that setting an initial password
+deletes the account's sessions and that an Administrator doing it to themselves
+lands on Change Password, which cannot both hold: on one's own account the
+session making the request is now kept, as `POST /api/auth/change-password`
+keeps it (API-USER-17).
+
+**Checked against deliberate regressions.** On the server: the last-Administrator
+check removed (API-USER-15 and API-USER-16 fail); deactivation leaving the
+account's sessions alive (API-AUTHZ-10 fails); the self rule removed
+(API-USER-13 and API-USER-14 fail). On the client: a guard-rail refusal no longer
+reverting its control (UI-USER-07 fails); Role and Status left enabled on one's
+own account (UI-USER-06 fails); a dialog no longer returning focus to the control
+that opened it (A11Y-05 fails).
+
+`ConfirmDialog` from Issue #32 now sits on the same `Dialog` shell as the user
+dialogs, so the focus trap exists once; UI-DETAIL-06 and A11Y-05 are unchanged and
+pass. `escapeLikePattern` moved from `app.ts` into `requesterContext.ts` so the
+user search escapes LIKE wildcards the same way the Ticket searches do; API-LIST-02b
+is unchanged and passes.
+
+**Found in review before hand-testing, and fixed.** The lock on the active
+Administrator rows had no order, so two Administrators deactivating each other at
+the same moment could deadlock and one request would end in a 500 instead of a
+refusal; the rows are now locked in id order. The field a guard-rail refusal named
+was chosen by which fields the body carried, and the Edit dialog sends all four, so
+a role refusal would have been shown under Status; it is now the change that caused
+it (API-USER-13, API-USER-14 and API-USER-16 send full bodies). On the client, a
+duplicate address in the Edit dialog now returns Email to its saved value, as
+`ui-spec.md` §2.6 and §9.4 ask of every conflict there, while the Create dialog
+still keeps what was typed (§9.3); a new account that the current filter would
+hide clears the filter, so the list refreshes "with the new account visible"; and
+saving one's own account hands it to the session, so the header shows a new name
+at once and a new initial password leads straight to Change Password instead of a
+full page reload. Each of those four was checked by reintroducing it: the field
+chosen by presence (API-USER-14 and API-USER-16 fail), Email not reverted, the
+filter kept, and one's own account not handed up (one UI-USER case fails each).
+The lock ordering has no deterministic test — a deadlock cannot be produced on
+demand — and is covered by review and by the race case of API-USER-15.
+
+**Found in the final review before commit, and fixed.** While a new initial
+password was being set, Escape could not close the Edit dialog but Cancel and
+Save Changes still could, so the dialog could go away before its confirmation
+line was shown; §9.3 says a saving dialog cannot be dismissed, and now neither
+request can be overtaken by the other closing it. And a toast with the same words
+as the one before it — saving the same account twice within four seconds — kept
+the first one's timer and vanished early; each toast is now timed from when it
+appears. Both were checked by reintroducing them (one UI-USER case fails each).
+
 The migration suite creates a scratch database, replays the real migration
 files in order, pauses after the last Lab 2 migration to insert Lab 2-shaped
 rows, applies the two Lab 3 migrations to them, and drops the database
@@ -634,17 +714,9 @@ and it is why AC-08 can be claimed rather than asserted.
 
 ### Deferred within the sprint
 
-- **API-AUTHZ-04, API-AUTHZ-05** — the role gate against the user management
-  endpoints, which arrive with #33. Written where those
-  endpoints are, because a request to an unrouted path answers 404 from the
-  fallback handler, and a row asserting that would report a passing
-  authorization test for a gate nothing had been applied to.
-- **UI-SHELL-02, the Administrator half** — User Management, which leads the
-  Administrator's navigation, arrives with #33. The Ticket Queue item both staff
-  roles carry was written with the queue in #31.
-- **A11Y-01, A11Y-03 and A11Y-05, their Administrator-dialog halves** — the
-  Create and Edit User dialogs arrive with #33. Each row's Status says which
-  half has been written.
+- **E2E-01 to E2E-12 and VIS-01 to VIS-03** — the end-to-end and visual suites
+  are Issue #34's by design. They were planned for that issue from the start,
+  rather than carried from an earlier one.
 
 Cleared during the sprint: **API-AUTH-17** and **API-AUTH-18** (Issue #29 built
 the gate, Issue #30 gave it endpoints to stand in front of) and **MIG-06**,
@@ -652,17 +724,18 @@ the gate, Issue #30 gave it endpoints to stand in front of) and **MIG-06**,
 `X-Requester-Id` mechanism with the selector that used them). **API-AUTHZ-02**
 was cleared in Issue #31, with the queue it refuses. **API-AUTHZ-03**, **UNIT-03**
 and the widening of `GET /api/tickets/:id` and the two attachment reads to staff
-were cleared in Issue #32, with the operations they concern.
+were cleared in Issue #32, with the operations they concern. **API-AUTHZ-04**,
+**API-AUTHZ-05**, the Administrator half of **UI-SHELL-02**, and the user-dialog
+halves of **A11Y-01**, **A11Y-03** and **A11Y-05** were cleared in Issue #33, with
+user management.
 
 ### Temporary, and deliberately so
 
-- **`ScreenNotYetBuilt` in `App.tsx`.** It now holds one path whose screen
-  belongs to a later issue: `/admin/users`, the Administrator's landing route
-  (#33). Without it an Administrator would sign in to a blank page with no way
-  to log out. The queue replaced its use on `/staff/tickets` in #31, and the
-  staff Ticket Detail replaced its use on `/tickets/:id` in #32; #33 deletes the
-  last one by putting User Management on the path. It is recorded here rather
-  than left to be discovered.
+None remain. `ScreenNotYetBuilt` in `App.tsx` held the paths whose screens
+belonged to later issues so that no role signed in to a blank page; the queue
+replaced it on `/staff/tickets` in #31, the staff Ticket Detail on `/tickets/:id`
+in #32, and User Management on `/admin/users` in #33, which deleted the
+component.
 
 ### Standing limitations
 

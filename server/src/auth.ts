@@ -245,3 +245,10 @@ export const staffOnly = [
  * what refuses, and it refuses with 404 (BR-16), never 403.
  */
 export const signedIn = [requireAuth, requirePasswordChanged];
+
+/**
+ * The Administrator user endpoints of api-spec.md §9. Every other role is
+ * refused with a plain 403 (AC-21): the existence of user management is not a
+ * secret, and hiding it would only make the refusal harder to diagnose.
+ */
+export const adminOnly = [requireAuth, requirePasswordChanged, requireRole("ADMINISTRATOR")];

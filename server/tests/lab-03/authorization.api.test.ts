@@ -14,17 +14,12 @@ import { TEST_PASSWORD, upsertTestUser } from "../support/users.js";
 // send, driven straight at the API. Hiding a link proves nothing; refusing the
 // call does.
 //
-// Two rows of §2.3 cannot be written yet because the endpoints they name do
-// not exist. They are not skipped silently — tests.md §8 records where each
-// one lands (API-AUTHZ-02 was written with the queue in Issue #31, and
-// API-AUTHZ-03 with the Ticket operations in Issue #32):
-//
-//   API-AUTHZ-04  Requester -> /api/users/*      Issue #33
-//   API-AUTHZ-05  IT Staff  -> /api/users/*      Issue #33
-//
-// Pointing them at a path that is merely unrouted would assert a 404 from the
-// fallback handler and read as a passing authorization test, which is worse
-// than an honest deferral.
+// Every row of §2.3 is written. The ones naming endpoints that arrived later in
+// the sprint were carried until those endpoints existed — API-AUTHZ-02 with the
+// queue (#31), API-AUTHZ-03 with the staff operations (#32), API-AUTHZ-04 and
+// API-AUTHZ-05 with user management (#33) — because pointing them at a path
+// nothing routed yet would have asserted a 404 from the fallback handler and
+// read as a passing authorization test.
 
 const prisma = getPrisma();
 
@@ -335,6 +330,59 @@ describe("Gate 4 — role", () => {
     }
   });
 
+  // AC-21: every user-management endpoint, plus DELETE, which does not exist
+  // but must still be refused to other roles rather than answered as a 404.
+  function userManagementCalls(targetId: number): [string, (cookie: string | null) => Test][] {
+    return [
+      ["GET /api/users", (c) => withCookie(request(app).get("/api/users"), c)],
+      [
+        "POST /api/users",
+        (c) =>
+          withCookie(request(app).post("/api/users"), c).send({
+            name: "Should Never Exist",
+            email: "authz.never@test.invalid",
+            role: "ADMINISTRATOR",
+            isActive: true,
+            initialPassword: "Welcome2026!",
+          }),
+      ],
+      ["PATCH /api/users/:id", (c) => withCookie(request(app).patch(`/api/users/${targetId}`), c).send({ role: "ADMINISTRATOR" })],
+      [
+        "POST /api/users/:id/initial-password",
+        (c) => withCookie(request(app).post(`/api/users/${targetId}/initial-password`), c).send({ initialPassword: "Welcome2026!" }),
+      ],
+      ["DELETE /api/users/:id", (c) => withCookie(request(app).delete(`/api/users/${targetId}`), c)],
+    ];
+  }
+
+  async function expectUserManagementRefused(who: string, cookie: string) {
+    const target = await prisma.user.findUniqueOrThrow({ where: { email: OTHER } });
+    const users = await prisma.user.count();
+
+    for (const [name, send] of userManagementCalls(target.id)) {
+      const res = await send(cookie);
+      // A plain 403: the existence of user management is not a secret
+      // (api-spec.md §9). The refusal is the server's, whatever the interface shows.
+      expect(res.status, `${name} as ${who}`).toBe(403);
+      expect(res.body.error.code, `${name} as ${who}`).toBe("FORBIDDEN");
+
+      const anonymous = await send(null);
+      expect(anonymous.status, `${name} without a session`).toBe(401);
+    }
+
+    // Nothing was created, and the account the calls named is exactly as it was.
+    expect(await prisma.user.count()).toBe(users);
+    expect(await prisma.user.findUniqueOrThrow({ where: { email: OTHER } })).toEqual(target);
+  }
+
+  it("API-AUTHZ-04 / AC-21: a Requester is refused every user-management endpoint, and nothing changes", async () => {
+    await expectUserManagementRefused("a Requester", ownerCookie);
+  });
+
+  it("API-AUTHZ-05 / AC-21: IT Staff are refused every user-management endpoint, and nothing changes", async () => {
+    await expectUserManagementRefused("IT Staff", staffCookie);
+  });
+
   it("API-AUTHZ-06 / BR-19: IT Staff are refused the Requester-only endpoints", async () => {
     for (const call of requesterOnlyCalls()) {
       const res = await call.send(staffCookie);
@@ -528,25 +576,38 @@ describe("Identity comes from the session", () => {
     expect(res.body.error.code).toBe("UNAUTHENTICATED");
   });
 
-  it("API-AUTHZ-10 / AC-24, BR-12: a live session stops working the moment its account is deactivated", async () => {
+  it("API-AUTHZ-10 / AC-24, BR-12: an Administrator deactivating an account ends its live session at once, and it cannot sign in again", async () => {
+    const doomed = await prisma.user.findUniqueOrThrow({ where: { email: DOOMED } });
     const doomedCookie = await signIn(DOOMED);
     expect((await request(app).get("/api/auth/me").set("Cookie", doomedCookie)).status).toBe(200);
 
-    // The Administrator endpoint that performs this arrives with Issue #33,
-    // and API-USER-17 covers its side of BR-12 — that deactivating also
-    // deletes the rows. What is asserted here is the half that lives in this
-    // issue: the gate re-reads the account on every request, so the refusal
-    // does not depend on that cleanup having run.
-    await prisma.user.update({ where: { email: DOOMED }, data: { isActive: false } });
+    // Through the endpoint an Administrator actually uses (api-spec.md §9).
+    const res = await request(app)
+      .patch(`/api/users/${doomed.id}`)
+      .set("Cookie", adminCookie)
+      .send({ isActive: false });
+    expect(res.status).toBe(200);
+    expect(res.body.data.isActive).toBe(false);
+
+    // BR-12: the session rows are deleted in the same transaction — the account
+    // is not merely refused while its sessions wait to expire.
+    expect(await prisma.session.count({ where: { userId: doomed.id } })).toBe(0);
 
     const after = await request(app).get("/api/auth/me").set("Cookie", doomedCookie);
     expect(after.status).toBe(401);
     expect(after.body.error.code).toBe("UNAUTHENTICATED");
+    expect((await request(app).get("/api/tickets").set("Cookie", doomedCookie)).status).toBe(401);
 
-    const ticket = await request(app).get("/api/tickets").set("Cookie", doomedCookie);
-    expect(ticket.status).toBe(401);
+    const again = await request(app).post("/api/auth/login").send({ email: DOOMED, password: TEST_PASSWORD });
+    expect(again.status).toBe(401);
+    expect(again.body.error.code).toBe("INVALID_CREDENTIALS");
 
-    await prisma.user.update({ where: { email: DOOMED }, data: { isActive: true } });
+    // Restored through the same endpoint, so the next run finds it active.
+    const restored = await request(app)
+      .patch(`/api/users/${doomed.id}`)
+      .set("Cookie", adminCookie)
+      .send({ isActive: true });
+    expect(restored.status).toBe(200);
   });
 });
 

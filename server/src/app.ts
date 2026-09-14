@@ -2,10 +2,11 @@ import express, { Request, Response } from "express";
 import cors from "cors";
 import { requesterOnly, signedIn, staffOnly } from "./auth.js";
 import { authRoutes } from "./authRoutes.js";
+import { userRoutes } from "./userRoutes.js";
 import { getPrisma } from "./prisma.js";
 import { CURRENT_STATUSES, STATUS_LABEL, canTransition } from "./statusTransitions.js";
 import { nextTicketNumber } from "./ticketNumber.js";
-import { readId, sendError, sendInternalError } from "./requesterContext.js";
+import { escapeLikePattern, readId, sendError, sendInternalError } from "./requesterContext.js";
 import {
   ATTACHMENT_TYPE_HELP,
   allowedExtensionFor,
@@ -39,6 +40,12 @@ app.use(express.json());
 // everything else because they are the only routes exempt from the
 // password-change gate — they are the way out of it (BR-02).
 app.use("/api/auth", authRoutes);
+
+// Lab 3, Issue #33 — Administrator user management (api-spec.md §9). The router
+// applies the Administrator gate to every path under it, so an unrouted method
+// such as DELETE is still refused to other roles and falls through to the 404
+// handler for an Administrator (BR-39: there is no delete).
+app.use("/api/users", userRoutes);
 
 // ---------------------------------------------------------------------------
 // Issue 2 — API health check
@@ -274,14 +281,6 @@ async function createTicketWithNumber(prisma: ReturnType<typeof getPrisma>, data
 // ---------------------------------------------------------------------------
 const SORT_FIELDS = ["ticketNumber", "createdAt", "updatedAt"] as const;
 
-// `contains` becomes a LIKE pattern, where % and _ are wildcards and \ is the
-// escape character. Without this a Requester searching for "50%" matches every
-// ticket, and "month_end" matches any character where the underscore is —
-// neither of which is the partial match BR-13 describes. The value itself is
-// still a bound parameter, so this is about correctness, not injection.
-function escapeLikePattern(value: string): string {
-  return value.replace(/[\\%_]/g, (char) => `\\${char}`);
-}
 const PAGE_SIZES = [10, 25, 50];
 const DEFAULT_PAGE_SIZE = 10;
 

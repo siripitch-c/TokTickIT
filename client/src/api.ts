@@ -500,3 +500,63 @@ export async function postToThread(ticketId: number, kind: ThreadKind, body: str
   if (!res.ok) throw await toApiError(res);
   return (await res.json()).data as ThreadEntry;
 }
+
+// ---------------------------------------------------------------------------
+// Lab 3, Issue #33 — Administrator user management (api-spec.md §9)
+// ---------------------------------------------------------------------------
+
+/** api-spec.md §9 — the admin user object: the safe user fields, never a hash. */
+export type AdminUser = AuthUser;
+
+export interface UserListQuery {
+  search?: string;
+  role?: Role;
+}
+
+/** BR-41: one role at most, and a plain array back — the list is not paginated. */
+export async function fetchUsers(query: UserListQuery = {}): Promise<AdminUser[]> {
+  const params = new URLSearchParams();
+  if (query.search) params.set("search", query.search);
+  if (query.role) params.set("role", query.role);
+
+  const search = params.toString();
+  const res = await fetch(`${API_URL}/api/users${search ? `?${search}` : ""}`, { ...withSession });
+  if (!res.ok) throw await toApiError(res);
+  return (await res.json()).data as AdminUser[];
+}
+
+export interface NewUser {
+  name: string;
+  email: string;
+  role: Role;
+  isActive: boolean;
+  initialPassword: string;
+}
+
+export type UserChanges = Partial<Pick<AdminUser, "name" | "email" | "role" | "isActive">>;
+
+async function writeUser(path: string, method: "POST" | "PATCH", body: object): Promise<AdminUser> {
+  const res = await fetch(`${API_URL}${path}`, {
+    method,
+    ...withSession,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await toApiError(res);
+  return (await res.json()).data as AdminUser;
+}
+
+/** FR-24: the account is created needing a password change (AC-22). */
+export function createUser(user: NewUser): Promise<AdminUser> {
+  return writeUser("/api/users", "POST", user);
+}
+
+/** FR-25: any of the four editable fields. */
+export function updateUser(userId: number, changes: UserChanges): Promise<AdminUser> {
+  return writeUser(`/api/users/${userId}`, "PATCH", changes);
+}
+
+/** FR-26: the password is sent once and never returned (BR-07). */
+export function setInitialPassword(userId: number, initialPassword: string): Promise<AdminUser> {
+  return writeUser(`/api/users/${userId}/initial-password`, "POST", { initialPassword });
+}

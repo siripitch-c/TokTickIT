@@ -539,6 +539,14 @@ is left alone.
   The check counts active Administrators *after* the proposed change, inside
   the same transaction, so two concurrent requests cannot each believe another
   Administrator remains.
+- When both of the two rules above apply — the last active Administrator
+  deactivating or re-roling their own account — the answer is
+  `LAST_ACTIVE_ADMINISTRATOR`. The caller is always an active Administrator, so
+  the last one can only ever be reached on their own account; answering
+  `SELF_DEACTIVATION` there would make the last-Administrator refusal
+  unreachable, and tell the only remaining Administrator the lesser reason.
+  With another Administrator still active, the same request is
+  `SELF_DEACTIVATION`.
 - Deactivating a user deletes their sessions in the same transaction (BR-12,
   AC-24) and leaves any Tickets they own assigned to them (BR-26).
 - Changing a role does **not** set `mustChangePassword`; a role change is not a
@@ -554,8 +562,9 @@ FR-26, BR-35, AC-18.
   user's sessions — the point of resetting a password is that whoever was
   using the old one stops (BR-12).
 - An Administrator may run this on their own account; it is not
-  self-deactivation, it just means their next request lands on Change
-  Password.
+  self-deactivation. Their other sessions are deleted, but the one making the
+  request is kept, exactly as `POST /api/auth/change-password` keeps it — so
+  their next request lands on Change Password rather than on Login.
 - **404** `USER_NOT_FOUND` when the id does not exist.
 - **200** response: `{ "data": <admin user object> }` with
   `mustChangePassword: true`. The password itself is never echoed (BR-07); the
