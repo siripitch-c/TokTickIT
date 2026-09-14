@@ -134,6 +134,11 @@ describe("GET /api/tickets", () => {
     // The assertion stays exhaustive rather than becoming a subset check. Its
     // job is to fail when the response shape moves, and this run is exactly
     // that job being done.
+    //
+    // Issue #32 moved it once more, for the same reason: `requester` and
+    // `owner` are the actor summaries of lab-03/api-spec.md §5 — id, name and
+    // role, never an email — which every endpoint returning a Ticket now
+    // includes, so the one Ticket shape really is one.
     expect(Object.keys(row).sort()).toEqual([
       "categoryId",
       "createdAt",
@@ -141,15 +146,19 @@ describe("GET /api/tickets", () => {
       "description",
       "id",
       "itPriority",
+      "owner",
       "ownerId",
       "relatedSystemId",
       "requestedPriority",
+      "requester",
       "requesterId",
       "requesterResolvedAt",
       "summary",
       "ticketNumber",
       "updatedAt",
     ]);
+    expect(row.requester).toEqual({ id: ownerId, name: "My Tickets Owner", role: "REQUESTER" });
+    expect(row.owner).toBeNull();
     expect(response.body.pagination).toEqual({
       page: 1,
       pageSize: 10,

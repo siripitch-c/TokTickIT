@@ -110,21 +110,12 @@ export function AppRoutes() {
           <Route path="/tickets/new" element={<CreateTicket />} />
         </Route>
 
-        {/* ui-spec.md §8: one Ticket Detail route for every role, which is
-            where the queue's rows lead. BR-38: reachable by direct URL as well
-            as from a list, and the server re-checks access either way (404 for
-            another Requester's ticket, BR-16). The staff view of the screen is
-            Issue #32's; until then a staff member sees that said plainly. */}
-        <Route
-          path="/tickets/:id"
-          element={
-            user.role === "REQUESTER" ? (
-              <TicketDetail />
-            ) : (
-              <ScreenNotYetBuilt screen="Ticket Detail for IT Staff" issue="Issue #32" />
-            )
-          }
-        />
+        {/* ui-spec.md §8: one Ticket Detail route for every role — where the
+            queue's rows lead — and one screen that adapts to the role (§8.3).
+            BR-38: reachable by direct URL as well as from a list, and the
+            server re-checks access either way: 404 for another Requester's
+            ticket (BR-16). */}
+        <Route path="/tickets/:id" element={<TicketDetail />} />
       </Route>
 
       <Route path="*" element={<Navigate to={landing} replace />} />
@@ -135,14 +126,12 @@ export function AppRoutes() {
 /**
  * A route whose screen belongs to a later issue.
  *
- * User Management — the Administrator's landing route — arrives with Issue #33,
- * and the staff view of Ticket Detail with Issue #32. Without an element on
- * those paths an Administrator would sign in to a blank page with no shell and
- * no way to log out, and a queue row would lead nowhere a staff member could
- * make sense of.
+ * User Management — the Administrator's landing route — arrives with Issue #33.
+ * Without an element on that path an Administrator would sign in to a blank
+ * page with no shell and no way to log out.
  *
- * It exists to prevent that and for no other reason. Each issue deletes its use
- * by putting the real screen on the path it is already holding.
+ * It exists to prevent that and for no other reason. Issue #33 deletes it by
+ * putting the real screen on the path it is already holding.
  */
 function ScreenNotYetBuilt({ screen, issue }: { screen: string; issue: string }) {
   return (

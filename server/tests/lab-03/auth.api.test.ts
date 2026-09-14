@@ -416,6 +416,29 @@ describe("The mandatory password change gate", () => {
     }
   });
 
+  it("API-AUTH-17 / BR-02: the gate stands in front of the Ticket operations, comments and notes", async () => {
+    const cookie = cookieOf(await login(PENDING_STAFF));
+
+    const attempts = [
+      request(app).patch("/api/tickets/1/owner").set("Cookie", cookie).send({ ownerId: null }),
+      request(app).patch("/api/tickets/1/it-priority").set("Cookie", cookie).send({ itPriority: "HIGH" }),
+      request(app).patch("/api/tickets/1/status").set("Cookie", cookie).send({ currentStatus: "OPEN" }),
+      request(app).post("/api/tickets/1/appears-resolved").set("Cookie", cookie),
+      request(app).get("/api/tickets/1/comments").set("Cookie", cookie),
+      request(app).post("/api/tickets/1/comments").set("Cookie", cookie).send({ body: "Probe" }),
+      request(app).get("/api/tickets/1/notes").set("Cookie", cookie),
+      request(app).post("/api/tickets/1/notes").set("Cookie", cookie).send({ body: "Probe" }),
+    ];
+
+    for (const attempt of attempts) {
+      const res = await attempt;
+      // Gate 3 runs before the role gate and before any ownership check
+      // (api-spec.md §3), so the answer is the same whatever the endpoint.
+      expect(res.status).toBe(403);
+      expect(res.body.error.code).toBe("PASSWORD_CHANGE_REQUIRED");
+    }
+  });
+
   it("API-AUTH-17 / BR-02: the refusal outranks anything else wrong with the request", async () => {
     const cookie = cookieOf(await login(PENDING));
 

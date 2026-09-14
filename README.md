@@ -81,7 +81,8 @@ Request, and Issue #18 merges `lab2-staging` into `main`.
 
 ### Sample tickets for local testing
 
-The seed creates the tickets the IT Staff Ticket Queue needs (Issue #31). The
+The seed creates the tickets the IT Staff Ticket Queue needs, with example
+comments and notes on some of them (Issues #31 and #32). The
 Lab 2 set below is separate: it fills My Tickets for Michael Brown and Jennifer
 Anderson, and is required before the Lab 2 screenshot tests under **Test**:
 
@@ -133,6 +134,24 @@ Issue #31 — IT Staff Ticket Queue:
   priority, three Requesters, and assigned and unassigned ownership.
 * Another role's address shows a "You do not have access" screen instead of
   silently redirecting.
+
+Issue #32 — IT Staff Ticket operations:
+
+* `PATCH /api/tickets/:id/owner`, `/it-priority` and `/status` for IT Staff and
+  Administrators. Status moves follow the transition matrix, and any other move
+  is refused as a conflict.
+* `POST /api/tickets/:id/appears-resolved` — the Requester's "problem appears
+  resolved" signal, recorded once and never changing the status.
+* Public Comments (`/comments`) for everyone on a Ticket, and Internal Notes
+  (`/notes`) for staff only. To a Requester, Internal Notes answer exactly as a
+  Ticket that does not exist.
+* Ticket Detail is one screen for every role: staff get an Operations panel,
+  Download-only attachments and both threads; the Requester gets comments and the
+  resolution button.
+* Every endpoint returning a Ticket now includes its `requester` and `owner` as
+  names and roles, and a new Ticket's IT Priority starts as its Requested
+  Priority.
+* The seed adds example comments and notes to some of its tickets.
 
 ### Development sign-in credentials
 
@@ -302,8 +321,11 @@ Sign in as `somsak.wattana@example.edu` to see the **Ticket Queue**: every
 Requester's tickets, with search, filters, sorting and pagination, all kept in
 the address so a filtered view can be bookmarked. Administrators carry the queue
 in their navigation too; their landing screen, User Management, arrives with
-Issue #33. Opening a ticket from the queue as staff says that the staff Ticket
-Detail arrives with Issue #32.
+Issue #33. Opening a ticket from the queue shows the staff Ticket Detail: claim
+or reassign it, set its IT Priority, move its status (Closed and Cancelled ask
+first), and write Public Comments and Internal Notes. Signed in as the ticket's
+Requester, the same screen shows the Public Comments and a **Problem Appears
+Resolved** button instead, and never any trace of Internal Notes.
 
 ## Production build
 

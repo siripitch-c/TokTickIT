@@ -1,5 +1,6 @@
 import { getPrisma } from "../src/prisma.js";
 import { nextTicketNumber } from "../src/ticketNumber.js";
+import { deleteStoredFile } from "../src/uploads.js";
 
 // Issue #14 — demo tickets for exercising My Tickets by hand.
 //
@@ -50,7 +51,24 @@ const JENNIFER: Sample[] = [
 async function main() {
   const prisma = getPrisma();
 
-  const removed = await prisma.ticket.deleteMany({ where: { description: { contains: MARKER } } });
+  // Everything that points at a demo Ticket goes before the Ticket itself: none
+  // of those relations cascade, so a demo Ticket someone had commented on, noted
+  // or attached a file to while trying the app would otherwise stop this script
+  // with a foreign-key error (Lab 3, Issue #32).
+  const previous = await prisma.ticket.findMany({
+    where: { description: { contains: MARKER } },
+    select: { id: true },
+  });
+  const previousIds = previous.map((ticket) => ticket.id);
+  const files = await prisma.attachment.findMany({
+    where: { ticketId: { in: previousIds } },
+    select: { storedFilename: true },
+  });
+  await prisma.publicComment.deleteMany({ where: { ticketId: { in: previousIds } } });
+  await prisma.internalNote.deleteMany({ where: { ticketId: { in: previousIds } } });
+  await prisma.attachment.deleteMany({ where: { ticketId: { in: previousIds } } });
+  const removed = await prisma.ticket.deleteMany({ where: { id: { in: previousIds } } });
+  for (const file of files) deleteStoredFile(file.storedFilename);
   if (removed.count > 0) console.log(`removed ${removed.count} demo tickets from a previous run`);
 
   const categories = new Map((await prisma.category.findMany()).map((c) => [c.name, c.id]));

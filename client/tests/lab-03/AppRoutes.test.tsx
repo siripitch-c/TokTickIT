@@ -23,6 +23,8 @@ const fetchTickets = vi.fn();
 const fetchCategories = vi.fn();
 const fetchStaffTickets = vi.fn();
 const fetchAssignees = vi.fn();
+const fetchTicket = vi.fn();
+const fetchRelatedSystems = vi.fn();
 
 vi.mock("../../src/api.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../src/api.js")>()),
@@ -31,6 +33,8 @@ vi.mock("../../src/api.js", async (importOriginal) => ({
   fetchCategories: (...args: unknown[]) => fetchCategories(...args),
   fetchStaffTickets: (...args: unknown[]) => fetchStaffTickets(...args),
   fetchAssignees: (...args: unknown[]) => fetchAssignees(...args),
+  fetchTicket: (...args: unknown[]) => fetchTicket(...args),
+  fetchRelatedSystems: (...args: unknown[]) => fetchRelatedSystems(...args),
 }));
 
 const { AppRoutes } = await import("../../src/App.js");
@@ -68,6 +72,9 @@ beforeEach(() => {
     pagination: { page: 1, pageSize: 25, totalItems: 0, totalPages: 0 },
   });
   fetchAssignees.mockResolvedValue([]);
+  // Left pending: these cases are about which screen renders, not its content.
+  fetchTicket.mockReturnValue(new Promise(() => {}));
+  fetchRelatedSystems.mockResolvedValue([]);
 });
 
 describe("Application routing", () => {
@@ -179,13 +186,16 @@ describe("Application routing", () => {
     expect(fetchStaffTickets).not.toHaveBeenCalled();
   });
 
-  it("UI-ROUTE-07 / FR-14: IT Staff opening a ticket are told its screen is still to come, not refused", async () => {
+  it("UI-ROUTE-07 / FR-14: IT Staff opening a ticket get the Ticket Detail screen, not a refusal", async () => {
     fetchCurrentUser.mockResolvedValue(userWith("IT_STAFF"));
     renderAt("/tickets/42");
 
-    // The route is theirs (ui-spec.md §8); only the staff view of the screen is
-    // Issue #32's. A forbidden state here would misreport a permitted route.
-    expect(await screen.findByTestId("zg-state-not-built")).toHaveTextContent(/Issue #32/);
+    // ui-spec.md §8: one route for every role. The screen asks for the Ticket
+    // itself, and what this role may read is the server's decision. Changed in
+    // Issue #32, which built the staff view this route used to hold a place for.
+    await waitFor(() => expect(fetchTicket).toHaveBeenCalledWith(42));
+    expect(screen.getByTestId("zg-state-loading")).toBeInTheDocument();
     expect(screen.queryByTestId("zg-state-forbidden")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("zg-state-not-built")).not.toBeInTheDocument();
   });
 });

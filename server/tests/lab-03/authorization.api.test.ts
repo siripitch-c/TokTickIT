@@ -14,11 +14,11 @@ import { TEST_PASSWORD, upsertTestUser } from "../support/users.js";
 // send, driven straight at the API. Hiding a link proves nothing; refusing the
 // call does.
 //
-// Three rows of §2.3 cannot be written yet because the endpoints they name do
+// Two rows of §2.3 cannot be written yet because the endpoints they name do
 // not exist. They are not skipped silently — tests.md §8 records where each
-// one lands (API-AUTHZ-02 was written with the queue in Issue #31):
+// one lands (API-AUTHZ-02 was written with the queue in Issue #31, and
+// API-AUTHZ-03 with the Ticket operations in Issue #32):
 //
-//   API-AUTHZ-03  Requester -> IT-only fields    Issue #32
 //   API-AUTHZ-04  Requester -> /api/users/*      Issue #33
 //   API-AUTHZ-05  IT Staff  -> /api/users/*      Issue #33
 //
@@ -79,9 +79,9 @@ function ticketBody(summary: string) {
  *
  * The authentication gate applies to all seven. The *role* gate does not:
  * `REQUESTER_ONLY` below is the subset api-spec.md §6 keeps to the Requester
- * role permanently. The other three widen in Issue #32 and are asserted
- * separately, because a test cannot claim BR-19 over an endpoint the contract
- * says another role may call.
+ * role permanently. The other three were widened in Issue #32 to anyone who
+ * may read the parent Ticket, and are asserted separately, because a test
+ * cannot claim BR-19 over an endpoint the contract says another role may call.
  */
 interface ProtectedCall {
   name: string;
@@ -260,10 +260,62 @@ describe("Gate 2 — authentication", () => {
       expect(res.body.error.code, call.name).toBe("UNAUTHENTICATED");
     }
   });
+
+  it("API-AUTHZ-01 / BR-19: the Ticket operation, comment and note endpoints refuse a request with no cookie", async () => {
+    const id = ownTicketId;
+    const calls: Array<[string, () => Test]> = [
+      ["PATCH owner", () => request(app).patch(`/api/tickets/${id}/owner`).send({ ownerId: null })],
+      ["PATCH it-priority", () => request(app).patch(`/api/tickets/${id}/it-priority`).send({ itPriority: "HIGH" })],
+      ["PATCH status", () => request(app).patch(`/api/tickets/${id}/status`).send({ currentStatus: "OPEN" })],
+      ["POST appears-resolved", () => request(app).post(`/api/tickets/${id}/appears-resolved`)],
+      ["GET comments", () => request(app).get(`/api/tickets/${id}/comments`)],
+      ["POST comments", () => request(app).post(`/api/tickets/${id}/comments`).send({ body: "Probe" })],
+      ["GET notes", () => request(app).get(`/api/tickets/${id}/notes`)],
+      ["POST notes", () => request(app).post(`/api/tickets/${id}/notes`).send({ body: "Probe" })],
+    ];
+
+    for (const [name, send] of calls) {
+      const res = await send();
+      expect(res.status, name).toBe(401);
+      expect(res.body.error.code, name).toBe("UNAUTHENTICATED");
+    }
+  });
 });
 
 describe("Gate 4 — role", () => {
   const requesterOnlyCalls = () => protectedCalls().filter((c) => REQUESTER_ONLY.has(c.name));
+
+  it("API-AUTHZ-03 / BR-05, BR-32: a Requester is refused every staff operation on their own Ticket, and nothing changes", async () => {
+    const before = await prisma.ticket.findUniqueOrThrow({ where: { id: ownTicketId } });
+
+    // Each body is one the endpoint would accept from staff — OPEN is a move
+    // the matrix permits from NEW — so the refusal can only be about the role.
+    const attempts: Array<[string, object]> = [
+      [`/api/tickets/${ownTicketId}/owner`, { ownerId: ownerId }],
+      [`/api/tickets/${ownTicketId}/it-priority`, { itPriority: "HIGH" }],
+      [`/api/tickets/${ownTicketId}/status`, { currentStatus: "OPEN" }],
+    ];
+    for (const [path, body] of attempts) {
+      const res = await request(app).patch(path).set("Cookie", ownerCookie).send(body);
+      // 403 rather than 404: the Requester can already see this Ticket, so the
+      // refusal reveals nothing (api-spec.md §7).
+      expect(res.status, path).toBe(403);
+      expect(res.body.error.code, path).toBe("FORBIDDEN");
+    }
+
+    const after = await prisma.ticket.findUniqueOrThrow({ where: { id: ownTicketId } });
+    expect({
+      ownerId: after.ownerId,
+      itPriority: after.itPriority,
+      currentStatus: after.currentStatus,
+      updatedAt: after.updatedAt,
+    }).toEqual({
+      ownerId: before.ownerId,
+      itPriority: before.itPriority,
+      currentStatus: before.currentStatus,
+      updatedAt: before.updatedAt,
+    });
+  });
 
   it("API-AUTHZ-02 / AC-07: a Requester is refused the queue and the assignee list", async () => {
     for (const path of ["/api/staff/tickets", "/api/staff/assignees"]) {
@@ -309,26 +361,34 @@ describe("Gate 4 — role", () => {
     expect(await prisma.ticket.count()).toBe(before);
   });
 
-  it("API-AUTHZ-06: the three read endpoints that widen in Issue #32 are still Requester-only today", async () => {
-    // Not an assertion that this is right. api-spec.md §6 widens all three to
-    // "anyone who may read the parent Ticket" (BR-17, FR-21, AC-26), and
-    // Issue #32 is where that happens because it is the issue that decides
-    // what a staff caller sees on a Ticket.
-    //
-    // It is recorded rather than left blank so the change is deliberate: when
-    // #32 widens them this test fails, and whoever is holding it has to come
-    // here, read this, and move the endpoint into the widened case instead of
-    // discovering the behaviour changed by accident.
-    const widening = protectedCalls().filter((c) => !REQUESTER_ONLY.has(c.name));
-    expect(widening.map((c) => c.name)).toEqual([
+  it("API-AUTHZ-06 / BR-17, FR-21: exactly three read endpoints let staff through, and no fourth", async () => {
+    // api-spec.md §6 widened these in Issue #32 to "anyone who may read the
+    // parent Ticket", so the role gate is no longer what answers them — the
+    // Ticket is. What staff may read through them is covered in full by
+    // API-TICKET-01 and API-TICKET-16; this case pins that the widening is
+    // exactly these three, so a fourth cannot open by accident.
+    const widened = protectedCalls().filter((c) => !REQUESTER_ONLY.has(c.name));
+    expect(widened.map((c) => c.name)).toEqual([
       "GET /api/tickets/:id",
       "GET /api/attachments/:id",
       "GET /api/attachments/:id/download",
     ]);
 
-    for (const call of widening) {
-      const res = await call.send(staffCookie);
-      expect(res.status, `${call.name} as IT Staff`).toBe(403);
+    for (const [who, cookie] of [
+      ["IT Staff", staffCookie],
+      ["an Administrator", adminCookie],
+    ] as const) {
+      for (const call of widened) {
+        const res = await call.send(cookie);
+        if (call.name.endsWith("/download")) {
+          // The fixture row has no file on disk, so a download that passed
+          // every gate ends in the "record with no file" 500. The point here
+          // is only that no gate refused it.
+          expect([401, 403], `${call.name} as ${who}`).not.toContain(res.status);
+        } else {
+          expect(res.status, `${call.name} as ${who}`).toBe(200);
+        }
+      }
     }
   });
 

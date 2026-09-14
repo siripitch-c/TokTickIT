@@ -111,7 +111,7 @@ async function main() {
   // specification.md §7 requires them to span Requesters, statuses, priorities,
   // and both assigned and unassigned ownership, so every filter and sort on the
   // queue has something to distinguish. Example Public Comments and Internal
-  // Notes arrive with Issue #32, where the screen that shows them is built.
+  // Notes on some of them are seeded further down (Issue #32).
   //
   // These are separate from `prisma/demo-tickets.ts`, which Lab 2 kept outside
   // the seed for My Tickets screenshots. They carry their own marker so neither
@@ -217,6 +217,56 @@ async function main() {
         },
       });
     });
+  }
+
+  // Lab 3, Issue #32 — example Public Comments and Internal Notes
+  // (specification.md §7), on a few of the Tickets above. Written as a working
+  // conversation, and containing nothing sensitive. Comments come from the
+  // Ticket's Requester or from staff; notes only ever from staff (BR-04).
+  //
+  // Idempotent in the same spirit as everything else here: an entry already
+  // present on its Ticket is left alone.
+  const threads: {
+    ticket: string;
+    kind: "comment" | "note";
+    author: string;
+    body: string;
+    daysAgo: number;
+  }[] = [
+    { ticket: "VPN drops when switching to mobile hotspot", kind: "comment", author: "michael.brown@example.edu", body: "It happens every time I walk out of the office building.", daysAgo: 3.6 },
+    { ticket: "VPN drops when switching to mobile hotspot", kind: "comment", author: "nattapong.sri@example.edu", body: "Thanks. Which version of the VPN client is installed on your laptop?", daysAgo: 3.4 },
+    { ticket: "VPN drops when switching to mobile hotspot", kind: "note", author: "nattapong.sri@example.edu", body: "Probably the reconnect problem in the older client. Confirm the version before escalating to the network team.", daysAgo: 3.3 },
+    { ticket: "Campus Wi-Fi certificate warning on new phone", kind: "comment", author: "preecha.thongchai@example.edu", body: "Please send a screenshot of the certificate details shown on the warning.", daysAgo: 3.1 },
+    { ticket: "Campus Wi-Fi certificate warning on new phone", kind: "note", author: "preecha.thongchai@example.edu", body: "Waiting for the screenshot before contacting the network team.", daysAgo: 3 },
+    { ticket: "LEB2 quiz timer resets on page refresh", kind: "comment", author: "somsak.wattana@example.edu", body: "A fix has been deployed. Please tell us if it happens again.", daysAgo: 4.2 },
+    { ticket: "Grade submission rejects decimal scores", kind: "note", author: "anong.kittisak@example.edu", body: "Raised with the application vendor. Their reference number will be added here.", daysAgo: 1.1 },
+  ];
+
+  const seededTickets = new Map(
+    (
+      await prisma.ticket.findMany({
+        where: { description: { contains: SEED_MARKER } },
+        select: { id: true, summary: true },
+      })
+    ).map((t) => [t.summary, t.id]),
+  );
+  const seededUserIds = new Map(
+    (await prisma.user.findMany({ select: { id: true, email: true } })).map((u) => [u.email, u.id]),
+  );
+
+  for (const entry of threads) {
+    const ticketId = seededTickets.get(entry.ticket);
+    if (ticketId === undefined) continue; // the Ticket was removed by hand; nothing to attach to
+    const authorId = idOf(seededUserIds, entry.author);
+    const data = { ticketId, authorId, body: entry.body, createdAt: new Date(now - entry.daysAgo * DAY_MS) };
+
+    if (entry.kind === "comment") {
+      const present = await prisma.publicComment.count({ where: { ticketId, body: entry.body } });
+      if (present === 0) await prisma.publicComment.create({ data });
+    } else {
+      const present = await prisma.internalNote.count({ where: { ticketId, body: entry.body } });
+      if (present === 0) await prisma.internalNote.create({ data });
+    }
   }
 
   console.log("Seeding finished.");
