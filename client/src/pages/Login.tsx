@@ -81,7 +81,8 @@ export default function Login({ onSignedIn }: Props) {
         <p className="zg-text-sm zg-text-muted">Use the account your administrator created for you.</p>
 
         {failure && (
-          <div data-testid="zg-login-error" className="zg-state--error" role="alert">
+          // ui-spec.md §4.2: one `--zg-error-bg` callout above the fields.
+          <div data-testid="zg-login-error" className="zg-callout--error" role="alert">
             {failure}
           </div>
         )}

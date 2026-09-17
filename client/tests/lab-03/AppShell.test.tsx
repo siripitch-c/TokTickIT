@@ -152,7 +152,8 @@ describe("Application shell", () => {
     const panel = document.getElementById("zg-mobile-nav");
     expect(panel).not.toBeNull();
     expect(panel!.textContent).toContain("Jennifer Anderson");
-    expect(panel!.textContent).toContain("Requester");
+    // ui-spec.md §3: the name with its role badge, as in the desktop header.
+    expect(within(panel!).getByText("Requester")).toHaveClass("zg-badge", "zg-badge--role");
     expect(panel!.textContent).toContain("Log Out");
     expect(screen.getByRole("button", { name: /close navigation menu/i })).toBeInTheDocument();
   });

@@ -283,9 +283,10 @@ route tree.
 | UI-ROUTE-02 | UI | FR-01 | Signed out, deep URL typed | Login renders; no Requester-scoped request is made | `AppRoutes.test.tsx` | **Pass** |
 | UI-ROUTE-03 | UI | BR-13 | `GET /me` unreachable | Retryable failure state, not Login | `AppRoutes.test.tsx` | **Pass** |
 | UI-ROUTE-04 | UI | AC-02, BR-02 | `mustChangePassword`, another route typed | The mandatory Change Password screen inside a shell carrying no navigation items — Log Out reachable, Cancel absent | `AppRoutes.test.tsx` | **Pass** |
-| UI-ROUTE-05 | UI | AC-01 | Each role at `/`, and a Requester at `/login` | Each resolves to its role's landing screen: My Tickets, the Ticket Queue, User Management | `AppRoutes.test.tsx` | **Pass** |
+| UI-ROUTE-05 | UI | AC-01, AC-02 | Each role at `/`, a Requester at `/login`, and a saved mandatory password change | Each resolves to its role's landing screen: My Tickets, the Ticket Queue, User Management — and the mandatory change ends there too, never on the voluntary form | `AppRoutes.test.tsx` | **Pass** |
 | UI-ROUTE-06 | UI | FR-09, AC-07 | Another role's URL typed | The forbidden state renders with the way back to the person's own landing screen; no request is made on the other role's behalf | `AppRoutes.test.tsx` | **Pass** |
 | UI-ROUTE-07 | UI | FR-14 | IT Staff open `/tickets/:id` | The Ticket Detail screen asks for that Ticket — not the forbidden state, which would misreport a route the role may use | `AppRoutes.test.tsx` | **Pass** |
+| UI-ROUTE-08 | UI | AC-24, BR-12 | The session ends while the application is in use | The next request answering 401 `UNAUTHENTICATED` drops the local user and Login renders — not the screen's own failure state | `AppRoutes.test.tsx` | **Pass** |
 | UI-QUEUE-01 | UI | AC-09 | Desktop table | Nine columns in the specified order, with badges | `StaffTicketQueue.test.tsx` | **Pass** |
 | UI-QUEUE-02 | UI | AC-09 | Search and filters | Each control issues the right query parameter | `StaffTicketQueue.test.tsx` | **Pass** |
 | UI-QUEUE-03 | UI | AC-09 | Sorting | Clicking a sortable header starts descending and returns to page 1 | `StaffTicketQueue.test.tsx` | **Pass** |
@@ -343,18 +344,18 @@ that A11Y-01, A11Y-03 and A11Y-05 also name.
 
 | ID | Type | AC / BR | What it tests | Expected result | File | Status |
 |---|---|---|---|---|---|---|
-| E2E-01 | E2E | AC-01, AC-06 | Log in, use the app, log out, then reuse the URL | Landing screen per role; after logout the direct URL returns to Login and the API refuses | `authentication.spec.ts` | Planned |
-| E2E-02 | E2E | **AC-02** | Initial-password login and change | Normal application opens only after a valid new password is saved | `authentication.spec.ts` | Planned |
-| E2E-03 | E2E | AC-05 | Invalid password, unknown email, inactive account | The same message and the same busy/failure feedback in all three cases | `authentication.spec.ts` | Planned |
-| E2E-04 | E2E | AC-07, AC-21 | Role navigation and direct URLs | Each role sees only its own destinations; typing another role's URL yields the forbidden state and the API refuses | `authentication.spec.ts` | Planned |
-| E2E-05 | E2E | AC-08, BR-44 | Requester regression under authentication | Create a Ticket, find it in My Tickets, open Detail, add and download an Attachment — no selector anywhere | `staff-ticket-flow.spec.ts` | Planned |
-| E2E-06 | E2E | AC-09 | Queue in the browser | Search, filter, sort and paginate, then open Ticket Detail | `staff-ticket-flow.spec.ts` | Planned |
-| E2E-07 | E2E | AC-10, AC-12, AC-13, AC-14, AC-15 | Full staff operation | Claim, set IT Priority, move status, post a Public Comment, add an Internal Note; the Requester then sees the comment and no trace of the note | `staff-ticket-flow.spec.ts` | Planned |
-| E2E-08 | E2E | AC-16 | Requester resolution signal | Requester marks it; staff see it; status unchanged until staff resolve the Ticket | `staff-ticket-flow.spec.ts` | Planned |
-| E2E-09 | E2E | AC-22, AC-18 | Administrator creates a user | The new account signs in and is forced through Change Password before reaching the application | `user-administration.spec.ts` | Planned |
-| E2E-10 | E2E | AC-19, AC-20, AC-23, AC-27 | Administrator screen | Search, role filter, edit, duplicate-email refusal, self-deactivation refusal, last-Administrator refusal | `user-administration.spec.ts` | Planned |
-| E2E-11 | E2E | AC-24 | Deactivation while signed in | The deactivated user's next action returns them to Login | `user-administration.spec.ts` | Planned |
-| E2E-12 | E2E | AC-09 | Staff flow at 375px | Login, queue cards, and Ticket Detail with its two threads, with no horizontal scrolling at any step. User Management at mobile is covered by VIS-03 | `staff-ticket-flow.spec.ts` | Planned |
+| E2E-01 | E2E | AC-01, AC-06 | Log in, use the app, log out, then reuse the URL | Landing screen per role; after logout the direct URL returns to Login and the API refuses | `authentication.spec.ts` | **Pass** |
+| E2E-02 | E2E | **AC-02** | Initial-password login and change | Normal application opens only after a valid new password is saved | `authentication.spec.ts` | **Pass** |
+| E2E-03 | E2E | AC-05 | Invalid password, unknown email, inactive account | The same message and the same busy/failure feedback in all three cases | `authentication.spec.ts` | **Pass** |
+| E2E-04 | E2E | AC-07, AC-21 | Role navigation and direct URLs | Each role sees only its own destinations; typing another role's URL yields the forbidden state and the API refuses | `authentication.spec.ts` | **Pass** |
+| E2E-05 | E2E | AC-08, BR-44 | Requester regression under authentication | Create a Ticket, find it in My Tickets, open Detail, add and download an Attachment — no selector anywhere | `staff-ticket-flow.spec.ts` | **Pass** |
+| E2E-06 | E2E | AC-09 | Queue in the browser | Search, filter, sort and paginate, then open Ticket Detail | `staff-ticket-flow.spec.ts` | **Pass** |
+| E2E-07 | E2E | AC-10, AC-12, AC-13, AC-14, AC-15 | Full staff operation | Claim, set IT Priority, move status, post a Public Comment, add an Internal Note; the Requester then sees the comment and no trace of the note | `staff-ticket-flow.spec.ts` | **Pass** |
+| E2E-08 | E2E | AC-16 | Requester resolution signal | Requester marks it; staff see it; status unchanged until staff resolve the Ticket | `staff-ticket-flow.spec.ts` | **Pass** |
+| E2E-09 | E2E | AC-22, AC-18 | Administrator creates a user | The new account signs in and is forced through Change Password before reaching the application | `user-administration.spec.ts` | **Pass** |
+| E2E-10 | E2E | AC-17, AC-19, AC-20, AC-23, AC-27 | Administrator screen | Search, role filter, edit, duplicate-email refusal, self-deactivation refusal, last-Administrator refusal | `user-administration.spec.ts` | **Pass** |
+| E2E-11 | E2E | AC-24 | Deactivation while signed in | The deactivated user's next action returns them to Login | `user-administration.spec.ts` | **Pass** |
+| E2E-12 | E2E | AC-09 | Staff flow at 375px | Login, queue cards, and Ticket Detail with its two threads, with no horizontal scrolling at any step. User Management at mobile is covered by VIS-03 | `staff-ticket-flow.spec.ts` | **Pass** |
 
 ### 2.12 Visual and responsive — `e2e/lab-03/visual.spec.ts`
 
@@ -364,9 +365,9 @@ by their own spec rather than as a side effect of a behavioural one.
 
 | ID | Type | AC / BR | What it tests | Expected result | File | Status |
 |---|---|---|---|---|---|---|
-| VIS-01 | Visual | §5 checklist | Every Lab 3 screen and state at 1440×900 | Screenshots written under `artifacts/lab-03/screenshots/`; no horizontal overflow and no clipped scroller asserted as each is taken | `visual.spec.ts` | Planned |
-| VIS-02 | Visual | §5 checklist | The same at 768×1024 | As above, including the two queue columns dropped at tablet | `visual.spec.ts` | Planned |
-| VIS-03 | Visual | §5 checklist | The same at 375×812 | As above, with cards replacing both tables | `visual.spec.ts` | Planned |
+| VIS-01 | Visual | §5 checklist | Every Lab 3 screen and state at 1440×900 | Screenshots written under `artifacts/lab-03/screenshots/`; no horizontal overflow and no clipped scroller asserted as each is taken | `visual.spec.ts` | **Pass** |
+| VIS-02 | Visual | §5 checklist | The same at 768×1024 | As above, including the two queue columns dropped at tablet | `visual.spec.ts` | **Pass** |
+| VIS-03 | Visual | §5 checklist | The same at 375×812 | As above, with cards replacing both tables | `visual.spec.ts` | **Pass** |
 
 The Lab 2 arrangement is reused: the assertions a machine can make — no
 unintended horizontal scrolling, no clipped scrolling container — run as each
@@ -404,7 +405,7 @@ requires.
 | AC-21 | API-AUTHZ-04, API-AUTHZ-05, UI-USER-09, E2E-04 |
 | AC-22 | API-USER-06, UI-USER-03, E2E-09 |
 | AC-23 | API-USER-10, UI-USER-05, E2E-10 |
-| AC-24 | API-AUTHZ-10, E2E-11 |
+| AC-24 | API-AUTHZ-10, UI-ROUTE-08, E2E-11 |
 | AC-25 | MIG-06, UI-SHELL-03, E2E-05 |
 | AC-26 | API-TICKET-16, API-AUTHZ-06, UI-DETAIL-02 |
 | AC-27 | API-USER-02, API-USER-03, UI-USER-02, E2E-10 |
@@ -427,7 +428,7 @@ Every rule has at least one automated test, as `specification.md` §10 requires.
 | BR-09 | API-AUTH-14, API-AUTH-16, UI-PWD-04 | BR-32 | API-AUTHZ-03 |
 | BR-10 | API-AUTH-11 | BR-33 | UI-DETAIL-06 |
 | BR-11 | UNIT-04, API-AUTH-13 | BR-34 | API-TICKET-12, API-TICKET-13, API-TICKET-14 |
-| BR-12 | API-AUTH-14, API-AUTHZ-10, API-USER-17 | BR-35 | API-USER-06, API-USER-10, API-USER-17, API-USER-18 |
+| BR-12 | API-AUTH-14, API-AUTHZ-10, API-USER-17, UI-ROUTE-08 | BR-35 | API-USER-06, API-USER-10, API-USER-17, API-USER-18 |
 | BR-13 | API-AUTH-09, API-AUTH-10, UI-ROUTE-01, UI-ROUTE-03 | BR-36 | UNIT-05, API-AUTH-06, API-USER-07, API-USER-12, MIG-03 |
 | BR-14 | API-AUTH-08 | BR-37 | API-USER-13, API-USER-14, UI-USER-06 |
 | BR-15 | API-AUTH-12 | BR-38 | API-USER-15, API-USER-16 |
@@ -442,25 +443,27 @@ Every rule has at least one automated test, as `specification.md` §10 requires.
 
 ## 5. Responsive and Visual Checklist
 
-Completed at each of VIS-01/02/03 against `ui-spec.md` §13:
+Completed at each of VIS-01/02/03 against `ui-spec.md` §13 — in Issue #34, by
+reading the 75 screenshots of the recorded run. Six departures found there were
+fixed and photographed again before the boxes were ticked (§7, After Issue #34):
 
-- [ ] Zen Green tokens only — no colour appears that is not in Lab 2 §1.1
-- [ ] Editable vs read-only fields visually distinct on Ticket Detail, both roles
-- [ ] All eight status badges distinguishable side by side, text plus colour
-- [ ] Role badge visually subordinate to status and priority badges
-- [ ] Public Comments and Internal Notes unmistakable: border, fill, header,
+- [x] Zen Green tokens only — no colour appears that is not in Lab 2 §1.1
+- [x] Editable vs read-only fields visually distinct on Ticket Detail, both roles
+- [x] All eight status badges distinguishable side by side, text plus colour
+- [x] Role badge visually subordinate to status and priority badges
+- [x] Public Comments and Internal Notes unmistakable: border, fill, header,
       placeholder and button label all differ
-- [ ] Internal Notes completely absent from the Requester view
-- [ ] Validation messages directly below their field on Login, Change Password
+- [x] Internal Notes completely absent from the Requester view
+- [x] Validation messages directly below their field on Login, Change Password
       and both user dialogs
-- [ ] Keyboard focus visible on every new control, including inside dialogs and
+- [x] Keyboard focus visible on every new control, including inside dialogs and
       the mobile filter sheet
-- [ ] Role-specific navigation shows no destination the role may not use
-- [ ] Forbidden, not-found and generic failure states distinguishable from each
+- [x] Role-specific navigation shows no destination the role may not use
+- [x] Forbidden, not-found and generic failure states distinguishable from each
       other
-- [ ] No clipped labels, overlap, or horizontal scroll — especially the
+- [x] No clipped labels, overlap, or horizontal scroll — especially the
       nine-column queue at 992px and the dropped columns at 768px
-- [ ] Unassigned tickets recognisable at a glance in both table and card
+- [x] Unassigned tickets recognisable at a glance in both table and card
 
 Screenshots are written to the four directories the handout §12 names:
 
@@ -481,8 +484,8 @@ npm test --prefix client
 ```
 
 ```bash
-# E2E + visual. Run from the repository root with the client and the API
-# already running; Playwright reuses whatever is listening on 5173/3000.
+# E2E + visual. Run from the repository root. Playwright reuses whatever is
+# listening on 5173/3000, and starts both itself only when nothing is.
 npm run test:e2e
 ```
 
@@ -496,6 +499,15 @@ carry the same `[e2e]` marker in Ticket descriptions, and the accounts the suite
 creates are marked by an `e2e-` email prefix so the teardown can remove them
 without touching seeded users.
 
+Issue #34 made that concrete. Before every run the Playwright global setup runs
+`e2e:cleanup`, then `server/prisma/e2e-setup.ts`, which creates the fixture
+accounts listed in `e2e/support/accounts.json` — the file the specs read too —
+so the suite never depends on a password a developer may have changed while
+trying the application. The setup also checks the one seeded account the suite
+does use: `anong.kittisak@example.edu` must be the only active Administrator
+and still use the development password, because E2E-10 reaches the
+last-Administrator refusal on it. Otherwise it stops the run with that message.
+
 ## 7. Final Results
 
 Filled in as each issue lands, and completed from the final `main` branch in
@@ -505,9 +517,9 @@ row.
 
 | Suite | Command | Tests | Result |
 |---|---|---|---|
-| Server unit + API + migration | `npm test --prefix server` | **216** | **All passing** as of Issue #33 |
-| Client UI components | `npm test --prefix client` | **132** | **All passing** as of Issue #33 |
-| E2E + visual | `npm run test:e2e` | — | Pending — Issue #34 |
+| Server unit + API + migration | `npm test --prefix server` | **216** | **All passing** as of Issue #34 |
+| Client UI components | `npm test --prefix client` | **134** | **All passing** as of Issue #34 |
+| E2E + visual | `npm run test:e2e` | **25** (Lab 3: 15; Lab 2, updated: 10) | **All passing** as of Issue #34 |
 
 ### After Issue #29 — authentication foundation
 
@@ -704,6 +716,96 @@ as the one before it — saving the same account twice within four seconds — k
 the first one's timer and vanished early; each toast is now timed from when it
 appears. Both were checked by reintroducing them (one UI-USER case fails each).
 
+### After Issue #34 — end-to-end, responsive and visual QA
+
+| Area | Files | Cases |
+|---|---|---|
+| Lab 3 client screens | `AppRoutes.test.tsx` gains UI-ROUTE-08 and a UI-ROUTE-05 case | 84 |
+| Lab 3 end-to-end | `authentication.spec.ts`, `staff-ticket-flow.spec.ts`, `user-administration.spec.ts` | 12 |
+| Lab 3 visual | `visual.spec.ts` | 3 |
+| Lab 2 end-to-end and visual, updated | `e2e/lab-02/requester-ticket-flow.spec.ts`, `e2e/lab-02/visual.spec.ts` | 10 |
+
+**Two defects the end-to-end plan exposed, fixed before the suite was written
+against them.** First, a session that ended while it was in use — the account
+deactivated, or a new initial password set — left the person on whatever screen
+they had open, which then showed its own "couldn't load" state at the next
+request, where E2E-11 and AC-24 expect Login. Every API answer passes through
+`toApiError` in `client/src/api.ts`; a 401 `UNAUTHENTICATED` there now ends the
+client's session, and `ui-spec.md` §3 records the rule (UI-ROUTE-08). A refused
+login is `INVALID_CREDENTIALS` and `GET /me` handles its own 401, so neither is
+affected. Second, saving the mandatory new password handed the updated user up
+but left the address at `/change-password`, which the signed-in route tree
+answers with the *voluntary* form — so the person was shown the form again
+instead of the application `ui-spec.md` §5 promises; it now navigates to the
+role's landing screen (a new UI-ROUTE-05 case). Both were checked by
+reintroducing them: M13, the 401 not reported (UI-ROUTE-08 fails), and M14, the
+mandatory change not navigating (the UI-ROUTE-05 case fails).
+
+**A third, found by the first Playwright run.** At 375px the Change Password
+screen was 391px wide, so the page scrolled sideways (VIS-03). Inside the
+application shell its card kept the `width: 100%` it has on the Login screen and
+added the 16px mobile margin to it; there it now takes `width: auto`, which
+still stops at 420px on wider screens. Only a real browser lays the page out, so
+VIS-03 is the test that holds it.
+
+**Found reading the screenshots against §5.** Six places where the screens
+departed from `ui-spec.md`, none of which a passing test had noticed. The Login
+failure was bare red text rather than the `--zg-error-bg` callout §4.2 describes
+(now `zg-callout--error`; UI-LOGIN-04 asserts it). "Unassigned" was plain text in
+the queue table, where §5 wants it recognisable at a glance as it already was on
+the card (UI-QUEUE-01 asserts the class). The mobile navigation panel named the
+role in plain text where §3 gives it the role badge (UI-SHELL-05 asserts it). And
+the headings of the forbidden and not-found states, which take focus for §12,
+drew the browser's default focus ring across the whole line; a heading is not a
+control, so it now draws none. And at 375px a dialog whose validation messages
+made it taller than the screen let its actions scroll away, where §11 pins them
+to the bottom of the sheet; the form's actions are now sticky. At the same width
+a Summary too long for one line spilled out of its fixed-height read-only field
+over the label beneath it — seen on the Lab 2 Ticket Detail shots, and the same
+field Lab 3 uses — so read-only values now grow with their text, and both visual
+specs assert that no read-only field's text is taller than its frame. The first
+three were checked by reintroducing them — M15, M16 and M17, one failing case
+each; the last three are layout, checked in the regenerated screenshots and, for
+the spilled text, by that new assertion.
+
+**What E2E-10 asserts through the browser, and how.** The self-deactivation and
+last-Administrator refusals cannot be triggered from the screen: `ui-spec.md` §9.4
+disables Role and Status on one's own account, and only one's own account can
+ever be the last. E2E-10 asserts what the browser shows — the disabled controls
+and their stated reason — and sends the withheld request with the browser's own
+session: 409 `SELF_DEACTIVATION` while a second Administrator it created is
+active, then 409 `LAST_ACTIVE_ADMINISTRATOR`, for both status and role, once that
+second Administrator has been deactivated through the Edit dialog.
+
+**Screenshots.** They fill the four directories of `ui-spec.md` §13, as
+`{desktop,tablet,mobile}-{state}.png`. One state is produced rather than reached:
+the queue's empty state, because the seeded database always holds tickets, so
+that one list request is answered with an empty page. The guard-rail refusal
+photographed in the Edit dialog is the duplicate address (§9.4), a real 409 with
+its field reverted; the other two guard rails are photographed as they are met,
+disabled with their reason (`edit-own`). VIS-02 also asserts the two queue
+columns hidden at 768px, and VIS-03 that cards replace both tables.
+
+**Lab 2's end-to-end tests, updated with the reason recorded
+(`specification.md` §10).** They chose a Development Requester from the
+selector Lab 3 removed (AC-25), so each now signs in as a fixture account.
+E2E-02's guard lands on Login rather than the selector; E2E-04's foreign ticket
+reads as the not-found state Issue #32 introduced; E2E-07 starts at Login. The
+Lab 2 visual spec no longer photographs Requester Selection — the three
+`select-requester` screenshots were deleted with the screen — and photographs My
+Tickets over twelve tickets it raises itself, because the demo data belongs to a
+seeded Requester whose password the suite cannot rely on. Its attachment-limit
+shot now also waits for the last upload to land: the active count includes
+uploads in flight, so it read five while one row still said "Uploading…", and
+that is how it was first photographed. The shared steps moved from
+`e2e/lab-02/helpers.ts` to `e2e/support/helpers.ts`.
+
+**Recorded run.** `npm run test:e2e`: 25 passed (1.3m), the teardown removing
+the run's accounts and tickets. The first run had failed four: VIS-03 on the
+overflow above, and E2E-12, VIS-01 and VIS-02 on two locators of the suite's own
+that matched more than one button ("Filters" also matched "Clear Filters";
+"Cancel" also matched "Move to Cancelled"), now matched exactly.
+
 The migration suite creates a scratch database, replays the real migration
 files in order, pauses after the last Lab 2 migration to insert Lab 2-shaped
 rows, applies the two Lab 3 migrations to them, and drops the database
@@ -714,9 +816,7 @@ and it is why AC-08 can be claimed rather than asserted.
 
 ### Deferred within the sprint
 
-- **E2E-01 to E2E-12 and VIS-01 to VIS-03** — the end-to-end and visual suites
-  are Issue #34's by design. They were planned for that issue from the start,
-  rather than carried from an earlier one.
+None remain.
 
 Cleared during the sprint: **API-AUTH-17** and **API-AUTH-18** (Issue #29 built
 the gate, Issue #30 gave it endpoints to stand in front of) and **MIG-06**,
@@ -727,7 +827,8 @@ and the widening of `GET /api/tickets/:id` and the two attachment reads to staff
 were cleared in Issue #32, with the operations they concern. **API-AUTHZ-04**,
 **API-AUTHZ-05**, the Administrator half of **UI-SHELL-02**, and the user-dialog
 halves of **A11Y-01**, **A11Y-03** and **A11Y-05** were cleared in Issue #33, with
-user management.
+user management. **E2E-01** to **E2E-12** and **VIS-01** to **VIS-03** were
+written and passed in Issue #34, the issue they were planned for.
 
 ### Temporary, and deliberately so
 

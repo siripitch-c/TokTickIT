@@ -74,10 +74,7 @@ export function AppRoutes() {
         <Route
           element={<AppShell user={session.user} onSignedOut={session.clear} navigation={false} />}
         >
-          <Route
-            path="/change-password"
-            element={<ChangePassword mandatory onChanged={session.adopt} />}
-          />
+          <Route path="/change-password" element={<MandatoryChangePassword session={session} />} />
           <Route path="*" element={<Navigate to="/change-password" replace />} />
         </Route>
       </Routes>
@@ -121,6 +118,27 @@ export function AppRoutes() {
 
       <Route path="*" element={<Navigate to={landing} replace />} />
     </Routes>
+  );
+}
+
+/**
+ * ui-spec.md §5 — the mandatory route into Change Password.
+ *
+ * Success leads to the role's landing screen (AC-02). Adopting the updated user
+ * alone is not enough: the address would still be /change-password, which the
+ * signed-in route tree answers with the voluntary screen — the same form again,
+ * for someone who has just finished with it.
+ */
+function MandatoryChangePassword({ session }: { session: UseAuthSession }) {
+  const navigate = useNavigate();
+  return (
+    <ChangePassword
+      mandatory
+      onChanged={(updated: AuthUser) => {
+        session.adopt(updated);
+        navigate(LANDING[updated.role].path, { replace: true });
+      }}
+    />
   );
 }
 

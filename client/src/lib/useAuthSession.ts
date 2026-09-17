@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AuthUser, fetchCurrentUser } from "../api.js";
+import { AuthUser, fetchCurrentUser, onSessionEnded } from "../api.js";
 
 // Lab 3, Issue #30 — the signed-in user, replacing useRequesterSession.
 //
@@ -63,6 +63,18 @@ export function useAuthSession(): UseAuthSession {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  // Issue #34, AC-24: a session the server has ended — the account deactivated,
+  // a new initial password set — takes the person to Login at their next
+  // request, instead of leaving them on a screen that can only fail.
+  useEffect(
+    () =>
+      onSessionEnded(() => {
+        lookup.current++;
+        setSession({ status: "signed-out", user: null });
+      }),
+    [],
+  );
 
   const adopt = useCallback((user: AuthUser) => {
     lookup.current++; // any lookup still in flight is now stale

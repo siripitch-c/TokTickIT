@@ -417,7 +417,11 @@ export default function StaffTicketQueue() {
                       <td>
                         <StatusBadge value={ticket.currentStatus} />
                       </td>
-                      <td>{ticket.owner ? ticket.owner.name : "Unassigned"}</td>
+                      <td>
+                        {/* tests.md §5: recognisable at a glance in the table as
+                            well as on the card (§7.3). */}
+                        {ticket.owner ? ticket.owner.name : <span className="zg-owner-unassigned">Unassigned</span>}
+                      </td>
                       <td>{formatDate(ticket.updatedAt)}</td>
                     </tr>
                   ))}

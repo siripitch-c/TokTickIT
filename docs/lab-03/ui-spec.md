@@ -187,6 +187,12 @@ mobile hamburger. What changes:
 - **Unauthenticated**: the shell does not render at all. Login is a full-page
   screen with only the wordmark above it, so there is no header offering
   navigation to someone who has none.
+- **A session that ends while in use** — the account deactivated, a new initial
+  password set by an Administrator, or the session expired: the next request
+  the server answers with 401 `UNAUTHENTICATED` drops the signed-in user, and
+  Login replaces whatever screen was open (AC-24). No screen shows its own
+  failure state for it, because retrying could never succeed. A refused login
+  (`INVALID_CREDENTIALS`) and an unreachable server (BR-13) are not this.
 - **Signed in but holding an initial password**: the shell *does* render, with
   no navigation items — see §5. The distinction matters: this person is
   authenticated, and Log Out is the one action `specification.md` BR-02 and

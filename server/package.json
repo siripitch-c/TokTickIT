@@ -10,7 +10,8 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "tsx prisma/seed.ts",
     "test": "vitest run",
-    "e2e:cleanup": "tsx prisma/e2e-cleanup.ts"
+    "e2e:cleanup": "tsx prisma/e2e-cleanup.ts",
+    "e2e:setup": "tsx prisma/e2e-setup.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

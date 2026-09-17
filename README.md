@@ -164,6 +164,16 @@ Issue #33 — Administrator user management:
 * User Management: the list, search and role filter, and the Create and Edit
   dialogs, with an accessible focus trap shared by every dialog in the app.
 
+Issue #34 — end-to-end, responsive and visual QA:
+
+* Playwright suites under `e2e/lab-03/` for sign-in and role access, IT Staff
+  ticket work and user administration, and screenshots of every Lab 3 screen at
+  1440, 768 and 375px under `artifacts/lab-03/screenshots/`.
+* A session that ends while in use — the account deactivated, say — now returns
+  the person to Login at their next action, and saving a mandatory new password
+  opens the application instead of showing the form a second time.
+* The Lab 2 end-to-end tests sign in instead of choosing a Requester.
+
 ### Development sign-in credentials
 
 Every seeded account uses the same **local-development password**:
@@ -384,7 +394,7 @@ Frontend Tests (Vitest):
 cd client
 npm test
 ```
-End-to-end and visual tests (Playwright, Issue #17):
+End-to-end and visual tests (Playwright; Lab 2 Issue #17, Lab 3 Issue #34):
 ```bash
 npm install
 npx playwright install chromium
@@ -395,23 +405,26 @@ drive a real browser against the running app, so both the API and the client
 have to be up; Playwright reuses whatever is already listening on ports 3000
 and 5173 and starts them itself only when nothing is.
 
-**Run the demo tickets step above first.** The seven end-to-end tests each
-create the data they need, but the three screenshot tests do not: they
-photograph My Tickets for a Requester who already owns some, and on an empty
-list that screen hides its search and filter controls by design
-(`ui-spec.md` §6.4), so the captures cannot be taken at all.
+**Before a run**, the database must be migrated and seeded, and the seeded
+Administrator `anong.kittisak@example.edu` must still be the only active
+Administrator and still use the development password: E2E-10 reaches the "last
+active Administrator" refusal on that account. The run checks this first and
+stops with a message if it does not hold.
 
-The suite creates real tickets, each marked `[e2e]` in its description, and
-deletes them again when the run finishes. If a run is interrupted, remove
-them by hand:
+The suite signs in as accounts of its own, each with an `e2e-` address, created
+before the run and removed afterwards together with every ticket it created
+(each marked `[e2e]` in its description). If a run is interrupted, remove them
+by hand:
 ```bash
 npm run e2e:cleanup --prefix server
 ```
 
-It also writes the responsive screenshots that `docs/lab-02/tests.md` §5 is
-checked against, into `artifacts/lab-02/screenshots/`. Those are committed as
-sprint evidence; the Playwright HTML report and traces are not (see
-`.gitignore`). Open the report from the last run with:
+It also writes the screenshots the visual checklists are read against: Lab 3's
+into `artifacts/lab-03/screenshots/` (`authentication/`, `staff-queue/`,
+`staff-ticket-detail/`, `user-management/`, checked against
+`docs/lab-03/tests.md` §5) and Lab 2's into `artifacts/lab-02/screenshots/`.
+Those are committed as sprint evidence; the Playwright HTML report and traces
+are not (see `.gitignore`). Open the report from the last run with:
 ```bash
 npm run test:e2e:report
 ```

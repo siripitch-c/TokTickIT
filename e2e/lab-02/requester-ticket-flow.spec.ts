@@ -1,27 +1,34 @@
 import { expect, test } from "@playwright/test";
 import {
+  ACCOUNTS,
+  E2E_MARKER,
   PNG_BYTES,
-  REQUESTER_A,
-  REQUESTER_B,
-  changeRequesterButton,
-  chooseRequester,
   createTicket,
+  createTicketViaApi,
   expectNoHorizontalOverflow,
   openCreatedTicket,
+  signIn,
+  signOut,
   uniqueSummary,
-} from "./helpers.js";
+} from "../support/helpers.js";
 
-// tests.md E2E-01..07. These run against the real client, the real API and the
-// real database — the point of them is the seams the component tests and the
-// API tests each mock away.
+// docs/lab-02/tests.md E2E-01..07. These run against the real client, the real
+// API and the real database — the point of them is the seams the component
+// tests and the API tests each mock away.
+//
+// Updated in Lab 3, Issue #34 (lab-03/specification.md §10: a Lab 2 test "is
+// deliberately updated with the reason recorded"). Lab 3 replaced the
+// Development Requester selector with real sign-in (AC-25), so each Requester
+// now signs in as an `e2e-` fixture account instead of being chosen from a
+// list. What each test proves is unchanged, with two exceptions recorded at the
+// test: E2E-02's guard now lands on Login rather than the selector, and E2E-04's
+// foreign ticket reads as the Lab 3 not-found state.
 
-test.describe("Requester ticket flow", () => {
-  test("E2E-01: select a Requester, create a ticket, find it in My Tickets, open its Detail (AC-01)", async ({
-    page,
-  }) => {
+test.describe("Lab 2 — Requester ticket flow, under Lab 3 sign-in", () => {
+  test("E2E-01: sign in, create a ticket, find it in My Tickets, open its Detail (AC-01)", async ({ page }) => {
     const summary = uniqueSummary("Projector in room 4 will not power on");
 
-    await chooseRequester(page, REQUESTER_A);
+    await signIn(page, ACCOUNTS.requester);
     const ticketNumber = await createTicket(page, summary);
 
     // BR-01: the number is generated, formatted, and shown back on success.
@@ -36,30 +43,25 @@ test.describe("Requester ticket flow", () => {
     await page.getByRole("link", { name: ticketNumber }).click();
     await expect(page.getByTestId("detail-ticket-number")).toHaveText(ticketNumber);
     await expect(page.getByText(summary)).toBeVisible();
-    await expect(page.getByTestId("current-requester-name")).toHaveText(REQUESTER_A);
+    await expect(page.getByTestId("current-user-name")).toHaveText(ACCOUNTS.requester.name);
   });
 
-  test("E2E-02: a Requester-scoped route with nothing selected lands on the selector (AC-02)", async ({
-    page,
-  }) => {
-    // Arrive with no context at all, the way a bookmarked or shared URL does.
-    await page.goto("/select-requester");
-    await page.evaluate(() => sessionStorage.clear());
-
+  test("E2E-02: a Requester-scoped route with nobody signed in lands on Login (AC-02)", async ({ page }) => {
+    // Lab 3: the guard's destination changed from the selector to Login, because
+    // an identity is now proven by signing in rather than chosen (AC-25).
+    // Arriving with no session at all, the way a bookmarked or shared URL does.
     await page.goto("/my-tickets");
 
-    await expect(page.getByRole("heading", { name: "Select Development Requester" })).toBeVisible();
-    await expect(page).toHaveURL(/\/select-requester$/);
+    await expect(page).toHaveURL(/\/login$/);
+    await expect(page.getByRole("button", { name: "Sign In" })).toBeVisible();
     // The guarded screen never mounted: none of its furniture is on the page.
     await expect(page.getByRole("heading", { name: "My Tickets" })).toHaveCount(0);
   });
 
-  test("E2E-03: add, download and soft-remove an attachment from Ticket Detail (AC-08, AC-17)", async ({
-    page,
-  }) => {
+  test("E2E-03: add, download and soft-remove an attachment from Ticket Detail (AC-08, AC-17)", async ({ page }) => {
     const filename = "e2e-evidence.png";
 
-    await chooseRequester(page, REQUESTER_A);
+    await signIn(page, ACCOUNTS.requester);
     await createTicket(page, uniqueSummary("Screen flickers when the laptop is docked"));
     await openCreatedTicket(page);
 
@@ -97,21 +99,21 @@ test.describe("Requester ticket flow", () => {
     await expect(page.getByRole("button", { name: `Download ${filename}` })).toHaveCount(0);
   });
 
-  test("E2E-04: another Requester can neither list nor open the ticket (AC-03, AC-09)", async ({
-    page,
-  }) => {
+  test("E2E-04: another Requester can neither list nor open the ticket (AC-03, AC-09)", async ({ page }) => {
     const summary = uniqueSummary("Payroll export fails on the last step");
 
-    await chooseRequester(page, REQUESTER_A);
+    await signIn(page, ACCOUNTS.requester);
     await createTicket(page, summary);
     const ticketId = await openCreatedTicket(page);
 
-    // Switch identity the way the header offers it (BR-07: nothing stale left).
-    await changeRequesterButton(page).click();
-    await expect(page.getByRole("heading", { name: "Select Development Requester" })).toBeVisible();
-    await page.locator("#requester-select").selectOption({ label: REQUESTER_B });
-    await page.getByRole("button", { name: /continue/i }).click();
-    await expect(page.getByTestId("current-requester-name")).toHaveText(REQUESTER_B);
+    // Switching identity is now signing out and signing in as somebody else
+    // (BR-07: nothing stale left).
+    await signOut(page);
+    await signIn(page, ACCOUNTS.otherRequester);
+    await expect(page.getByTestId("current-user-name")).toHaveText(ACCOUNTS.otherRequester.name);
+    // One ticket of their own, so My Tickets offers its search rather than the
+    // empty state (ui-spec.md §6.4).
+    await createTicketViaApi(page, uniqueSummary("Keyboard missing two keys"));
 
     // BR-11: it is not in this Requester's list, even when searched for.
     await page.goto("/my-tickets");
@@ -119,25 +121,24 @@ test.describe("Requester ticket flow", () => {
     await expect(page.getByTestId("zg-state-no-results")).toBeVisible();
     await expect(page.getByText(summary)).toHaveCount(0);
 
-    // BR-12/AC-03: the direct URL reads exactly as a ticket that never
-    // existed — no wording, status or detail separates the two.
+    // BR-12/AC-03: the direct URL reads exactly as a ticket that never existed.
+    // Lab 3 (Issue #32) gave that answer its own not-found state (ui-spec.md §2.5).
+    const notFound = "This ticket does not exist, or you do not have access to it.";
     await page.goto(`/tickets/${ticketId}`);
-    await expect(page.getByTestId("zg-state-error")).toContainText("Ticket not found.");
+    await expect(page.getByTestId("zg-state-not-found")).toContainText(notFound);
     await page.goto("/tickets/99999999");
-    await expect(page.getByTestId("zg-state-error")).toContainText("Ticket not found.");
+    await expect(page.getByTestId("zg-state-not-found")).toContainText(notFound);
   });
 
   test("E2E-05: a search that matches nothing shows the no-results state (AC-10)", async ({ page }) => {
-    await chooseRequester(page, REQUESTER_A);
+    await signIn(page, ACCOUNTS.requester);
 
     // No-results and empty are different states (ui-spec.md §6.4): the first
     // means a filter matched none of a non-empty set. This test owns that
-    // precondition rather than borrowing it from the demo data, so it still
-    // means something on a database that has only been seeded.
+    // precondition rather than borrowing it from other data.
     await createTicket(page, uniqueSummary("Meeting room speakers produce no sound"));
 
     await page.goto("/my-tickets");
-
     await page.locator("#ticket-search").fill("zzz-nothing-matches-this-zzz");
 
     await expect(page.getByTestId("zg-state-no-results")).toBeVisible();
@@ -147,12 +148,10 @@ test.describe("Requester ticket flow", () => {
     await expect(page.getByTestId("zg-state-empty")).toHaveCount(0);
   });
 
-  test("E2E-06: the API failing mid-submission keeps every value and says so safely (AC-06)", async ({
-    page,
-  }) => {
+  test("E2E-06: the API failing mid-submission keeps every value and says so safely (AC-06)", async ({ page }) => {
     const summary = uniqueSummary("VPN drops every few minutes");
 
-    await chooseRequester(page, REQUESTER_A);
+    await signIn(page, ACCOUNTS.requester);
     await page.goto("/tickets/new");
     await expect(page.locator("#summary")).toBeVisible();
 
@@ -160,7 +159,8 @@ test.describe("Requester ticket flow", () => {
     await page.locator("#relatedSystemId").selectOption({ index: 1 });
     await page.locator("#requestedPriority").selectOption("HIGH");
     await page.locator("#summary").fill(summary);
-    await page.locator("#description").fill("The tunnel drops roughly every five minutes. [e2e]");
+    // The same marker every other e2e ticket carries, so the cleanup finds this one too.
+    await page.locator("#description").fill(`The tunnel drops roughly every five minutes. ${E2E_MARKER}`);
 
     // The backend goes away exactly at submit time — reference data has
     // already loaded, so this is a failure mid-flow rather than a screen that
@@ -185,8 +185,10 @@ test.describe("Requester ticket flow", () => {
     await page.setViewportSize({ width: 375, height: 812 });
     const summary = uniqueSummary("Printer on floor two jams every job");
 
-    await chooseRequester(page, REQUESTER_A);
-    await expectNoHorizontalOverflow(page, "Requester Selection");
+    // Lab 3: Login is the first screen now that the selector is gone.
+    await page.goto("/login");
+    await expectNoHorizontalOverflow(page, "Login");
+    await signIn(page, ACCOUNTS.requester);
 
     const ticketNumber = await createTicket(page, summary);
     await expectNoHorizontalOverflow(page, "Create Ticket (success)");

@@ -80,10 +80,35 @@ export class ApiError extends Error {
 
 const SAFE_FALLBACK_MESSAGE = "Something went wrong. Please try again.";
 
+// Lab 3, Issue #34 — a session can end while it is in use: an Administrator
+// deactivates the account or sets a new initial password (BR-12), or it
+// expires. The server then answers the next protected request with 401
+// `UNAUTHENTICATED`, and no screen can recover from that by retrying, so the
+// application is told once, here, where every such answer passes. A refused
+// login is `INVALID_CREDENTIALS`, and `GET /me` handles its own 401, so neither
+// reaches this.
+const sessionEndedListeners = new Set<() => void>();
+
+/** Subscribes to "the server no longer recognises this session". Returns the unsubscribe. */
+export function onSessionEnded(listener: () => void): () => void {
+  sessionEndedListeners.add(listener);
+  return () => {
+    sessionEndedListeners.delete(listener);
+  };
+}
+
+async function toApiError(response: Response): Promise<ApiError> {
+  const error = await readApiError(response);
+  if (error.status === 401 && error.code === "UNAUTHENTICATED") {
+    sessionEndedListeners.forEach((listener) => listener());
+  }
+  return error;
+}
+
 // api-spec.md §1: every non-2xx carries { error: { code, message, field? } }.
 // A response that fails to parse still has to surface as a safe ApiError
 // rather than a raw crash (BR-24's "safe error" requirement).
-async function toApiError(response: Response): Promise<ApiError> {
+async function readApiError(response: Response): Promise<ApiError> {
   try {
     const body = await response.json();
     const error = body?.error;

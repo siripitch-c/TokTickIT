@@ -1,0 +1,51 @@
+{
+  "password": "E2e-Fixture-2026!",
+  "accounts": {
+    "requester": {
+      "email": "e2e-requester@example.edu",
+      "name": "Erin Requester",
+      "role": "REQUESTER",
+      "isActive": true,
+      "mustChangePassword": false
+    },
+    "otherRequester": {
+      "email": "e2e-other-requester@example.edu",
+      "name": "Owen Requester",
+      "role": "REQUESTER",
+      "isActive": true,
+      "mustChangePassword": false
+    },
+    "staff": {
+      "email": "e2e-staff@example.edu",
+      "name": "Stella Staff",
+      "role": "IT_STAFF",
+      "isActive": true,
+      "mustChangePassword": false
+    },
+    "firstLogin": {
+      "email": "e2e-first-login@example.edu",
+      "name": "Fiona Firstlogin",
+      "role": "REQUESTER",
+      "isActive": true,
+      "mustChangePassword": true
+    },
+    "inactive": {
+      "email": "e2e-inactive@example.edu",
+      "name": "Ivan Inactive",
+      "role": "REQUESTER",
+      "isActive": false,
+      "mustChangePassword": false
+    },
+    "deactivation": {
+      "email": "e2e-deactivation@example.edu",
+      "name": "Dana Deactivation",
+      "role": "REQUESTER",
+      "isActive": true,
+      "mustChangePassword": false
+    }
+  },
+  "administrator": {
+    "email": "anong.kittisak@example.edu",
+    "password": "ChangeMe123!"
+  }
+}
