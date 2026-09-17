@@ -5,8 +5,8 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import type { AuthUser, Role } from "../../src/api.js";
 
-// tests.md UI-ROUTE-01..07 and the route half of UI-USER-09; ui-spec.md §3; specification.md FR-09, BR-02,
-// BR-13, AC-02, AC-07.
+// tests.md UI-ROUTE-01..08 and the route half of UI-USER-09; ui-spec.md §3; specification.md FR-09, BR-02,
+// BR-12, BR-13, AC-02, AC-07, AC-24.
 //
 // The screen tests prove each screen behaves; this one proves the application
 // puts the right screen in front of the right person. That decision is not any
@@ -26,6 +26,7 @@ const fetchAssignees = vi.fn();
 const fetchTicket = vi.fn();
 const fetchRelatedSystems = vi.fn();
 const fetchUsers = vi.fn();
+const changePassword = vi.fn();
 
 vi.mock("../../src/api.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../src/api.js")>()),
@@ -37,6 +38,7 @@ vi.mock("../../src/api.js", async (importOriginal) => ({
   fetchTicket: (...args: unknown[]) => fetchTicket(...args),
   fetchRelatedSystems: (...args: unknown[]) => fetchRelatedSystems(...args),
   fetchUsers: (...args: unknown[]) => fetchUsers(...args),
+  changePassword: (...args: unknown[]) => changePassword(...args),
 }));
 
 const { AppRoutes } = await import("../../src/App.js");
@@ -149,6 +151,25 @@ describe("Application routing", () => {
     expect(screen.queryByRole("button", { name: /sign in/i })).not.toBeInTheDocument();
   });
 
+  it("UI-ROUTE-05 / AC-02: saving the mandatory new password leads to the landing screen, not back to Change Password", async () => {
+    const user = userEvent.setup();
+    fetchCurrentUser.mockResolvedValue(userWith("REQUESTER", true));
+    changePassword.mockResolvedValue(userWith("REQUESTER"));
+    renderAt("/my-tickets");
+
+    await screen.findByTestId("zg-initial-password-banner");
+    await user.type(screen.getByLabelText(/^Current Password/), "Initial-2026!");
+    await user.type(screen.getByLabelText(/^New Password/), "Chosen-2026!");
+    await user.type(screen.getByLabelText(/^Confirm New Password/), "Chosen-2026!");
+    await user.click(screen.getByRole("button", { name: "Save New Password" }));
+
+    // ui-spec.md §5: the confirmation, then the application. The address was
+    // /change-password, which for a signed-in user is the voluntary form — so
+    // without the navigation this person would be shown the form a second time.
+    expect(await screen.findByRole("heading", { name: "My Tickets" }, { timeout: 3000 })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /change your password/i })).not.toBeInTheDocument();
+  });
+
   it("UI-ROUTE-05 / AC-01: IT Staff at the root land on the Ticket Queue", async () => {
     fetchCurrentUser.mockResolvedValue(userWith("IT_STAFF"));
     renderAt("/");
@@ -221,5 +242,33 @@ describe("Application routing", () => {
     await waitFor(() => expect(fetchTicket).toHaveBeenCalledWith(42));
     expect(screen.getByTestId("zg-state-loading")).toBeInTheDocument();
     expect(screen.queryByTestId("zg-state-forbidden")).not.toBeInTheDocument();
+  });
+
+  it("UI-ROUTE-08 / AC-24, BR-12: a session that ends while in use returns to Login at the next request", async () => {
+    // The real request path this time, so the 401 passes through the one place
+    // every API answer does.
+    const actual = await vi.importActual<typeof import("../../src/api.js")>("../../src/api.js");
+    fetchTickets.mockImplementation((...args: Parameters<typeof actual.fetchTickets>) => actual.fetchTickets(...args));
+    fetchCurrentUser.mockResolvedValue(userWith("REQUESTER"));
+
+    // The account was deactivated elsewhere: its session row is gone, so the
+    // first protected request the screen makes answers 401.
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn(async () => ({
+      ok: false,
+      status: 401,
+      json: async () => ({ error: { code: "UNAUTHENTICATED", message: "Please sign in." } }),
+    })) as unknown as typeof fetch;
+
+    try {
+      renderAt("/my-tickets");
+
+      // Login, not My Tickets' own "couldn't load" state: retrying could never succeed.
+      expect(await screen.findByRole("button", { name: /sign in/i })).toBeInTheDocument();
+      expect(screen.queryByTestId("current-user-name")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("zg-state-error")).not.toBeInTheDocument();
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 });

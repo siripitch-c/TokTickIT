@@ -177,7 +177,8 @@ describe("IT Staff Ticket Queue", () => {
     expect(first.getByText("Requester 1")).toBeInTheDocument();
     // §2.1: the status is a labelled badge, not colour alone.
     expect(first.getByText("In Progress")).toHaveClass("zg-badge", "zg-badge--status-in-progress");
-    expect(first.getByText("Unassigned")).toBeInTheDocument();
+    // tests.md §5: an unclaimed ticket stands out in the table, as on the card.
+    expect(first.getByText("Unassigned")).toHaveClass("zg-owner-unassigned");
     expect(within(rows[1]).getByText("Somsak Wattana")).toBeInTheDocument();
 
     // §7.1: neither IT Staff nor Administrators raise tickets.

@@ -116,6 +116,8 @@ describe("Login screen", () => {
 
     const callout = await screen.findByTestId("zg-login-error");
     expect(callout).toHaveTextContent(SAFE_MESSAGE);
+    // ui-spec.md §4.2: a callout on `--zg-error-bg`, not the bare failure text of a list.
+    expect(callout).toHaveClass("zg-callout--error");
     expect(onSignedIn).not.toHaveBeenCalled();
 
     // ui-spec.md §4.2: the password is not cleared. Retyping it because of a

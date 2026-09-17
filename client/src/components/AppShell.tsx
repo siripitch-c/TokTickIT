@@ -172,7 +172,8 @@ export default function AppShell({ user, onSignedOut, navigation = true }: Props
               and what you can do about it. */}
           <hr className="zg-mobile-nav-divider" />
           <span className="zg-mobile-nav-requester">
-            {user.name} · {ROLE_LABEL[user.role]}
+            {user.name}{" "}
+            <span className="zg-badge zg-badge--role">{ROLE_LABEL[user.role]}</span>
           </span>
           {navigation && (
             <button
