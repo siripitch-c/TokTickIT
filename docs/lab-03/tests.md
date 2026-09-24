@@ -510,16 +510,15 @@ last-Administrator refusal on it. Otherwise it stops the run with that message.
 
 ## 7. Final Results
 
-Filled in as each issue lands, and completed from the final `main` branch in
-the format Lab 2 used: the full `npm test` output for server and client, the
-Playwright summary, and this plan's Status column carrying a result for every
-row.
+Filled in as each issue lands. Issue #35 records the final run (below) from the
+`lab3-staging` head that the release Pull Request merges into `main` unchanged,
+with this plan's Status column carrying a result for every row.
 
 | Suite | Command | Tests | Result |
 |---|---|---|---|
-| Server unit + API + migration | `npm test --prefix server` | **216** | **All passing** as of Issue #34 |
-| Client UI components | `npm test --prefix client` | **134** | **All passing** as of Issue #34 |
-| E2E + visual | `npm run test:e2e` | **25** (Lab 3: 15; Lab 2, updated: 10) | **All passing** as of Issue #34 |
+| Server unit + API + migration | `npm test --prefix server` | **216** | **All passing** as of Issue #35 |
+| Client UI components | `npm test --prefix client` | **134** | **All passing** as of Issue #35 |
+| E2E + visual | `npm run test:e2e` | **25** (Lab 3: 15; Lab 2, updated: 10) | **All passing** as of Issue #35 |
 
 ### After Issue #29 — authentication foundation
 
@@ -806,6 +805,24 @@ overflow above, and E2E-12, VIS-01 and VIS-02 on two locators of the suite's own
 that matched more than one button ("Filters" also matched "Clear Filters";
 "Cancel" also matched "Move to Cancelled"), now matched exactly.
 
+### Issue #35 — release integration
+
+The final run, on the release branch built from `lab3-staging` at `431167b`
+(the merge of Issue #34):
+
+| Date | Command | Result |
+|---|---|---|
+| 2026-09-23 | `npm test --prefix server` | 216 passed / 216 |
+| 2026-09-23 | `npm test --prefix client` | 134 passed / 134 |
+| 2026-09-23 | `npm run test:e2e` | 25 passed / 25 (1.2 min); cleanup removed 1 ticket, 0 attachments and 6 accounts |
+
+Issue #35 adds `reviewer.md` and `ai-use.md` and brings the README up to the
+finished sprint. Its one code change is a reference: the seed, `e2e-setup.ts`
+and the MIG-09 and MIG-10 titles cited **BR-46**, a number `specification.md`
+does not have — the rule on seeded development credentials is **BR-45**, which
+§4 already maps to MIG-09 and MIG-10. They now say BR-45 (see §8 for the one
+place that still cannot).
+
 The migration suite creates a scratch database, replays the real migration
 files in order, pauses after the last Lab 2 migration to insert Lab 2-shaped
 rows, applies the two Lab 3 migrations to them, and drops the database
@@ -849,6 +866,12 @@ component.
   value.** The attribute is set from an environment flag; the test asserts the
   flag is honoured, since the suite has no HTTPS origin to observe the real
   behaviour on.
+- **One comment still cites BR-46.** The applied migration
+  `20260912083716_lab3_users_sessions_comments_notes` names the seeded
+  development password rule "BR-46" in an SQL comment; the rule is BR-45.
+  Prisma checksums every applied migration file, so changing even a comment
+  would make every database that has already applied it report the migration
+  as modified. The comment is left as it is and corrected here instead.
 - **Accessibility is checked by A11Y-01..09, the §5 checklist and the focus and
   label assertions inside the screen tests — not by an automated audit tool.**
   An axe-style audit would catch contrast and landmark problems these rows do

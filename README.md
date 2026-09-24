@@ -4,10 +4,11 @@ TokTickIT is an IT service desk application being built through the CPE334 indiv
 
 ## What this repository contains
 
-**Lab 3 is in progress.** Issues #29 and #30 have landed: the Development
-Requester is now a real `User` account with a password, the API issues
-server-side sessions, and the Requester selector is gone — the application
-opens on a Login screen. See *Lab 3 so far* below.
+**Lab 3 is complete** — Issues #28–#35. The Development Requester is now a
+real `User` account with a password and a server-side session, and the
+application opens on a Login screen. IT Staff work a shared Ticket Queue —
+ownership, IT Priority, status, Public Comments and Internal Notes — and
+Administrators manage the accounts. See *Lab 3* below.
 
 The Lab 2 list that follows is a record of what that sprint delivered. Where
 Lab 3 has since replaced something, it is marked.
@@ -83,8 +84,9 @@ Request, and Issue #18 merges `lab2-staging` into `main`.
 
 The seed creates the tickets the IT Staff Ticket Queue needs, with example
 comments and notes on some of them (Issues #31 and #32). The
-Lab 2 set below is separate: it fills My Tickets for Michael Brown and Jennifer
-Anderson, and is required before the Lab 2 screenshot tests under **Test**:
+Lab 2 set below is separate and optional: it fills My Tickets for Michael Brown
+and Jennifer Anderson for trying the application by hand. No test depends on
+it — since Issue #34 the screenshot tests raise the tickets they photograph:
 
 ```bash
 cd server
@@ -94,7 +96,10 @@ It gives Michael Brown 13 tickets (two pages at the default page size),
 Jennifer Anderson 3, and leaves the other two Requesters empty so the empty
 state can be seen. Safe to re-run: it clears its own previous tickets first.
 
-## Lab 3 so far
+## Lab 3
+
+Issue #28 — the sprint specification and test plan in `docs/lab-03/`, written
+before any code.
 
 Issue #29 — authentication foundation:
 
@@ -174,6 +179,14 @@ Issue #34 — end-to-end, responsive and visual QA:
   opens the application instead of showing the form a second time.
 * The Lab 2 end-to-end tests sign in instead of choosing a Requester.
 
+Issue #35 — release integration: the peer review record and the AI-use
+reflection (`docs/lab-03/reviewer.md`, `docs/lab-03/ai-use.md`), this README,
+and the final test results in `docs/lab-03/tests.md` §7.
+
+Everything in the Lab 3 sprint scope is implemented, tested and documented.
+Each Issue was merged into `lab3-staging` through a peer-reviewed Pull Request,
+and `lab3-staging` is merged into `main` by the release Pull Request.
+
 ### Development sign-in credentials
 
 Every seeded account uses the same **local-development password**:
@@ -240,20 +253,25 @@ migration.
 
 ## Documentation
 
-The sprint documents live under `docs/lab-02/`:
+The Lab 3 sprint documents live under `docs/lab-03/`:
 
 | File | What it holds |
 |---|---|
-| `specification.md` | Scope, functional requirements, business rules BR-01–BR-40, acceptance criteria AC-01–AC-17, data changes, definition of done |
-| `api-spec.md` | The ten endpoints, their request/response shapes, and the error envelope |
-| `ui-spec.md` | Zen Green design tokens, every screen and state, responsive rules, accessibility rules |
-| `tests.md` | Every planned test with its id, the AC and BR traceability tables, the responsive checklist, and the recorded result of each run |
+| `specification.md` | Scope, functional requirements FR-01–FR-26, business rules BR-01–BR-45, acceptance criteria AC-01–AC-28, data and migration changes, definition of done |
+| `api-spec.md` | The authentication, staff, comment, note and user-management endpoints, their request/response shapes, the authorization gates, and the error envelope |
+| `ui-spec.md` | Zen Green additions, every Lab 3 screen and state, responsive rules, accessibility additions, and the visual checklist |
+| `tests.md` | Every planned test with its id, the AC and BR traceability tables, the responsive checklist, and the recorded result of each issue |
 | `reviewer.md` | Peer review record — who reviewed what, the comments given and received, and the responses |
 | `ai-use.md` | Which AI agent was used, the key prompts, and reflection on working with it |
 
-Test evidence sits alongside them: `server/tests/lab-02/`,
-`client/tests/lab-02/`, `e2e/lab-02/`, and the responsive screenshots in
-`artifacts/lab-02/screenshots/`.
+Test evidence sits alongside them: `server/tests/lab-03/`,
+`client/tests/lab-03/`, `e2e/lab-03/`, and the screenshots in
+`artifacts/lab-03/screenshots/` (`authentication/`, `staff-queue/`,
+`staff-ticket-detail/`, `user-management/`).
+
+The earlier sprints keep their own records, unchanged: `docs/lab-01/` and
+`docs/lab-02/`, with the Lab 2 test evidence in `server/tests/lab-02/`,
+`client/tests/lab-02/`, `e2e/lab-02/` and `artifacts/lab-02/screenshots/`.
 
 ## Prerequisites
 

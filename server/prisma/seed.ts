@@ -4,7 +4,7 @@ import { getPrisma } from "../src/prisma.js";
 import { nextTicketNumber } from "../src/ticketNumber.js";
 
 // Lab 3, Issue #29 — the one local-development password every seeded account
-// uses. BR-46: development-only, documented in the README, never a real
+// uses. BR-45: development-only, documented in the README, never a real
 // personal password, and never a production credential.
 const DEV_PASSWORD = "ChangeMe123!";
 
@@ -62,7 +62,7 @@ async function main() {
   // flag is migration evidence (MIG-03) and must survive a re-seed. On a fresh
   // clone the same five rows are created here instead.
   //
-  // BR-46: every password below is the same documented local-development
+  // BR-45: every password below is the same documented local-development
   // value. It is not a secret, it is not anyone's real password, and it is
   // recorded in the README.
   const password = await hashPassword(DEV_PASSWORD);
