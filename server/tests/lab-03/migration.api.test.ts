@@ -277,7 +277,7 @@ describe("Lab 2 to Lab 3 migration", () => {
 });
 
 // ---------------------------------------------------------------------------
-// The seed (handout §5.3, BR-46), against a database of its own.
+// The seed (handout §5.3, BR-45), against a database of its own.
 //
 // These used to run against the developer database, which made them assert
 // state the application itself changes: once IT Staff can claim a Ticket or
@@ -333,7 +333,7 @@ describe("seed data", () => {
     }
   });
 
-  it("MIG-10 / BR-46: seeds the account mix the handout requires", async () => {
+  it("MIG-10 / BR-45: seeds the account mix the handout requires", async () => {
     const counts = await prisma.user.groupBy({
       by: ["role", "isActive"],
       _count: true,
@@ -434,7 +434,7 @@ describe("seed data", () => {
     expect(response.headers["content-type"]).toMatch(/application\/json/);
   });
 
-  it("MIG-09 / BR-46: running the seed twice changes nothing", async () => {
+  it("MIG-09 / BR-45: running the seed twice changes nothing", async () => {
     // The block has already seeded once, so this is the second run — the one
     // an idempotency claim is actually about.
     const before = {

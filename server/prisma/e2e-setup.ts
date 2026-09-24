@@ -30,7 +30,7 @@ const fixtures = JSON.parse(
 async function main(): Promise<void> {
   const prisma = getPrisma();
 
-  // BR-46 in spirit: a development-only password, written in the repository on
+  // BR-45 in spirit: a development-only password, written in the repository on
   // purpose, for accounts that exist only while the suite runs.
   const passwordHash = await hashPassword(fixtures.password);
   for (const account of Object.values(fixtures.accounts)) {
