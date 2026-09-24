@@ -2,39 +2,44 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import request from "supertest";
 import { app } from "../../src/app.js";
 import { getPrisma } from "../../src/prisma.js";
+import { signIn } from "../support/session.js";
+import { upsertTestUser } from "../support/users.js";
 
 // tests.md API-DETAIL-01..04; specification.md FR-09, BR-11, BR-12, BR-29, BR-38;
 // api-spec.md §4 (GET /api/tickets/:id).
 // Requires a migrated + seeded test database (see README §Testing).
+//
+// Lab 3, Issue #30 — this suite is also part of the evidence for
+// `docs/lab-03/tests.md` MIG-08: every Lab 2 Requester endpoint still behaves
+// as `docs/lab-02/api-spec.md` describes once identity comes from the session,
+// the one deliberate change being that a missing identity is now 401 rather
+// than 400 (BR-44, AC-08).
 
 const prisma = getPrisma();
 
 let ownerId = 0;
 let otherId = 0;
+let ownerCookie = "";
+let otherCookie = "";
 let ticketId = 0;
 let foreignTicketId = 0;
 let activeAttachmentId = 0;
 let removedAttachmentId = 0;
 
-const get = (id: number | string, requesterId: number | null = ownerId) => {
+// Lab 3, Issue #30: identity is a session cookie (api-spec.md §1).
+const get = (id: number | string, cookie: string | null = ownerCookie) => {
   const req = request(app).get(`/api/tickets/${id}`);
-  if (requesterId !== null) req.set("X-Requester-Id", String(requesterId));
+  if (cookie !== null) req.set("Cookie", cookie);
   return req;
 };
 
 beforeAll(async () => {
-  const owner = await prisma.requester.upsert({
-    where: { email: "detail.owner@test.invalid" },
-    update: { isActive: true },
-    create: { name: "Detail Owner", email: "detail.owner@test.invalid" },
-  });
-  const other = await prisma.requester.upsert({
-    where: { email: "detail.other@test.invalid" },
-    update: { isActive: true },
-    create: { name: "Detail Other", email: "detail.other@test.invalid" },
-  });
+  const owner = await upsertTestUser({ email: "detail.owner@test.invalid", name: "Detail Owner" });
+  const other = await upsertTestUser({ email: "detail.other@test.invalid", name: "Detail Other" });
   ownerId = owner.id;
   otherId = other.id;
+  ownerCookie = await signIn(owner.email);
+  otherCookie = await signIn(other.email);
 
   const category = await prisma.category.findFirstOrThrow({ where: { isActive: true } });
   const system = await prisma.relatedSystem.findFirstOrThrow({ where: { isActive: true } });
@@ -97,7 +102,7 @@ afterAll(async () => {
   const ids = [ownerId, otherId];
   await prisma.attachment.deleteMany({ where: { ticket: { requesterId: { in: ids } } } });
   await prisma.ticket.deleteMany({ where: { requesterId: { in: ids } } });
-  await prisma.requester.deleteMany({ where: { id: { in: ids } } });
+  await prisma.user.deleteMany({ where: { id: { in: ids } } });
 });
 
 describe("GET /api/tickets/:id", () => {
@@ -157,28 +162,39 @@ describe("GET /api/tickets/:id", () => {
   });
 
   it("API-DETAIL-02: the owner of that ticket can still read it — the rule is ownership, not hiding", async () => {
-    const response = await get(foreignTicketId, otherId);
+    const response = await get(foreignTicketId, otherCookie);
 
     expect(response.status).toBe(200);
     expect(response.body.data.ticketNumber).toBe("TKT-2095-000002");
   });
 
-  it("API-DETAIL-04: a missing or unusable X-Requester-Id header is a 400 (api-spec.md §1)", async () => {
-    expect((await get(ticketId, null)).status).toBe(400);
+  it("API-DETAIL-04 / MIG-07, AC-25: no session is 401, and the Lab 2 header opens nothing", async () => {
+    // Rewritten for Lab 3: the header this case was built around is no longer
+    // read, so the failures it described cannot occur. What replaces them is
+    // the one refusal that matters — an unresolvable identity gets 401, and a
+    // header on its own gets a caller nowhere.
+    const noSession = await get(ticketId, null);
+    expect(noSession.status).toBe(401);
+    expect(noSession.body.error.code).toBe("UNAUTHENTICATED");
 
-    for (const bad of ["abc", "0", "-1", "1e21"]) {
-      const response = await request(app).get(`/api/tickets/${ticketId}`).set("X-Requester-Id", bad);
-      expect(response.status, `header ${bad}`).toBe(400);
-      expect(response.body.error.code).toBe("VALIDATION_ERROR");
+    for (const cookie of ["tt_session=deadbeef", "tt_session="]) {
+      const response = await request(app).get(`/api/tickets/${ticketId}`).set("Cookie", cookie);
+      expect(response.status, cookie).toBe(401);
     }
 
-    // A header naming nobody, or an inactive Requester, is equally unusable.
-    const unknown = await get(ticketId, 999999);
-    expect(unknown.status).toBe(400);
+    const headerOnly = await request(app)
+      .get(`/api/tickets/${ticketId}`)
+      .set("X-Requester-Id", String(ownerId));
+    expect(headerOnly.status).toBe(401);
 
-    const inactive = await prisma.requester.findFirstOrThrow({ where: { isActive: false } });
-    const asInactive = await get(ticketId, inactive.id);
-    expect(asInactive.status).toBe(400);
+    // With a valid session, a header naming someone else changes nothing
+    // about whose ticket is returned (BR-03, AC-03).
+    const spoofed = await request(app)
+      .get(`/api/tickets/${ticketId}`)
+      .set("Cookie", ownerCookie)
+      .set("X-Requester-Id", String(otherId));
+    expect(spoofed.status).toBe(200);
+    expect(spoofed.body.data.requesterId).toBe(ownerId);
   });
 
   it("an unusable ticket id in the path is a 404, never a 500", async () => {

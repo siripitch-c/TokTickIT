@@ -24,12 +24,17 @@ interface UploadRow {
 }
 
 interface Props {
-  requesterId: number;
   ticketId: number;
   initialAttachments: AttachmentMeta[];
+  /**
+   * Lab 3 ui-spec.md §8.3: Add and Remove belong to the Ticket's Requester.
+   * IT Staff and Administrators see the same rows with Download only (FR-21,
+   * AC-26) — and the server refuses the other two for them regardless.
+   */
+  canManage?: boolean;
 }
 
-export default function AttachmentSection({ requesterId, ticketId, initialAttachments }: Props) {
+export default function AttachmentSection({ ticketId, initialAttachments, canManage = true }: Props) {
   const [attachments, setAttachments] = useState<AttachmentMeta[]>(initialAttachments);
   const [uploads, setUploads] = useState<UploadRow[]>([]);
   const [adding, setAdding] = useState(false);
@@ -57,7 +62,7 @@ export default function AttachmentSection({ requesterId, ticketId, initialAttach
 
   async function startUpload(row: UploadRow) {
     try {
-      const created = await uploadAttachment(requesterId, ticketId, row.file);
+      const created = await uploadAttachment(ticketId, row.file);
       setAttachments((current) => [...current, created]);
       setUploads((current) => current.filter((u) => u.key !== row.key));
     } catch (error) {
@@ -116,7 +121,7 @@ export default function AttachmentSection({ requesterId, ticketId, initialAttach
   async function handleDownload(attachment: AttachmentMeta) {
     setActionError(null);
     try {
-      await downloadAttachment(requesterId, attachment);
+      await downloadAttachment(attachment);
     } catch (error) {
       setActionError(
         error instanceof ApiError ? error.message : "That file could not be downloaded. Please try again.",
@@ -145,7 +150,7 @@ export default function AttachmentSection({ requesterId, ticketId, initialAttach
     setRemoving(true);
     setReasonError(null);
     try {
-      const updated = await removeAttachment(requesterId, removeTarget.id, trimmed);
+      const updated = await removeAttachment(removeTarget.id, trimmed);
       setAttachments((current) => current.map((a) => (a.id === updated.id ? updated : a)));
       setRemoveTarget(null);
     } catch (error) {
@@ -161,28 +166,30 @@ export default function AttachmentSection({ requesterId, ticketId, initialAttach
     <section data-testid="attachment-section" className="zg-section">
       <div className="zg-section-header">
         <h2 className="zg-text-lg">Attachments ({activeCount} active)</h2>
-        <button
-          type="button"
-          className="zg-btn--secondary"
-          disabled={atLimit}
-          title={atLimit ? LIMIT_MESSAGE : "Add an attachment to this ticket"}
-          onClick={() => setAdding((open) => !open)}
-        >
-          + Add Attachment
-        </button>
+        {canManage && (
+          <button
+            type="button"
+            className="zg-btn--secondary"
+            disabled={atLimit}
+            title={atLimit ? LIMIT_MESSAGE : "Add an attachment to this ticket"}
+            onClick={() => setAdding((open) => !open)}
+          >
+            + Add Attachment
+          </button>
+        )}
       </div>
 
       {/* §7.1 asks the disabled control to explain why. A `title` alone does
           not: Chrome suppresses tooltips on disabled form controls, so the
           explanation has to be on the page. The attribute stays for the
           browsers that do show it. */}
-      {atLimit && (
+      {canManage && atLimit && (
         <p data-testid="zg-attachment-limit" className="zg-text-sm zg-text-muted">
           {LIMIT_MESSAGE}
         </p>
       )}
 
-      {adding && (
+      {canManage && adding && (
         <div
           data-testid="zg-dropzone"
           className="zg-dropzone"
@@ -249,15 +256,17 @@ export default function AttachmentSection({ requesterId, ticketId, initialAttach
                 >
                   Download
                 </button>
-                <button
-                  type="button"
-                  className="zg-btn--destructive"
-                  title={`Remove ${attachment.originalFilename}`}
-                  aria-label={`Remove ${attachment.originalFilename}`}
-                  onClick={() => openRemove(attachment)}
-                >
-                  &#10005;
-                </button>
+                {canManage && (
+                  <button
+                    type="button"
+                    className="zg-btn--destructive"
+                    title={`Remove ${attachment.originalFilename}`}
+                    aria-label={`Remove ${attachment.originalFilename}`}
+                    onClick={() => openRemove(attachment)}
+                  >
+                    &#10005;
+                  </button>
+                )}
               </span>
             </li>
           ) : (

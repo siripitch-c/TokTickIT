@@ -2,7 +2,8 @@ import { execSync } from "node:child_process";
 
 // Issue #17 — the end-to-end suite creates real tickets in the real database.
 // This hands them back afterwards, so running the suite is not a slow way of
-// filling My Tickets with noise. The work itself lives in the server package,
+// filling My Tickets with noise. Lab 3 (Issue #34) adds the `e2e-` accounts the
+// suite signs in as and creates. The work itself lives in the server package,
 // where Prisma and DATABASE_URL are already configured.
 export default function globalTeardown(): void {
   try {

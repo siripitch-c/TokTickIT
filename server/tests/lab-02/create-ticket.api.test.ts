@@ -2,15 +2,24 @@ import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from "vitest
 import request from "supertest";
 import { app } from "../../src/app.js";
 import { getPrisma } from "../../src/prisma.js";
+import { signIn } from "../support/session.js";
+import { upsertTestUser } from "../support/users.js";
 import { TICKET_NUMBER_PATTERN } from "../../src/ticketNumber.js";
 
 // tests.md API-CREATE-01..10; specification.md BR-01..03, BR-10, BR-19..24;
 // api-spec.md §4 (POST /api/tickets).
 // Requires a migrated + seeded test database (see README §Testing).
+//
+// Lab 3, Issue #30 — this suite is also part of the evidence for
+// `docs/lab-03/tests.md` MIG-08: every Lab 2 Requester endpoint still behaves
+// as `docs/lab-02/api-spec.md` describes once identity comes from the session,
+// the one deliberate change being that a missing identity is now 401 rather
+// than 400 (BR-44, AC-08).
 
 const prisma = getPrisma();
 
 let requesterId = 0;
+let ownerCookie = "";
 let otherRequesterId = 0;
 let categoryId = 0;
 let relatedSystemId = 0;
@@ -23,37 +32,23 @@ const validBody = () => ({
   requestedPriority: "MEDIUM",
 });
 
-const post = (body: unknown, id: number | null = requesterId) => {
+// Lab 3, Issue #30: identity is a session cookie (api-spec.md §1).
+const post = (body: unknown, cookie: string | null = ownerCookie) => {
   const req = request(app).post("/api/tickets");
-  if (id !== null) req.set("X-Requester-Id", String(id));
+  if (cookie !== null) req.set("Cookie", cookie);
   return req.send(body as object);
 };
 
 beforeAll(async () => {
   // Dedicated throwaway Requesters so these tests never pollute the ticket
   // lists of the seeded demo identities.
-  const owner = await prisma.requester.upsert({
-    where: { email: "create-ticket.owner@test.invalid" },
-    update: { isActive: true },
-    create: { name: "Create Ticket Owner", email: "create-ticket.owner@test.invalid" },
-  });
-  const other = await prisma.requester.upsert({
-    where: { email: "create-ticket.other@test.invalid" },
-    update: { isActive: true },
-    create: { name: "Create Ticket Other", email: "create-ticket.other@test.invalid" },
-  });
+  const owner = await upsertTestUser({ email: "create-ticket.owner@test.invalid", name: "Create Ticket Owner" });
+  const other = await upsertTestUser({ email: "create-ticket.other@test.invalid", name: "Create Ticket Other" });
   requesterId = owner.id;
   otherRequesterId = other.id;
+  ownerCookie = await signIn(owner.email);
 
-  await prisma.requester.upsert({
-    where: { email: "create-ticket.inactive@test.invalid" },
-    update: { isActive: false },
-    create: {
-      name: "Create Ticket Inactive",
-      email: "create-ticket.inactive@test.invalid",
-      isActive: false,
-    },
-  });
+  await upsertTestUser({ email: "create-ticket.inactive@test.invalid", name: "Create Ticket Inactive", isActive: false });
 
   const category = await prisma.category.findFirst({ where: { isActive: true } });
   const relatedSystem = await prisma.relatedSystem.findFirst({ where: { isActive: true } });
@@ -67,13 +62,13 @@ afterEach(() => {
 });
 
 afterAll(async () => {
-  const inactive = await prisma.requester.findUnique({
+  const inactive = await prisma.user.findUnique({
     where: { email: "create-ticket.inactive@test.invalid" },
   });
   const ids = [requesterId, otherRequesterId, ...(inactive ? [inactive.id] : [])];
   await prisma.attachment.deleteMany({ where: { ticket: { requesterId: { in: ids } } } });
   await prisma.ticket.deleteMany({ where: { requesterId: { in: ids } } });
-  await prisma.requester.deleteMany({ where: { id: { in: ids } } });
+  await prisma.user.deleteMany({ where: { id: { in: ids } } });
 });
 
 describe("POST /api/tickets", () => {
@@ -92,12 +87,20 @@ describe("POST /api/tickets", () => {
     expect(saved!.requesterId).toBe(requesterId);
   });
 
-  it("API-CREATE-02: a new Ticket defaults to currentStatus NEW with itPriority unset (BR-02)", async () => {
+  it("API-CREATE-02: a new Ticket defaults to currentStatus NEW, with IT Priority starting as the Requested Priority (BR-02, Lab 3 BR-29)", async () => {
     const response = await post(validBody());
 
     expect(response.status).toBe(201);
     expect(response.body.data.currentStatus).toBe("NEW");
-    expect(response.body.data.itPriority).toBeNull();
+    // Lab 3, Issue #32 — deliberately updated, per the Definition of Done's
+    // allowance for Lab 2 tests that change with a recorded reason. Lab 2 left
+    // IT Priority unset; lab-03 specification.md BR-29 initialises it from the
+    // Requested Priority, so a new Ticket reaches the staff queue already
+    // sortable by it. The Requester still cannot choose it (API-CREATE-03).
+    expect(response.body.data.itPriority).toBe(validBody().requestedPriority);
+    // Lab 3 BR-27: and it starts unassigned.
+    expect(response.body.data.ownerId).toBeNull();
+    expect(response.body.data.owner).toBeNull();
   });
 
   it("API-CREATE-03: client-supplied system fields are ignored, not trusted (BR-03, BR-10)", async () => {
@@ -116,7 +119,9 @@ describe("POST /api/tickets", () => {
     // Ownership comes from the header (BR-10), never from the body.
     expect(ticket.requesterId).toBe(requesterId);
     expect(ticket.ticketNumber).not.toBe("TKT-1999-000001");
-    expect(ticket.itPriority).toBeNull();
+    // Lab 3, Issue #32: IT Priority now starts as the Requested Priority
+    // (BR-29), and the body's "HIGH" is still ignored rather than trusted.
+    expect(ticket.itPriority).toBe("MEDIUM");
     expect(new Date(ticket.createdAt).getFullYear()).toBeGreaterThan(1999);
   });
 
@@ -127,7 +132,7 @@ describe("POST /api/tickets", () => {
     for (const method of ["put", "patch"] as const) {
       const response = await request(app)
         [method](`/api/tickets/${id}`)
-        .set("X-Requester-Id", String(requesterId))
+        .set("Cookie", ownerCookie)
         .send({ requesterId: otherRequesterId });
       expect(response.status).toBe(404);
     }
@@ -250,31 +255,46 @@ describe("POST /api/tickets", () => {
     expect(await prisma.ticket.findFirst({ where: { summary: "Simulated failure ticket" } })).toBeNull();
   });
 
-  it("API-CREATE-11: an X-Requester-Id that names nobody is rejected, not answered with a 500", async () => {
+  it("API-CREATE-11 / MIG-07: an unusable identity is refused, never answered with a 500", async () => {
+    // Rewritten for Lab 3. The Lab 2 version sent an `X-Requester-Id` naming
+    // nobody and expected 400; a client can no longer name anybody at all, so
+    // the equivalent failure is a session that does not resolve. What carries
+    // over is the point: bad identity is handled, and is never a server fault.
     const before = await prisma.ticket.count();
 
-    const response = await post(validBody(), 999999);
+    for (const cookie of ["tt_session=deadbeef", "tt_session=", "tt_session=999999"]) {
+      const response = await request(app).post("/api/tickets").set("Cookie", cookie).send(validBody());
+      expect(response.status, cookie).toBe(401);
+      expect(response.body.error.code).toBe("UNAUTHENTICATED");
+    }
 
-    // A client sending an id that does not exist is bad input, not an
-    // unexpected server fault — api-spec.md reserves 500 for the latter.
-    expect(response.status).toBe(400);
-    expect(response.body.error.code).toBe("VALIDATION_ERROR");
     expect(await prisma.ticket.count()).toBe(before);
   });
 
-  it("API-CREATE-12: an inactive Requester cannot create a Ticket (BR-05, BR-35, BR-11)", async () => {
-    const inactive = await prisma.requester.findUniqueOrThrow({
-      where: { email: "create-ticket.inactive@test.invalid" },
+  it("API-CREATE-12 / BR-01, BR-12: a deactivated Requester cannot create a Ticket, even holding a session", async () => {
+    // Stronger than the Lab 2 version, which only proved an inactive id was
+    // refused. Here the account signs in while active, is then deactivated,
+    // and the session it already holds stops working on the next request.
+    const victim = await upsertTestUser({
+      email: "create-ticket.deactivated@test.invalid",
+      name: "Create Ticket Deactivated",
     });
+    const cookie = await signIn(victim.email);
     const before = await prisma.ticket.count();
 
-    const response = await post(validBody(), inactive.id);
+    expect((await post(validBody(), cookie)).status).toBe(201);
 
-    // The selector can never offer this identity, and BR-11 does not allow
-    // that to be the only place the rule is enforced.
-    expect(response.status).toBe(400);
-    expect(response.body.error.code).toBe("VALIDATION_ERROR");
-    expect(await prisma.ticket.count()).toBe(before);
+    await prisma.user.update({ where: { id: victim.id }, data: { isActive: false } });
+
+    const afterDeactivation = await post(validBody(), cookie);
+    expect(afterDeactivation.status).toBe(401);
+    expect(await prisma.ticket.count()).toBe(before + 1);
+
+    // An inactive account cannot sign in again either (BR-01).
+    await expect(signIn(victim.email)).rejects.toThrow();
+
+    await prisma.ticket.deleteMany({ where: { requesterId: victim.id } });
+    await prisma.user.delete({ where: { id: victim.id } });
   });
 
   it("API-CREATE-13: ids outside the 32-bit Int range are bad input, not a 500", async () => {
@@ -292,9 +312,6 @@ describe("POST /api/tickets", () => {
       expect(system.status, `relatedSystemId ${value}`).toBe(400);
       expect(system.body.error.code).toBe("INVALID_RELATED_SYSTEM");
 
-      const header = await post(validBody(), value);
-      expect(header.status, `X-Requester-Id ${value}`).toBe(400);
-      expect(header.body.error.code).toBe("VALIDATION_ERROR");
     }
 
     // The largest id the column can actually hold is still parsed, and simply
@@ -306,14 +323,15 @@ describe("POST /api/tickets", () => {
     expect(await prisma.ticket.count()).toBe(before);
   });
 
-  it("rejects a missing or unusable X-Requester-Id header with 400 (api-spec.md §1)", async () => {
-    expect((await post(validBody(), null)).status).toBe(400);
+  it("MIG-07 / AC-25: no session is 401, and the Lab 2 header opens nothing", async () => {
+    const noSession = await post(validBody(), null);
+    expect(noSession.status).toBe(401);
+    expect(noSession.body.error.code).toBe("UNAUTHENTICATED");
 
-    const notANumber = await request(app)
+    const headerOnly = await request(app)
       .post("/api/tickets")
-      .set("X-Requester-Id", "abc")
+      .set("X-Requester-Id", String(requesterId))
       .send(validBody());
-    expect(notANumber.status).toBe(400);
-    expect(notANumber.body.error.code).toBe("VALIDATION_ERROR");
+    expect(headerOnly.status).toBe(401);
   });
 });

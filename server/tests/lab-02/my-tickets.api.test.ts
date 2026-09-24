@@ -2,15 +2,28 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import request from "supertest";
 import { app } from "../../src/app.js";
 import { getPrisma } from "../../src/prisma.js";
+import { signIn } from "../support/session.js";
+import { upsertTestUser } from "../support/users.js";
 
 // tests.md API-LIST-01..11; specification.md FR-05..FR-08, BR-11..BR-18;
 // api-spec.md §4 (GET /api/tickets).
 // Requires a migrated + seeded test database (see README §Testing).
+//
+// Lab 3, Issue #30 — this suite is also part of the evidence for
+// `docs/lab-03/tests.md` MIG-08: every Lab 2 Requester endpoint still behaves
+// as `docs/lab-02/api-spec.md` describes once identity comes from the session,
+// the one deliberate change being that a missing identity is now 401 rather
+// than 400 (BR-44, AC-08).
 
 const prisma = getPrisma();
 
 let ownerId = 0;
 let otherId = 0;
+// Lab 3, Issue #30: identity is a session cookie now, not a header. The
+// fixtures sign in during beforeAll and the request helpers replay what they
+// got back (api-spec.md §1).
+let ownerCookie = "";
+let otherCookie = "";
 let categoryA = 0;
 let categoryB = 0;
 let systemId = 0;
@@ -20,27 +33,21 @@ let systemId = 0;
 const OWNER_TICKETS = 12;
 const OTHER_TICKETS = 3;
 
-const list = (query = "", id: number | null = ownerId) => {
+const list = (query = "", cookie: string | null = ownerCookie) => {
   const req = request(app).get(`/api/tickets${query}`);
-  if (id !== null) req.set("X-Requester-Id", String(id));
+  if (cookie !== null) req.set("Cookie", cookie);
   return req;
 };
 
 const numbersOf = (body: { data: { ticketNumber: string }[] }) => body.data.map((t) => t.ticketNumber);
 
 beforeAll(async () => {
-  const owner = await prisma.requester.upsert({
-    where: { email: "my-tickets.owner@test.invalid" },
-    update: { isActive: true },
-    create: { name: "My Tickets Owner", email: "my-tickets.owner@test.invalid" },
-  });
-  const other = await prisma.requester.upsert({
-    where: { email: "my-tickets.other@test.invalid" },
-    update: { isActive: true },
-    create: { name: "My Tickets Other", email: "my-tickets.other@test.invalid" },
-  });
+  const owner = await upsertTestUser({ email: "my-tickets.owner@test.invalid", name: "My Tickets Owner" });
+  const other = await upsertTestUser({ email: "my-tickets.other@test.invalid", name: "My Tickets Other" });
   ownerId = owner.id;
   otherId = other.id;
+  ownerCookie = await signIn(owner.email);
+  otherCookie = await signIn(other.email);
 
   const categories = await prisma.category.findMany({ where: { isActive: true }, orderBy: { id: "asc" }, take: 2 });
   const system = await prisma.relatedSystem.findFirst({ where: { isActive: true } });
@@ -88,7 +95,7 @@ afterAll(async () => {
   const ids = [ownerId, otherId];
   await prisma.attachment.deleteMany({ where: { ticket: { requesterId: { in: ids } } } });
   await prisma.ticket.deleteMany({ where: { requesterId: { in: ids } } });
-  await prisma.requester.deleteMany({ where: { id: { in: ids } } });
+  await prisma.user.deleteMany({ where: { id: { in: ids } } });
 });
 
 describe("GET /api/tickets", () => {
@@ -104,7 +111,7 @@ describe("GET /api/tickets", () => {
 
     // The other Requester sees their own three and nothing of the owner's,
     // even though both sets match the same search terms.
-    const foreign = await list("?pageSize=50", otherId);
+    const foreign = await list("?pageSize=50", otherCookie);
     expect(foreign.body.data).toHaveLength(OTHER_TICKETS);
     expect(numbersOf(foreign.body).every((n) => n.startsWith("TKT-2098-"))).toBe(true);
   });
@@ -113,6 +120,25 @@ describe("GET /api/tickets", () => {
     const response = await list("?pageSize=10");
     const row = response.body.data[0];
 
+    // Lab 3, Issue #29 — deliberately updated, per the Definition of Done's
+    // allowance for Lab 2 tests that change with a recorded reason.
+    //
+    // `ownerId` and `requesterResolvedAt` are new columns (lab-03 BR-25,
+    // BR-34). They appear here because lab-03/api-spec.md §5 defines a single
+    // Ticket object for every role — "one shape to test and no branch that
+    // could leak by mistake" — so the Requester's list carries them too. They
+    // are both null for a Requester's own unclaimed ticket, and neither says
+    // anything the Requester may not know: who is working on their ticket, and
+    // whether they themselves reported it resolved.
+    //
+    // The assertion stays exhaustive rather than becoming a subset check. Its
+    // job is to fail when the response shape moves, and this run is exactly
+    // that job being done.
+    //
+    // Issue #32 moved it once more, for the same reason: `requester` and
+    // `owner` are the actor summaries of lab-03/api-spec.md §5 — id, name and
+    // role, never an email — which every endpoint returning a Ticket now
+    // includes, so the one Ticket shape really is one.
     expect(Object.keys(row).sort()).toEqual([
       "categoryId",
       "createdAt",
@@ -120,13 +146,19 @@ describe("GET /api/tickets", () => {
       "description",
       "id",
       "itPriority",
+      "owner",
+      "ownerId",
       "relatedSystemId",
       "requestedPriority",
+      "requester",
       "requesterId",
+      "requesterResolvedAt",
       "summary",
       "ticketNumber",
       "updatedAt",
     ]);
+    expect(row.requester).toEqual({ id: ownerId, name: "My Tickets Owner", role: "REQUESTER" });
+    expect(row.owner).toBeNull();
     expect(response.body.pagination).toEqual({
       page: 1,
       pageSize: 10,
@@ -339,13 +371,28 @@ describe("GET /api/tickets", () => {
     expect(noMatch.body.pagination.totalItems).toBe(0);
   });
 
-  it("requires a usable X-Requester-Id header (api-spec.md §1)", async () => {
-    expect((await list("", null)).status).toBe(400);
+  it("MIG-07 / AC-25, BR-03: identity comes from the session, and the Lab 2 header is ignored", async () => {
+    // Rewritten for Lab 3. The Lab 2 version of this case asserted that a bad
+    // `X-Requester-Id` was a 400; that contract no longer exists, so asserting
+    // it would be testing a rule the product does not have.
+    const noSession = await list("", null);
+    expect(noSession.status).toBe(401);
+    expect(noSession.body.error.code).toBe("UNAUTHENTICATED");
 
-    for (const bad of ["abc", "0", "-1", "999999", "1e21"]) {
+    // The header is not merely unusable — it is not read at all. Sending one
+    // that names another Requester changes nothing about whose tickets come
+    // back (BR-03, AC-03).
+    const spoofed = await request(app)
+      .get("/api/tickets?pageSize=50")
+      .set("Cookie", ownerCookie)
+      .set("X-Requester-Id", String(otherId));
+    expect(spoofed.status).toBe(200);
+    expect(spoofed.body.data).toHaveLength(OWNER_TICKETS);
+
+    // And with no session, a header alone opens nothing.
+    for (const bad of ["abc", "0", "-1", "999999", String(ownerId)]) {
       const response = await request(app).get("/api/tickets").set("X-Requester-Id", bad);
-      expect(response.status, `header ${bad}`).toBe(400);
-      expect(response.body.error.code).toBe("VALIDATION_ERROR");
+      expect(response.status, `header ${bad}`).toBe(401);
     }
   });
 });

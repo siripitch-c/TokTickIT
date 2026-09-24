@@ -3,22 +3,9 @@ const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 // ---------------------------------------------------------------------------
 // Issue #12 — Data model foundation & Requester context
 // ---------------------------------------------------------------------------
-export interface Requester {
-  id: number;
-  name: string;
-}
-
-// api-spec.md §3: GET /api/requesters -> { data: [...] }, active only, no
-// requester context header required. Throws on any non-2xx response so the
-// caller can show BR-08's safe error state.
-export async function fetchRequesters(): Promise<Requester[]> {
-  const res = await fetch(`${API_URL}/api/requesters`);
-  if (!res.ok) {
-    throw new Error("Failed to load Development Requesters");
-  }
-  const body = await res.json();
-  return body.data as Requester[];
-}
+// The `Requester` type and `fetchRequesters` are gone with the Development
+// Requester selector: `GET /api/requesters` no longer exists (api-spec.md §6,
+// AC-25). The signed-in user is `AuthUser`, further down.
 
 // ---------------------------------------------------------------------------
 // Issue #13 — Create Ticket
@@ -51,10 +38,17 @@ export interface Ticket {
   description: string;
   requestedPriority: RequestedPriority;
   itPriority: RequestedPriority | null;
-  currentStatus: "NEW";
+  // Any of the eight (BR-30): a Requester's own Ticket moves through them too.
+  currentStatus: CurrentStatus;
   createdAt: string;
   updatedAt: string;
   attachments: AttachmentMeta[];
+  // Lab 3, Issue #32 — api-spec.md §5's one Ticket object for every role. The
+  // people on it are actor summaries: id, name and role, never an email.
+  requester: ActorSummary;
+  ownerId: number | null;
+  owner: ActorSummary | null;
+  requesterResolvedAt: string | null;
 }
 
 export interface NewTicket {
@@ -86,10 +80,35 @@ export class ApiError extends Error {
 
 const SAFE_FALLBACK_MESSAGE = "Something went wrong. Please try again.";
 
+// Lab 3, Issue #34 — a session can end while it is in use: an Administrator
+// deactivates the account or sets a new initial password (BR-12), or it
+// expires. The server then answers the next protected request with 401
+// `UNAUTHENTICATED`, and no screen can recover from that by retrying, so the
+// application is told once, here, where every such answer passes. A refused
+// login is `INVALID_CREDENTIALS`, and `GET /me` handles its own 401, so neither
+// reaches this.
+const sessionEndedListeners = new Set<() => void>();
+
+/** Subscribes to "the server no longer recognises this session". Returns the unsubscribe. */
+export function onSessionEnded(listener: () => void): () => void {
+  sessionEndedListeners.add(listener);
+  return () => {
+    sessionEndedListeners.delete(listener);
+  };
+}
+
+async function toApiError(response: Response): Promise<ApiError> {
+  const error = await readApiError(response);
+  if (error.status === 401 && error.code === "UNAUTHENTICATED") {
+    sessionEndedListeners.forEach((listener) => listener());
+  }
+  return error;
+}
+
 // api-spec.md §1: every non-2xx carries { error: { code, message, field? } }.
 // A response that fails to parse still has to surface as a safe ApiError
 // rather than a raw crash (BR-24's "safe error" requirement).
-async function toApiError(response: Response): Promise<ApiError> {
+async function readApiError(response: Response): Promise<ApiError> {
   try {
     const body = await response.json();
     const error = body?.error;
@@ -102,14 +121,24 @@ async function toApiError(response: Response): Promise<ApiError> {
   return new ApiError(response.status, "INTERNAL_ERROR", SAFE_FALLBACK_MESSAGE);
 }
 
-// The Lab 2 Development Requester context header (api-spec.md §1) — a testing
-// mechanism, not authentication (BR-04/BR-40).
-function requesterHeaders(requesterId: number): Record<string, string> {
-  return { "X-Requester-Id": String(requesterId) };
-}
+// Lab 3, Issue #30 — every Requester-scoped call now carries the session
+// cookie instead of an `X-Requester-Id` header. `credentials: "include"` is
+// what makes the browser send it across origins (client :5173, API :3000), so
+// a call that forgets it is not merely insecure — it is unauthenticated
+// (api-spec.md §1, BR-03).
+const withSession: RequestInit = { credentials: "include" };
 
+// Categories and Related Systems stay public (api-spec.md §3): they are
+// neither personal nor sensitive, and the Create Ticket screen needs them
+// before anything role-specific happens.
+//
+// They are still sent with the session, because api-spec.md §1 makes that the
+// client's rule for *every* request, not only the protected ones. §3 says the
+// server does not require a session here; it does not say the client must
+// withhold one. Two fetch shapes would be a standing invitation to reach for
+// the wrong one on an endpoint that later stops being public.
 async function fetchReference(path: string): Promise<ReferenceItem[]> {
-  const res = await fetch(`${API_URL}${path}`);
+  const res = await fetch(`${API_URL}${path}`, { ...withSession });
   if (!res.ok) throw await toApiError(res);
   const body = await res.json();
   return body.data as ReferenceItem[];
@@ -123,10 +152,11 @@ export function fetchRelatedSystems(): Promise<ReferenceItem[]> {
   return fetchReference("/api/related-systems");
 }
 
-export async function createTicket(requesterId: number, ticket: NewTicket): Promise<Ticket> {
+export async function createTicket(ticket: NewTicket): Promise<Ticket> {
   const res = await fetch(`${API_URL}/api/tickets`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...requesterHeaders(requesterId) },
+    ...withSession,
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(ticket),
   });
   if (!res.ok) throw await toApiError(res);
@@ -140,7 +170,6 @@ export async function createTicket(requesterId: number, ticket: NewTicket): Prom
  * rolls back the Ticket or the uploads that already worked.
  */
 export async function uploadAttachment(
-  requesterId: number,
   ticketId: number,
   file: File,
 ): Promise<AttachmentMeta> {
@@ -149,7 +178,7 @@ export async function uploadAttachment(
 
   const res = await fetch(`${API_URL}/api/tickets/${ticketId}/attachments`, {
     method: "POST",
-    headers: requesterHeaders(requesterId),
+    ...withSession,
     body: form,
   });
   if (!res.ok) throw await toApiError(res);
@@ -191,7 +220,6 @@ export interface TicketListQuery {
  * simply left out rather than sent as empty strings for it to ignore.
  */
 export async function fetchTickets(
-  requesterId: number,
   query: TicketListQuery = {},
 ): Promise<{ data: TicketSummary[]; pagination: Pagination }> {
   const params = new URLSearchParams();
@@ -203,7 +231,7 @@ export async function fetchTickets(
 
   const search = params.toString();
   const res = await fetch(`${API_URL}/api/tickets${search ? `?${search}` : ""}`, {
-    headers: requesterHeaders(requesterId),
+    ...withSession,
   });
   if (!res.ok) throw await toApiError(res);
 
@@ -216,9 +244,9 @@ export async function fetchTickets(
 // ---------------------------------------------------------------------------
 
 /** api-spec.md §4: the full Ticket, attachments included, removed ones too (BR-29). */
-export async function fetchTicket(requesterId: number, ticketId: number): Promise<Ticket> {
+export async function fetchTicket(ticketId: number): Promise<Ticket> {
   const res = await fetch(`${API_URL}/api/tickets/${ticketId}`, {
-    headers: requesterHeaders(requesterId),
+    ...withSession,
   });
   if (!res.ok) throw await toApiError(res);
   const body = await res.json();
@@ -230,13 +258,13 @@ export async function fetchTicket(requesterId: number, ticketId: number): Promis
  * so the response is the updated metadata rather than an empty body (BR-29).
  */
 export async function removeAttachment(
-  requesterId: number,
   attachmentId: number,
   removalReason: string,
 ): Promise<AttachmentMeta> {
   const res = await fetch(`${API_URL}/api/attachments/${attachmentId}`, {
     method: "DELETE",
-    headers: { "Content-Type": "application/json", ...requesterHeaders(requesterId) },
+    ...withSession,
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ removalReason }),
   });
   if (!res.ok) throw await toApiError(res);
@@ -245,18 +273,16 @@ export async function removeAttachment(
 }
 
 /**
- * The download endpoint is Requester-scoped, so it needs the X-Requester-Id
- * header — which a plain <a href> cannot send. The file is fetched here and
- * handed to the browser as an object URL instead, which also means a refusal
- * (a removed attachment, someone else's file) surfaces as an ApiError the
- * screen can show rather than as a broken navigation.
+ * The file is fetched here with the session and handed to the browser as an
+ * object URL, rather than linked to directly. A refusal — a removed attachment,
+ * or one on a Ticket the caller may not read — then surfaces as an ApiError the
+ * screen can show, instead of navigating the tab to a JSON error body.
  */
 export async function downloadAttachment(
-  requesterId: number,
   attachment: Pick<AttachmentMeta, "id" | "originalFilename">,
 ): Promise<void> {
   const res = await fetch(`${API_URL}/api/attachments/${attachment.id}/download`, {
-    headers: requesterHeaders(requesterId),
+    ...withSession,
   });
   if (!res.ok) throw await toApiError(res);
 
@@ -273,4 +299,289 @@ export async function downloadAttachment(
     // Released on the next tick so the click has taken the blob first.
     setTimeout(() => URL.revokeObjectURL(url), 0);
   }
+}
+
+// ---------------------------------------------------------------------------
+// Lab 3, Issue #30 — authentication (api-spec.md §4).
+//
+// Every call here sends `credentials: "include"`, which is what makes the
+// browser attach and store the `tt_session` cookie across origins: the client
+// is on :5173 and the API on :3000, so without it the cookie is silently
+// dropped and every request looks unauthenticated (api-spec.md §1).
+// ---------------------------------------------------------------------------
+
+export type Role = "REQUESTER" | "IT_STAFF" | "ADMINISTRATOR";
+
+/** The safe user object of api-spec.md §4 — never carries a password hash. */
+export interface AuthUser {
+  id: number;
+  name: string;
+  email: string;
+  role: Role;
+  isActive: boolean;
+  mustChangePassword: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Lab 2's `ApiError` and `toApiError` above already carry the envelope's
+// `field` through to the screen, which is exactly what ui-spec.md §5 needs for
+// a wrong current password: 400 with `field: "currentPassword"` has to land
+// under that control, not as a screen-level failure. They are reused here
+// rather than duplicated.
+
+export async function login(email: string, password: string): Promise<AuthUser> {
+  const res = await fetch(`${API_URL}/api/auth/login`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!res.ok) throw await toApiError(res);
+  return (await res.json()).data as AuthUser;
+}
+
+export async function logout(): Promise<void> {
+  await fetch(`${API_URL}/api/auth/logout`, { method: "POST", credentials: "include" });
+  // Deliberately not throwing on a non-2xx: the only failure that matters here
+  // is one the user could act on, and there is none. A session that was
+  // already gone, or an API that cannot be reached, both end the same way —
+  // the client drops its user and shows Login.
+}
+
+/**
+ * The signed-in user, or null when there is no session.
+ *
+ * 401 is an answer, not a failure: it is how the server says "nobody is signed
+ * in", which is exactly what the application asks on every page load. Anything
+ * else is a real failure and throws, so a broken API cannot be mistaken for a
+ * signed-out state (BR-13).
+ */
+export async function fetchCurrentUser(): Promise<AuthUser | null> {
+  const res = await fetch(`${API_URL}/api/auth/me`, { credentials: "include" });
+  if (res.status === 401) return null;
+  if (!res.ok) throw await toApiError(res);
+  return (await res.json()).data as AuthUser;
+}
+
+export async function changePassword(input: {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}): Promise<AuthUser> {
+  const res = await fetch(`${API_URL}/api/auth/change-password`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw await toApiError(res);
+  return (await res.json()).data as AuthUser;
+}
+
+// ---------------------------------------------------------------------------
+// Lab 3, Issue #31 — IT Staff Ticket Queue (api-spec.md §7)
+// ---------------------------------------------------------------------------
+
+/** specification.md BR-30 — every status a Ticket can hold. */
+export type CurrentStatus =
+  | "NEW"
+  | "OPEN"
+  | "IN_PROGRESS"
+  | "WAITING_FOR_REQUESTER"
+  | "RESOLVED"
+  | "CLOSED"
+  | "REOPENED"
+  | "CANCELLED";
+
+export const CURRENT_STATUSES: CurrentStatus[] = [
+  "NEW",
+  "OPEN",
+  "IN_PROGRESS",
+  "WAITING_FOR_REQUESTER",
+  "RESOLVED",
+  "CLOSED",
+  "REOPENED",
+  "CANCELLED",
+];
+
+/** api-spec.md §5 — the only shape a person is named in. Never an email. */
+export interface ActorSummary {
+  id: number;
+  name: string;
+  role: Role;
+}
+
+/** A queue row: the §5 Ticket object without `attachments` (§7). */
+export type StaffTicket = Omit<Ticket, "attachments">;
+
+export type QueueSortField = "ticketNumber" | "createdAt" | "updatedAt" | "itPriority";
+
+export interface StaffQueueQuery {
+  search?: string;
+  category?: number;
+  requestedPriority?: RequestedPriority;
+  itPriority?: RequestedPriority;
+  status?: CurrentStatus;
+  owner?: number | "unassigned";
+  sortBy?: QueueSortField;
+  sortDir?: SortDirection;
+  page?: number;
+  pageSize?: number;
+}
+
+export async function fetchStaffTickets(
+  query: StaffQueueQuery = {},
+): Promise<{ data: StaffTicket[]; pagination: Pagination }> {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) {
+    if (value !== undefined && value !== null && value !== "") {
+      params.set(key, String(value));
+    }
+  }
+
+  const search = params.toString();
+  const res = await fetch(`${API_URL}/api/staff/tickets${search ? `?${search}` : ""}`, {
+    ...withSession,
+  });
+  if (!res.ok) throw await toApiError(res);
+
+  const body = await res.json();
+  return { data: body.data as StaffTicket[], pagination: body.pagination as Pagination };
+}
+
+/** FR-16 — active IT Staff and Administrators, for the queue's Owner filter and the reassign control. */
+export async function fetchAssignees(): Promise<ActorSummary[]> {
+  const res = await fetch(`${API_URL}/api/staff/assignees`, { ...withSession });
+  if (!res.ok) throw await toApiError(res);
+  return (await res.json()).data as ActorSummary[];
+}
+
+// ---------------------------------------------------------------------------
+// Lab 3, Issue #32 — Ticket operations, the resolution signal, and the two
+// threads (api-spec.md §7 and §8)
+// ---------------------------------------------------------------------------
+
+async function patchTicket(ticketId: number, operation: string, body: object): Promise<Ticket> {
+  const res = await fetch(`${API_URL}/api/tickets/${ticketId}/${operation}`, {
+    method: "PATCH",
+    ...withSession,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await toApiError(res);
+  return (await res.json()).data as Ticket;
+}
+
+/** FR-15: claim (the caller's own id), reassign, or release with `null`. */
+export function setTicketOwner(ticketId: number, ownerId: number | null): Promise<Ticket> {
+  return patchTicket(ticketId, "owner", { ownerId });
+}
+
+/** FR-17: IT Priority only; Requested Priority never changes (BR-29). */
+export function setItPriority(ticketId: number, itPriority: RequestedPriority): Promise<Ticket> {
+  return patchTicket(ticketId, "it-priority", { itPriority });
+}
+
+/** FR-18: the server answers 409 for any move BR-31 does not permit. */
+export function setTicketStatus(ticketId: number, currentStatus: CurrentStatus): Promise<Ticket> {
+  return patchTicket(ticketId, "status", { currentStatus });
+}
+
+/** FR-12, BR-34: the Requester's signal; it does not change the status. */
+export async function markAppearsResolved(ticketId: number): Promise<Ticket> {
+  const res = await fetch(`${API_URL}/api/tickets/${ticketId}/appears-resolved`, {
+    method: "POST",
+    ...withSession,
+  });
+  if (!res.ok) throw await toApiError(res);
+  return (await res.json()).data as Ticket;
+}
+
+/** api-spec.md §5 — one shape for a Public Comment and an Internal Note. */
+export interface ThreadEntry {
+  id: number;
+  ticketId: number;
+  author: ActorSummary;
+  body: string;
+  createdAt: string;
+}
+
+export type ThreadKind = "comments" | "notes";
+
+export async function fetchThread(ticketId: number, kind: ThreadKind): Promise<ThreadEntry[]> {
+  const res = await fetch(`${API_URL}/api/tickets/${ticketId}/${kind}`, { ...withSession });
+  if (!res.ok) throw await toApiError(res);
+  return (await res.json()).data as ThreadEntry[];
+}
+
+export async function postToThread(ticketId: number, kind: ThreadKind, body: string): Promise<ThreadEntry> {
+  const res = await fetch(`${API_URL}/api/tickets/${ticketId}/${kind}`, {
+    method: "POST",
+    ...withSession,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ body }),
+  });
+  if (!res.ok) throw await toApiError(res);
+  return (await res.json()).data as ThreadEntry;
+}
+
+// ---------------------------------------------------------------------------
+// Lab 3, Issue #33 — Administrator user management (api-spec.md §9)
+// ---------------------------------------------------------------------------
+
+/** api-spec.md §9 — the admin user object: the safe user fields, never a hash. */
+export type AdminUser = AuthUser;
+
+export interface UserListQuery {
+  search?: string;
+  role?: Role;
+}
+
+/** BR-41: one role at most, and a plain array back — the list is not paginated. */
+export async function fetchUsers(query: UserListQuery = {}): Promise<AdminUser[]> {
+  const params = new URLSearchParams();
+  if (query.search) params.set("search", query.search);
+  if (query.role) params.set("role", query.role);
+
+  const search = params.toString();
+  const res = await fetch(`${API_URL}/api/users${search ? `?${search}` : ""}`, { ...withSession });
+  if (!res.ok) throw await toApiError(res);
+  return (await res.json()).data as AdminUser[];
+}
+
+export interface NewUser {
+  name: string;
+  email: string;
+  role: Role;
+  isActive: boolean;
+  initialPassword: string;
+}
+
+export type UserChanges = Partial<Pick<AdminUser, "name" | "email" | "role" | "isActive">>;
+
+async function writeUser(path: string, method: "POST" | "PATCH", body: object): Promise<AdminUser> {
+  const res = await fetch(`${API_URL}${path}`, {
+    method,
+    ...withSession,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await toApiError(res);
+  return (await res.json()).data as AdminUser;
+}
+
+/** FR-24: the account is created needing a password change (AC-22). */
+export function createUser(user: NewUser): Promise<AdminUser> {
+  return writeUser("/api/users", "POST", user);
+}
+
+/** FR-25: any of the four editable fields. */
+export function updateUser(userId: number, changes: UserChanges): Promise<AdminUser> {
+  return writeUser(`/api/users/${userId}`, "PATCH", changes);
+}
+
+/** FR-26: the password is sent once and never returned (BR-07). */
+export function setInitialPassword(userId: number, initialPassword: string): Promise<AdminUser> {
+  return writeUser(`/api/users/${userId}/initial-password`, "POST", { initialPassword });
 }

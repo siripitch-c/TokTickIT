@@ -4,6 +4,15 @@ TokTickIT is an IT service desk application being built through the CPE334 indiv
 
 ## What this repository contains
 
+**Lab 3 is complete** — Issues #28–#35. The Development Requester is now a
+real `User` account with a password and a server-side session, and the
+application opens on a Login screen. IT Staff work a shared Ticket Queue —
+ownership, IT Priority, status, Public Comments and Internal Notes — and
+Administrators manage the accounts. See *Lab 3* below.
+
+The Lab 2 list that follows is a record of what that sprint delivered. Where
+Lab 3 has since replaced something, it is marked.
+
 The **Lab 2 sprint is complete** — Issues #11–#18, on top of the Lab 1
 foundation (Issues 1–4):
 
@@ -21,19 +30,20 @@ foundation (Issues 1–4):
   in Issues #13–#15)
 * Idempotent seed for ≥4 active Requesters, 1 inactive Requester, and 8
   Related Systems (including "Other / Not Listed")
-* GET `/api/requesters` — active Requesters only, no `email` in the response
-* Development Requester Selection screen (loading/empty/error states),
-  session-persisted selection, and a Change Requester action — this is now
-  the app's real entry point, replacing the Lab 1 "Check System" demo page
-* URL routing with a Requester route guard: `/select-requester`,
-  `/my-tickets`, `/tickets/new`; any Requester-scoped route entered without a
-  selected Requester redirects to the selector and returns afterwards
+* ~~GET `/api/requesters`~~ — **removed in Lab 3 Issue #30** (AC-25)
+* ~~Development Requester Selection screen, session-persisted selection, and a
+  Change Requester action~~ — **removed in Lab 3 Issue #30**; the entry point
+  is now the Login screen
+* URL routing with a route guard over `/my-tickets` and `/tickets/new`
+  (in Lab 3 the guard reads the authenticated session instead of a selected
+  Requester, and `/select-requester` no longer exists)
 * Zen Green application shell — header, My Tickets / Create Ticket
-  navigation with active-page indication, current Requester name, Change
-  Requester, and a mobile hamburger panel
+  navigation with active-page indication, and a mobile hamburger panel (in
+  Lab 3 the header shows the signed-in user, their role, and a `Profile ▾`
+  menu instead of Change Requester)
 * POST `/api/tickets` — backend-generated `TKT-YYYY-NNNNNN` Ticket Number
-  from an atomic per-year counter, ownership taken from `X-Requester-Id`,
-  strict body validation
+  from an atomic per-year counter, strict body validation (ownership came from
+  `X-Requester-Id` in Lab 2; in Lab 3 it comes from the session)
 * POST `/api/tickets/:id/attachments` — JPG/JPEG/PNG/WEBP/PDF only, 5 MB per
   file, 5 active attachments per ticket, randomised names on disk
 * GET `/api/related-systems` — active Related Systems for the ticket form
@@ -72,9 +82,11 @@ Request, and Issue #18 merges `lab2-staging` into `main`.
 
 ### Sample tickets for local testing
 
-The seed carries reference data only. To put some tickets in the database —
-needed for trying out My Tickets, and required before the screenshot tests
-under **Test** below:
+The seed creates the tickets the IT Staff Ticket Queue needs, with example
+comments and notes on some of them (Issues #31 and #32). The
+Lab 2 set below is separate and optional: it fills My Tickets for Michael Brown
+and Jennifer Anderson for trying the application by hand. No test depends on
+it — since Issue #34 the screenshot tests raise the tickets they photograph:
 
 ```bash
 cd server
@@ -84,35 +96,182 @@ It gives Michael Brown 13 tickets (two pages at the default page size),
 Jennifer Anderson 3, and leaves the other two Requesters empty so the empty
 state can be seen. Safe to re-run: it clears its own previous tickets first.
 
-## About the Development Requester selector
+## Lab 3
 
-The Development Requester selector — the Selection screen, `GET
-/api/requesters`, and the `X-Requester-Id` header that later ticket/
-attachment endpoints will require — is a **Lab 2 testing mechanism only**.
-It is **not authentication** and provides no real security: any client can
-claim to be any Requester simply by sending a different id. Any `404`
-returned by a ticket or attachment endpoint when the id in that header
-doesn't own the requested resource (per `docs/lab-02/specification.md`
-BR-12) is an ownership check performed against this testing header, not
-proof of an authorization system that would resist a determined attacker.
-Real authentication is planned to replace this mechanism entirely in Lab 3.
+Issue #28 — the sprint specification and test plan in `docs/lab-03/`, written
+before any code.
+
+Issue #29 — authentication foundation:
+
+* The Lab 2 `Requester` model is now `User`, **renamed in place**. Every id,
+  Ticket and Attachment from Lab 2 survives; nothing was recreated.
+* `User` adds `passwordHash` (bcrypt), `role` (`REQUESTER` / `IT_STAFF` /
+  `ADMINISTRATOR`), `mustChangePassword` and `updatedAt`.
+* New `Session`, `PublicComment` and `InternalNote` tables; `Ticket` gains
+  `ownerId` and `requesterResolvedAt`; `CurrentStatus` now has all eight values.
+* `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me` and
+  `POST /api/auth/change-password`, with an `httpOnly`, `SameSite=Lax` session
+  cookie that expires after 8 hours.
+
+Issue #30 — authorization and Requester regression:
+
+* Every Requester endpoint now takes its identity from the session. The
+  `X-Requester-Id` header is not read anywhere, and `GET /api/requesters` is
+  gone with the selector that used it.
+* Three server-side gates run before every protected route: authenticated
+  (401), past the mandatory password change (403), and holding the required
+  role (403). Ownership still answers 404 so a resource belonging to someone
+  else is not revealed to exist.
+* Login, Change Password and a role-aware application shell; routing reads the
+  session, and no destination a role may not use is rendered.
+
+Issue #31 — IT Staff Ticket Queue:
+
+* `GET /api/staff/tickets` — every Requester's Tickets for IT Staff and
+  Administrators: search, five filters (Owner includes "unassigned"), sorting
+  by ticket number, dates or IT Priority by rank, and 25 per page by default.
+  Every query parameter is lenient.
+* `GET /api/staff/assignees` — the active IT Staff and Administrators a Ticket
+  can be assigned to, as names and roles only.
+* The Ticket Queue screen: nine columns on a desktop, seven on a tablet, cards
+  on a phone.
+* The seed now also creates sixteen Tickets across every status, every
+  priority, three Requesters, and assigned and unassigned ownership.
+* Another role's address shows a "You do not have access" screen instead of
+  silently redirecting.
+
+Issue #32 — IT Staff Ticket operations:
+
+* `PATCH /api/tickets/:id/owner`, `/it-priority` and `/status` for IT Staff and
+  Administrators. Status moves follow the transition matrix, and any other move
+  is refused as a conflict.
+* `POST /api/tickets/:id/appears-resolved` — the Requester's "problem appears
+  resolved" signal, recorded once and never changing the status.
+* Public Comments (`/comments`) for everyone on a Ticket, and Internal Notes
+  (`/notes`) for staff only. To a Requester, Internal Notes answer exactly as a
+  Ticket that does not exist.
+* Ticket Detail is one screen for every role: staff get an Operations panel,
+  Download-only attachments and both threads; the Requester gets comments and the
+  resolution button.
+* Every endpoint returning a Ticket now includes its `requester` and `owner` as
+  names and roles, and a new Ticket's IT Priority starts as its Requested
+  Priority.
+* The seed adds example comments and notes to some of its tickets.
+
+Issue #33 — Administrator user management:
+
+* `GET`, `POST` and `PATCH /api/users` and `POST /api/users/:id/initial-password`,
+  for Administrators only. There is no delete: deactivation is the only way an
+  account stops working.
+* Email addresses are unique whatever their capitalisation; deactivating an
+  account ends its open sessions at once; an Administrator cannot deactivate or
+  demote themselves; and the last active Administrator cannot be removed.
+* User Management: the list, search and role filter, and the Create and Edit
+  dialogs, with an accessible focus trap shared by every dialog in the app.
+
+Issue #34 — end-to-end, responsive and visual QA:
+
+* Playwright suites under `e2e/lab-03/` for sign-in and role access, IT Staff
+  ticket work and user administration, and screenshots of every Lab 3 screen at
+  1440, 768 and 375px under `artifacts/lab-03/screenshots/`.
+* A session that ends while in use — the account deactivated, say — now returns
+  the person to Login at their next action, and saving a mandatory new password
+  opens the application instead of showing the form a second time.
+* The Lab 2 end-to-end tests sign in instead of choosing a Requester.
+
+Issue #35 — release integration: the peer review record and the AI-use
+reflection (`docs/lab-03/reviewer.md`, `docs/lab-03/ai-use.md`), this README,
+and the final test results in `docs/lab-03/tests.md` §7.
+
+Everything in the Lab 3 sprint scope is implemented, tested and documented.
+Each Issue was merged into `lab3-staging` through a peer-reviewed Pull Request,
+and `lab3-staging` is merged into `main` by the release Pull Request.
+
+### Development sign-in credentials
+
+Every seeded account uses the same **local-development password**:
+
+```
+ChangeMe123!
+```
+
+This is not a secret and is not anyone's real password. It exists so the
+application can be run locally; no production credential belongs in this file
+or anywhere else in the repository.
+
+| Account | Role | Notes |
+|---|---|---|
+| `jennifer.anderson@example.edu` | Requester | active |
+| `michael.brown@example.edu` | Requester | active, owns most demo tickets |
+| `sarah.johnson@example.edu` | Requester | active |
+| `david.lee@example.edu` | Requester | active, **must change password at first sign-in** |
+| `former.student@example.edu` | Requester | inactive — sign-in is refused |
+| `somsak.wattana@example.edu` | IT Staff | active |
+| `nattapong.sri@example.edu` | IT Staff | active |
+| `preecha.thongchai@example.edu` | IT Staff | active |
+| `retired.technician@example.edu` | IT Staff | inactive |
+| `anong.kittisak@example.edu` | Administrator | active |
+
+Accounts **migrated from a Lab 2 database** (rather than created by the seed)
+also start with this password and are all flagged to change it at first
+sign-in, so a migrated account cannot be used until a real password is set.
+
+### If `prisma migrate dev` reports drift
+
+A database created with `prisma db push` has the tables but no record of the
+migrations that would have built them, so Migrate sees a mismatch and offers to
+reset — which would delete everything. Do not accept. Register the existing
+migrations as already applied instead, from `server/`:
+
+```bash
+npx prisma migrate resolve --applied 20260814191724_init_category
+npx prisma migrate resolve --applied 20260901092602_add_requester_ticket_attachment
+npx prisma migrate resolve --applied 20260902191419_add_ticket_number_counter
+```
+
+`npx prisma migrate status` should then report that the schema is up to date,
+and `npx prisma migrate dev` will apply only what is genuinely new.
+
+## The Development Requester selector is gone
+
+Lab 2 identified its caller with a **Development Requester selector**: a
+Selection screen, `GET /api/requesters`, and an `X-Requester-Id` header that
+the ticket and attachment endpoints trusted. It was never authentication —
+any client could claim to be any Requester by sending a different id — and it
+was documented as a testing mechanism throughout Lab 2.
+
+Lab 3 removed it in two steps. Issue #29 added real accounts, passwords and
+server-side sessions alongside it; **Issue #30 deleted it**: the Selection
+screen, the route, the `sessionStorage` state, `GET /api/requesters`, and the
+header itself. The header is no longer read by anything, so sending it has no
+effect on any endpoint (`docs/lab-03/specification.md` AC-03, AC-25).
+
+The ownership checks that Lab 2 performed against that header did not move —
+they now run against the authenticated session instead, which is why a Lab 2
+Ticket is still owned by, and still readable only by, the same person after
+migration.
 
 ## Documentation
 
-The sprint documents live under `docs/lab-02/`:
+The Lab 3 sprint documents live under `docs/lab-03/`:
 
 | File | What it holds |
 |---|---|
-| `specification.md` | Scope, functional requirements, business rules BR-01–BR-40, acceptance criteria AC-01–AC-17, data changes, definition of done |
-| `api-spec.md` | The ten endpoints, their request/response shapes, and the error envelope |
-| `ui-spec.md` | Zen Green design tokens, every screen and state, responsive rules, accessibility rules |
-| `tests.md` | Every planned test with its id, the AC and BR traceability tables, the responsive checklist, and the recorded result of each run |
+| `specification.md` | Scope, functional requirements FR-01–FR-26, business rules BR-01–BR-45, acceptance criteria AC-01–AC-28, data and migration changes, definition of done |
+| `api-spec.md` | The authentication, staff, comment, note and user-management endpoints, their request/response shapes, the authorization gates, and the error envelope |
+| `ui-spec.md` | Zen Green additions, every Lab 3 screen and state, responsive rules, accessibility additions, and the visual checklist |
+| `tests.md` | Every planned test with its id, the AC and BR traceability tables, the responsive checklist, and the recorded result of each issue |
 | `reviewer.md` | Peer review record — who reviewed what, the comments given and received, and the responses |
 | `ai-use.md` | Which AI agent was used, the key prompts, and reflection on working with it |
 
-Test evidence sits alongside them: `server/tests/lab-02/`,
-`client/tests/lab-02/`, `e2e/lab-02/`, and the responsive screenshots in
-`artifacts/lab-02/screenshots/`.
+Test evidence sits alongside them: `server/tests/lab-03/`,
+`client/tests/lab-03/`, `e2e/lab-03/`, and the screenshots in
+`artifacts/lab-03/screenshots/` (`authentication/`, `staff-queue/`,
+`staff-ticket-detail/`, `user-management/`).
+
+The earlier sprints keep their own records, unchanged: `docs/lab-01/` and
+`docs/lab-02/`, with the Lab 2 test evidence in `server/tests/lab-02/`,
+`client/tests/lab-02/`, `e2e/lab-02/` and `artifacts/lab-02/screenshots/`.
 
 ## Prerequisites
 
@@ -181,14 +340,36 @@ cd client
 npm run dev
 ```
 
-Open the Vite URL shown in the client terminal. You should see the
-Development Requester Selection screen first; after choosing a Requester and
-continuing, the app shell opens on `/my-tickets` with your selected
-Requester's name and a "Change Requester" action. Use "Create Ticket" to
-submit a ticket — on success the screen shows the Ticket Number generated by
-the backend. Refreshing the page keeps you signed in as the same Requester
-for the rest of the browser session (sessionStorage); Change Requester
-clears that and returns you to the selector.
+Open the Vite URL shown in the client terminal. You should see the **Login
+screen**. Sign in with one of the accounts in *Development sign-in
+credentials* above — `jennifer.anderson@example.edu` / `ChangeMe123!` is a
+straightforward Requester.
+
+A Requester lands on `/my-tickets`, with their name and role badge in the
+header and a `Profile ▾` menu holding Change Password and Log Out. Use
+"Create Ticket" to submit a ticket — on success the screen shows the Ticket
+Number generated by the backend. Refreshing keeps you signed in: the session
+lives in an `httpOnly` cookie for 8 hours, and the client asks
+`GET /api/auth/me` on each load rather than storing anything itself.
+
+Sign in as `david.lee@example.edu` to see the mandatory password change: every
+screen and every protected endpoint stays unavailable until a new password is
+saved.
+
+Sign in as `somsak.wattana@example.edu` to see the **Ticket Queue**: every
+Requester's tickets, with search, filters, sorting and pagination, all kept in
+the address so a filtered view can be bookmarked. Administrators carry the queue
+in their navigation too. Opening a ticket from the queue shows the staff Ticket Detail: claim
+or reassign it, set its IT Priority, move its status (Closed and Cancelled ask
+first), and write Public Comments and Internal Notes. Signed in as the ticket's
+Requester, the same screen shows the Public Comments and a **Problem Appears
+Resolved** button instead, and never any trace of Internal Notes.
+
+Sign in as `anong.kittisak@example.edu` for **User Management**: every account,
+with search and a role filter, a Create User dialog, and an Edit dialog for name,
+email, role and status with a separate section for setting a new initial
+password. It will not let an Administrator deactivate or demote their own
+account, nor remove the last active Administrator.
 
 ## Production build
 
@@ -215,15 +396,23 @@ npm test
 ```
 The API tests run against the same local PostgreSQL database configured in
 `server/.env`, so run the migration and seed steps above first. They create
-and clean up their own throwaway Requesters and tickets rather than reusing
-the seeded demo identities.
+and clean up their own throwaway accounts and tickets rather than reusing the
+seeded demo identities.
+
+The Lab 3 suites additionally create three scratch databases and drop them
+again: `toktickit_migration_test`, where the migration files are replayed around
+Lab 2-shaped data; `toktickit_seed_test`, where the seed runs from nothing; and
+`toktickit_users_test`, where the user-management suite can make any account the
+last active Administrator without touching the development database. The
+PostgreSQL user in `DATABASE_URL` therefore needs permission to create a
+database.
 
 Frontend Tests (Vitest):
 ```bash
 cd client
 npm test
 ```
-End-to-end and visual tests (Playwright, Issue #17):
+End-to-end and visual tests (Playwright; Lab 2 Issue #17, Lab 3 Issue #34):
 ```bash
 npm install
 npx playwright install chromium
@@ -234,23 +423,26 @@ drive a real browser against the running app, so both the API and the client
 have to be up; Playwright reuses whatever is already listening on ports 3000
 and 5173 and starts them itself only when nothing is.
 
-**Run the demo tickets step above first.** The seven end-to-end tests each
-create the data they need, but the three screenshot tests do not: they
-photograph My Tickets for a Requester who already owns some, and on an empty
-list that screen hides its search and filter controls by design
-(`ui-spec.md` §6.4), so the captures cannot be taken at all.
+**Before a run**, the database must be migrated and seeded, and the seeded
+Administrator `anong.kittisak@example.edu` must still be the only active
+Administrator and still use the development password: E2E-10 reaches the "last
+active Administrator" refusal on that account. The run checks this first and
+stops with a message if it does not hold.
 
-The suite creates real tickets, each marked `[e2e]` in its description, and
-deletes them again when the run finishes. If a run is interrupted, remove
-them by hand:
+The suite signs in as accounts of its own, each with an `e2e-` address, created
+before the run and removed afterwards together with every ticket it created
+(each marked `[e2e]` in its description). If a run is interrupted, remove them
+by hand:
 ```bash
 npm run e2e:cleanup --prefix server
 ```
 
-It also writes the responsive screenshots that `docs/lab-02/tests.md` §5 is
-checked against, into `artifacts/lab-02/screenshots/`. Those are committed as
-sprint evidence; the Playwright HTML report and traces are not (see
-`.gitignore`). Open the report from the last run with:
+It also writes the screenshots the visual checklists are read against: Lab 3's
+into `artifacts/lab-03/screenshots/` (`authentication/`, `staff-queue/`,
+`staff-ticket-detail/`, `user-management/`, checked against
+`docs/lab-03/tests.md` §5) and Lab 2's into `artifacts/lab-02/screenshots/`.
+Those are committed as sprint evidence; the Playwright HTML report and traces
+are not (see `.gitignore`). Open the report from the last run with:
 ```bash
 npm run test:e2e:report
 ```

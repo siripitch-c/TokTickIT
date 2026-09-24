@@ -4,7 +4,7 @@ import {
   AttachmentMeta,
   ApiError,
   ReferenceItem,
-  Requester,
+  AuthUser,
   RequestedPriority,
   Ticket,
   createTicket,
@@ -67,7 +67,7 @@ const EMPTY_FORM: FormValues = {
 };
 
 export default function CreateTicket() {
-  const requester = useOutletContext<Requester>();
+  const user = useOutletContext<AuthUser>();
   const navigate = useNavigate();
 
   // The Ticket Date previews the value that becomes createdAt, so it is frozen
@@ -196,7 +196,7 @@ export default function CreateTicket() {
     setSubmitting(true);
 
     try {
-      const ticket = await createTicket(requester.id, {
+      const ticket = await createTicket({
         categoryId: Number(values.categoryId),
         relatedSystemId: Number(values.relatedSystemId),
         requestedPriority: values.requestedPriority as RequestedPriority,
@@ -211,7 +211,7 @@ export default function CreateTicket() {
       const failed: { name: string; reason: string }[] = [];
       for (const item of pending) {
         try {
-          uploaded.push(await uploadAttachment(requester.id, ticket.id, item.file));
+          uploaded.push(await uploadAttachment(ticket.id, item.file));
         } catch (error) {
           failed.push({
             name: item.file.name,
@@ -295,7 +295,7 @@ export default function CreateTicket() {
           <div className="zg-field-row zg-field-row--3">
             <ReadOnlyField label="Ticket Number" value="Generated after submit" />
             <ReadOnlyField label="Ticket Date" value={openedAt.toLocaleString()} testId="ticket-date" />
-            <ReadOnlyField label="Requester" value={requester.name} />
+            <ReadOnlyField label="Requester" value={user.name} />
           </div>
 
           {/* Classification row (ui-spec.md §5.1). */}

@@ -8,6 +8,10 @@ import { app } from "../../src/app.js";
 // and a body express.json() cannot parse — so without explicit handlers they
 // return an HTML error page and quietly break the contract every other
 // endpoint keeps.
+//
+// Lab 3, Issue #30: neither case sends an identity any more. express.json()
+// runs before any route's gates, so a body it cannot parse is answered before
+// authentication is ever considered — which is the point worth asserting.
 
 describe("Error envelope coverage (API-ERR-01)", () => {
   it("answers an unmatched path with the JSON envelope, not Express's HTML page", async () => {
@@ -22,7 +26,6 @@ describe("Error envelope coverage (API-ERR-01)", () => {
   it("answers a malformed JSON body with the JSON envelope", async () => {
     const response = await request(app)
       .post("/api/tickets")
-      .set("X-Requester-Id", "1")
       .set("Content-Type", "application/json")
       .send("{ not valid json ");
 
@@ -35,7 +38,6 @@ describe("Error envelope coverage (API-ERR-01)", () => {
     const notFound = await request(app).get("/api/nope");
     const badBody = await request(app)
       .post("/api/tickets")
-      .set("X-Requester-Id", "1")
       .set("Content-Type", "application/json")
       .send("{{{");
 

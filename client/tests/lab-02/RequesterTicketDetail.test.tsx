@@ -16,6 +16,11 @@ const TICKET = {
   id: 118,
   ticketNumber: "TKT-2026-000118",
   requesterId: REQUESTER.id,
+  // Lab 3, Issue #32: the one Ticket object of lab-03/api-spec.md §5.
+  requester: { id: REQUESTER.id, name: REQUESTER.name, role: "REQUESTER" as const },
+  ownerId: null,
+  owner: null,
+  requesterResolvedAt: null,
   categoryId: 2,
   relatedSystemId: 7,
   summary: "Laptop battery drains quickly",
@@ -36,6 +41,10 @@ function mockFetch(ticketReply: () => { status: number; body: unknown }) {
     }
     if (url.includes("/api/related-systems")) {
       return { ok: true, status: 200, json: async () => ({ data: SYSTEMS }) } as unknown as Response;
+    }
+    // Lab 3, Issue #32: the screen also loads its Public Comments.
+    if (url.includes("/comments")) {
+      return { ok: true, status: 200, json: async () => ({ data: [] }) } as unknown as Response;
     }
     const { status, body } = ticketReply();
     return { ok: status < 300, status, json: async () => body } as unknown as Response;
@@ -84,13 +93,25 @@ describe("Requester Ticket Detail screen", () => {
     expect(screen.getByText("New")).toBeInTheDocument();
 
     // Every ticket field is read-only — nothing here is editable (§7.1).
-    for (const field of screen.getAllByRole("status", { hidden: true })) {
+    //
+    // Lab 3, Issue #32 — deliberately updated, per the Definition of Done's
+    // allowance for Lab 2 tests that change with a recorded reason. Lab 3 gives
+    // the Requester a Public Comments composer on this screen (lab-03
+    // ui-spec.md §6), so "no textbox anywhere" and "no public comment" stopped
+    // being true. What Lab 2 meant by them still holds and is still checked:
+    // every ticket *field* is a read-only output, and the one text box on the
+    // screen is the comment composer, not part of the ticket information.
+    const fields = document.querySelectorAll("output");
+    expect(fields.length).toBeGreaterThan(0);
+    for (const field of Array.from(fields)) {
       expect(field).toHaveAttribute("aria-readonly", "true");
     }
-    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+    const textboxes = screen.queryAllByRole("textbox");
+    expect(textboxes).toHaveLength(1);
+    expect(textboxes[0]).toHaveAccessibleName(/public comment/i);
 
-    // §3 excludes these from Lab 2 entirely.
-    expect(screen.queryByText(/public comment/i)).not.toBeInTheDocument();
+    // Still absent in Lab 3: Internal Notes for a Requester (lab-03 BR-20),
+    // and Actions Taken, which the handout defers to Lab 4.
     expect(screen.queryByText(/internal note/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/actions taken/i)).not.toBeInTheDocument();
   });
@@ -106,10 +127,14 @@ describe("Requester Ticket Detail screen", () => {
     // Nothing of the ticket exists on screen while the answer is still pending…
     expect(screen.queryByTestId("detail-ticket-number")).not.toBeInTheDocument();
 
-    await waitFor(() => expect(screen.getByTestId("zg-state-error")).toBeInTheDocument());
+    // Lab 3, Issue #32 — deliberately updated, per the Definition of Done's
+    // allowance for Lab 2 tests that change with a recorded reason: lab-03
+    // ui-spec.md §2.5 splits "not found" out of the generic failure block, in
+    // words that do not choose between "does not exist" and "is not yours".
+    await waitFor(() => expect(screen.getByTestId("zg-state-not-found")).toBeInTheDocument());
 
     // …and nothing appears afterwards either. The card is replaced, not hidden.
-    expect(screen.getByText("Ticket not found.")).toBeInTheDocument();
+    expect(screen.getByText("This ticket does not exist, or you do not have access to it.")).toBeInTheDocument();
     expect(screen.queryByTestId("detail-ticket-number")).not.toBeInTheDocument();
     expect(screen.queryByText(TICKET.summary)).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: /back to my tickets/i })).toBeInTheDocument();
@@ -120,7 +145,7 @@ describe("Requester Ticket Detail screen", () => {
 
     renderDetail("/tickets/not-a-number");
 
-    await waitFor(() => expect(screen.getByText("Ticket not found.")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("This ticket does not exist, or you do not have access to it.")).toBeInTheDocument());
 
     const ticketCalls = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.filter(([url]) =>
       /\/api\/tickets\//.test(String(url)),
