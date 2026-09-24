@@ -21,6 +21,7 @@ one carries a formal **Approved** review on GitHub, submitted before the merge.
 | [#40](https://github.com/siripitch-c/TokTickIT/pull/40) | `feature/5-lab3-staff-ticket-operations` | #32 IT Staff Ticket operations | Approved |
 | [#41](https://github.com/siripitch-c/TokTickIT/pull/41) | `feature/6-lab3-admin-user-management` | #33 Administrator user management | Approved |
 | [#42](https://github.com/siripitch-c/TokTickIT/pull/42) | `feature/7-lab3-e2e-visual-qa` | #34 E2E, responsive & visual QA | Approved |
+| [#43](https://github.com/siripitch-c/TokTickIT/pull/43) | `feature/8-lab3-release` | #35 Lab 3 release integration | Approved |
 
 ### Comments received, and how I responded
 
@@ -51,6 +52,13 @@ My response: *"Thank you"*
 **PR #42 — E2E, responsive & visual QA**
 Reviewer comment: *"Everything looks great, approved"*
 My response: *"Thank you."*
+
+**PR #43 — Lab 3 release integration**
+Reviewer comment: *"Everything looks great, approved"*
+My response: *"Thank you."*
+This is the Pull Request that carries this file. The review above was given
+first; this section was then written from it in a further commit on the same
+branch, before the Pull Request was merged.
 
 ---
 
@@ -92,15 +100,25 @@ Their response: *"Thank you."*
 My comment: *"Everything looks good. Approved."*
 Their response: *"Thank you."*
 
+**[Their PR #45](https://github.com/thanaphon3417/TokTickIT/pull/45)** — `feature/3-documentation`
+Their documentation Pull Request, carrying the screenshots taken from a real
+browser, which they described in two comments of their own on the Pull Request.
+My comment: *"Everything looks good. Approved."*
+Their response: *"Thank you."*
+
+**[Their PR #46](https://github.com/thanaphon3417/TokTickIT/pull/46)** — `lab3-staging` → `main` (release)
+My comment: *"Everything looks good. Good job. Approved."*
+
 ---
 
 ## 3. Note on coverage
 
-This file also records the Pull Request that carries it — the
-documentation PR for Issue #35 — whose review is added to §1 once it has been
-given, before that PR is merged. Documentation goes through a branch, a Pull
-Request and a peer review exactly as code does, so the final documentation PR
-belongs in the record too.
+This file also records the Pull Request that carries it — PR #43, the
+documentation Pull Request for Issue #35. Documentation goes through a branch,
+a Pull Request and a peer review exactly as code does, so the final
+documentation Pull Request belongs in the record too. Its review was given
+first and written into §1 afterwards, in a further commit on the same branch;
+the approval itself is on the Pull Request page on GitHub.
 
 The one Pull Request this file cannot list is the final `lab3-staging` → `main`
 release PR: it is opened after everything above is in `lab3-staging`, and a
