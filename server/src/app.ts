@@ -3,6 +3,7 @@ import cors from "cors";
 import { requesterOnly, signedIn, staffOnly } from "./auth.js";
 import { authRoutes } from "./authRoutes.js";
 import { userRoutes } from "./userRoutes.js";
+import { actionRoutes } from "./actionRoutes.js";
 import { getPrisma } from "./prisma.js";
 import { CURRENT_STATUSES, STATUS_LABEL, canTransition } from "./statusTransitions.js";
 import { nextTicketNumber } from "./ticketNumber.js";
@@ -46,6 +47,11 @@ app.use("/api/auth", authRoutes);
 // such as DELETE is still refused to other roles and falls through to the 404
 // handler for an Administrator (BR-39: there is no delete).
 app.use("/api/users", userRoutes);
+
+// Lab 4, Issue #46 — Actions Taken (lab-04/api-spec.md §5). Mounted under /api
+// rather than one prefix, because the log is read through its Ticket
+// (/api/tickets/:id/actions) and written to through itself (/api/actions/:id).
+app.use("/api", actionRoutes);
 
 // ---------------------------------------------------------------------------
 // Issue 2 — API health check

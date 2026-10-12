@@ -139,6 +139,9 @@ describe("GET /api/tickets", () => {
     // `owner` are the actor summaries of lab-03/api-spec.md §5 — id, name and
     // role, never an email — which every endpoint returning a Ticket now
     // includes, so the one Ticket shape really is one.
+    // Lab 4, Issue #46: `version` joins the Ticket shape for optimistic
+    // concurrency (lab-04 BR-26, api-spec.md §6). This list is deliberately
+    // exact, so the field is added here rather than loosening the assertion.
     expect(Object.keys(row).sort()).toEqual([
       "categoryId",
       "createdAt",
@@ -156,6 +159,7 @@ describe("GET /api/tickets", () => {
       "summary",
       "ticketNumber",
       "updatedAt",
+      "version",
     ]);
     expect(row.requester).toEqual({ id: ownerId, name: "My Tickets Owner", role: "REQUESTER" });
     expect(row.owner).toBeNull();
