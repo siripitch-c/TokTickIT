@@ -149,6 +149,9 @@ describe("Reading any Ticket", () => {
 
       expect(res.status).toBe(200);
       // api-spec.md §5, exhaustively: one object for every role.
+      // Lab 4, Issue #46: `version` joins the Ticket shape for optimistic
+      // concurrency (lab-04 BR-26, api-spec.md §6). This list is deliberately
+      // exact, so the field is added here rather than loosening the assertion.
       expect(Object.keys(res.body.data).sort()).toEqual([
         "attachments",
         "categoryId",
@@ -167,6 +170,7 @@ describe("Reading any Ticket", () => {
         "summary",
         "ticketNumber",
         "updatedAt",
+        "version",
       ]);
       expect(res.body.data.requester).toEqual({ id: requesterId, name: "Ops Requester", role: "REQUESTER" });
       expect(res.body.data.owner).toBeNull();

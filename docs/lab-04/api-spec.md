@@ -114,8 +114,8 @@ tie-break (BR-11).
 |---|---|---|
 | Permitted caller | 200 | `{ "data": [ Action, … ] }` |
 | No session | 401 | `UNAUTHENTICATED` |
-| Requester, another user's Ticket | 404 | `NOT_FOUND` (BR-15) |
-| Ticket does not exist | 404 | `NOT_FOUND` |
+| Requester, another user's Ticket | 404 | `TICKET_NOT_FOUND` (BR-15) |
+| Ticket does not exist | 404 | `TICKET_NOT_FOUND`, byte for byte the same body as the row above |
 
 A Ticket with no Actions answers `{ "data": [] }` with 200 — an empty log is a
 valid state, not an error, and every Ticket created before Lab 4 is in it
@@ -162,7 +162,7 @@ Request:
 | Assignee inactive or wrong role | 400 | `INVALID_ASSIGNEE`, field `assignedToId` (AC-04) |
 | Requester | 403 | `FORBIDDEN` (AC-07) |
 | No session | 401 | `UNAUTHENTICATED` |
-| Ticket not found | 404 | `NOT_FOUND` |
+| Ticket not found | 404 | `TICKET_NOT_FOUND` |
 
 ### `PATCH /api/actions/:id`
 
@@ -188,9 +188,15 @@ omitted is left as it is.
 | Follow-up required with no note | 400 | `VALIDATION_ERROR`, field `followUpNote` (AC-03) |
 | Assignee inactive or wrong role | 400 | `INVALID_ASSIGNEE`, field `assignedToId` |
 | Requester | 403 | `FORBIDDEN` |
-| Action not found | 404 | `NOT_FOUND` |
+| Action not found | 404 | `ACTION_NOT_FOUND` |
 
 There is no `DELETE`: an Action is retired by cancelling it (BR-13).
+
+The not-found codes keep the Lab 3 names — `TICKET_NOT_FOUND` for a Ticket and
+`ACTION_NOT_FOUND` for an Action — rather than a generic `NOT_FOUND`, so the
+client keeps one vocabulary across all four sprints. The *body* a Requester
+receives for somebody else's Ticket is identical to the one for a Ticket that
+never existed, which is what BR-15 actually requires.
 
 ## 6. Ticket Endpoints Changed by Lab 4
 

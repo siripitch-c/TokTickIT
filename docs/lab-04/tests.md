@@ -61,41 +61,43 @@ actor) and `E2E-02` (the resolution flow).
 
 ### 2.1 Unit — `server/tests/lab-04/action-rules.unit.test.ts`
 
+Asserts `src/actionRules.ts`, the pure-rule module the Actions endpoints consult.
+
 | ID | Type | Req / AC | What it tests | Expected result | File | Status |
 |---|---|---|---|---|---|---|
-| UNIT-01 | Unit | BR-05 | The Action status matrix | Planned→In Progress/Completed/Cancelled and In Progress→Completed/Cancelled allowed; every move out of Completed or Cancelled refused | `action-rules.unit.test.ts` | Planned |
-| UNIT-02 | Unit | BR-06 | Completion requires a result | A completion with an empty or whitespace result is rejected | same | Planned |
-| UNIT-03 | Unit | BR-07 | Follow-up dependency | Follow-up yes with a note under 5 characters rejected; follow-up no discards any note | same | Planned |
-| UNIT-04 | Unit | BR-09 | Action date bounds | A future `actionAt`, and one before the Ticket's creation, are both rejected | same | Planned |
-| UNIT-05 | Unit | BR-18 | Resolution predicate | A ticket with any Planned or In Progress Action blocks resolution; zero Actions, or all final, allows it | same | Planned |
+| UNIT-01 | Unit | BR-05 | The Action status matrix | Planned→In Progress/Completed/Cancelled and In Progress→Completed/Cancelled allowed; every move out of Completed or Cancelled refused | `action-rules.unit.test.ts` | **Pass** |
+| UNIT-02 | Unit | BR-06 | Completion requires a result | A completion with an empty or whitespace result is rejected | same | **Pass** |
+| UNIT-03 | Unit | BR-07 | Follow-up dependency | Follow-up yes with a note under 5 characters rejected; follow-up no discards any note | same | **Pass** |
+| UNIT-04 | Unit | BR-09 | Action date bounds | A future `actionAt`, and one before the Ticket's creation, are both rejected | same | **Pass** |
+| UNIT-05 | Unit | BR-18 | Resolution predicate | A ticket with any Planned or In Progress Action blocks resolution; zero Actions, or all final, allows it | same | **Pass** |
 | UNIT-06 | Unit | BR-25 | Asia/Bangkok day boundary | "Last 7 days" starts at 00:00 Bangkok seven days ago, independent of the server's timezone | `dashboard-metrics.unit.test.ts` | Planned |
 
 ### 2.2 API — Actions Taken — `server/tests/lab-04/actions-taken.api.test.ts`
 
 | ID | Type | Req / AC | What it tests | Expected result | File | Status |
 |---|---|---|---|---|---|---|
-| API-ACTION-01 | API | AC-01 | Create a valid Action as IT Staff | 201; stored under that Ticket with the caller as performer, and no refusal body anywhere in this file leaks a stack trace, SQL or an email address | `actions-taken.api.test.ts` | Planned |
-| API-ACTION-02 | API | AC-02, BR-03 | `performedById` supplied in the body | Ignored; the performer is the session user | same | Planned |
-| API-ACTION-03 | API | BR-10 | Field validation | Description under 5 or over 2000 characters answers 400 with `field: "description"` | same | Planned |
-| API-ACTION-04 | API | AC-03, BR-07 | Follow-up without a note | 400 with `field: "followUpNote"` | same | Planned |
-| API-ACTION-05 | API | BR-07 | Follow-up set back to no | A note previously stored is cleared to null | same | Planned |
-| API-ACTION-06 | API | AC-04, BR-04 | Assign to an inactive account | 400 `INVALID_ASSIGNEE`; the Action keeps its previous assignee | same | Planned |
-| API-ACTION-07 | API | BR-04 | Assign to a Requester account | 400 `INVALID_ASSIGNEE` | same | Planned |
-| API-ACTION-08 | API | BR-04 | Assignee deactivated after assignment | The Action keeps the assignee and stays readable | same | Planned |
-| API-ACTION-09 | API | BR-09 | Future `actionAt`, and one before the Ticket | 400 each, with `field: "actionAt"` | same | Planned |
-| API-ACTION-10 | API | AC-05, BR-05 | Complete an Action with a result | 200; status Completed, version incremented | same | Planned |
-| API-ACTION-11 | API | BR-06 | Complete with no result | 400 with `field: "result"` | same | Planned |
-| API-ACTION-12 | API | AC-06 | Update a Completed or Cancelled Action | 409 `ACTION_FINAL`, nothing changes | same | Planned |
-| API-ACTION-13 | API | BR-05 | A transition the matrix forbids | 409 `INVALID_ACTION_TRANSITION` | same | Planned |
-| API-ACTION-14 | API | AC-07, BR-14 | Requester create, update, complete, cancel | 403 for each, with no row written | same | Planned |
-| API-ACTION-15 | API | AC-08, BR-15 | Requester lists Actions of another user's Ticket | 404, and the body reveals nothing about the Ticket | same | Planned |
-| API-ACTION-16 | API | FR-06 | Requester lists Actions of their own Ticket | 200 with every Action present | same | Planned |
-| API-ACTION-17 | API | BR-11 | Ordering | Two Actions with the same `actionAt` return in id order, stable across repeated reads | same | Planned |
-| API-ACTION-18 | API | BR-14 | Unauthenticated calls to all three endpoints | 401 each | same | Planned |
-| API-ACTION-19 | API | BR-13 | No delete route exists | `DELETE /api/actions/:id` answers 404 or 405, never removes a row | same | Planned |
-| API-ACTION-20 | API | BR-12 | Creating or updating an Action | The Ticket's status is unchanged by the write | same | Planned |
-| API-ACTION-21 | API | BR-26, AC-13 | Stale update of an Action | 409 `STALE_UPDATE`; the first write survives | same | Planned |
-| API-ACTION-22 | API | BR-28, AC-14 | Update with no version field | 400 `VERSION_REQUIRED` | same | Planned |
+| API-ACTION-01 | API | AC-01 | Create a valid Action as IT Staff | 201; stored under that Ticket with the caller as performer, and no refusal body anywhere in this file leaks a stack trace, SQL or an email address | `actions-taken.api.test.ts` | **Pass** |
+| API-ACTION-02 | API | AC-02, BR-03 | `performedById` supplied in the body | Ignored; the performer is the session user | same | **Pass** |
+| API-ACTION-03 | API | BR-10 | Field validation | Description under 5 or over 2000 characters answers 400 with `field: "description"` | same | **Pass** |
+| API-ACTION-04 | API | AC-03, BR-07 | Follow-up without a note | 400 with `field: "followUpNote"` | same | **Pass** |
+| API-ACTION-05 | API | BR-07 | Follow-up set back to no | A note previously stored is cleared to null | same | **Pass** |
+| API-ACTION-06 | API | AC-04, BR-04 | Assign to an inactive account | 400 `INVALID_ASSIGNEE`; the Action keeps its previous assignee | same | **Pass** |
+| API-ACTION-07 | API | BR-04 | Assign to a Requester account | 400 `INVALID_ASSIGNEE` | same | **Pass** |
+| API-ACTION-08 | API | BR-04 | Assignee deactivated after assignment | The Action keeps the assignee and stays readable | same | **Pass** |
+| API-ACTION-09 | API | BR-09 | Future `actionAt`, and one before the Ticket | 400 each, with `field: "actionAt"` | same | **Pass** |
+| API-ACTION-10 | API | AC-05, BR-05 | Complete an Action with a result | 200; status Completed, version incremented | same | **Pass** |
+| API-ACTION-11 | API | BR-06 | Complete with no result | 400 with `field: "result"` | same | **Pass** |
+| API-ACTION-12 | API | AC-06 | Update a Completed or Cancelled Action | 409 `ACTION_FINAL`, nothing changes | same | **Pass** |
+| API-ACTION-13 | API | BR-05 | A transition the matrix forbids | 409 `INVALID_ACTION_TRANSITION` | same | **Pass** |
+| API-ACTION-14 | API | AC-07, BR-14 | Requester create, update, complete, cancel | 403 for each, with no row written | same | **Pass** |
+| API-ACTION-15 | API | AC-08, BR-15 | Requester lists Actions of another user's Ticket | 404, and the body reveals nothing about the Ticket | same | **Pass** |
+| API-ACTION-16 | API | FR-06 | Requester lists Actions of their own Ticket | 200 with every Action present | same | **Pass** |
+| API-ACTION-17 | API | BR-11 | Ordering | Two Actions with the same `actionAt` return in id order, stable across repeated reads | same | **Pass** |
+| API-ACTION-18 | API | BR-14 | Unauthenticated calls to all three endpoints | 401 each | same | **Pass** |
+| API-ACTION-19 | API | BR-13 | No delete route exists | `DELETE /api/actions/:id` answers 404 or 405, never removes a row | same | **Pass** |
+| API-ACTION-20 | API | BR-12 | Creating or updating an Action | The Ticket's status is unchanged by the write | same | **Pass** |
+| API-ACTION-21 | API | BR-26, AC-13 | Stale update of an Action | 409 `STALE_UPDATE`; the first write survives | same | **Pass** |
+| API-ACTION-22 | API | BR-28, AC-14 | Update with no version field | 400 `VERSION_REQUIRED` | same | **Pass** |
 
 ### 2.3 API — Ticket workflow — `server/tests/lab-04/ticket-workflow.api.test.ts`
 
@@ -344,6 +346,28 @@ Filled in as each issue lands; Issue #53 records the final run from the
 | Server unit + API + workflow + dashboards + migration + perf | `npm test --prefix server` | — | Planned |
 | Client UI components + accessibility | `npm test --prefix client` | — | Planned |
 | E2E + visual | `npm run test:e2e` | — | Planned |
+
+### After Issue #46 — Actions Taken foundation
+
+| Date | Command | Result |
+|---|---|---|
+| 2026-10-12 | `npm test --prefix server` | 253 passed / 253 (21 files) |
+| 2026-10-12 | `npx tsc --noEmit` (server) | clean |
+
+The sprint's first code lands: the `ActionTaken` model and `ActionStatus` enum, `Ticket.version`, the
+migration with its rollback documented in the file's own header, the seed extension, the three Actions
+endpoints and 37 tests (UNIT-01..05, API-ACTION-01..22).
+
+**Three Lab 2 and Lab 3 tests were deliberately updated**, as the Definition of Done permits when the reason
+is recorded. `API-LIST-01`, `API-QUEUE-01` and `API-TICKET-01` assert the Ticket object's field list exactly,
+and `version` has joined that list for optimistic concurrency (BR-26, `api-spec.md` §6). The assertion was
+kept exact and the field added to it, rather than loosened to "contains" — an exact list is what makes a
+leaked column visible, which is why those three rows exist.
+
+**Not yet wired up, by design:** `Ticket.version` exists and is returned, but the Ticket write endpoints do
+not require it yet. The precondition and the resolution gate arrive together in Issue #48, because requiring
+the field earlier would break the Lab 3 ticket suites for a sprint-internal reason rather than a contractual
+one.
 
 ## 8. Known Limitations and Deferred Tests
 
