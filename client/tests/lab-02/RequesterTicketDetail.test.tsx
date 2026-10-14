@@ -46,6 +46,10 @@ function mockFetch(ticketReply: () => { status: number; body: unknown }) {
     if (url.includes("/comments")) {
       return { ok: true, status: 200, json: async () => ({ data: [] }) } as unknown as Response;
     }
+    // Lab 4, Issue #47: and its Actions Taken, which a Requester reads (FR-06).
+    if (url.includes("/actions")) {
+      return { ok: true, status: 200, json: async () => ({ data: [] }) } as unknown as Response;
+    }
     const { status, body } = ticketReply();
     return { ok: status < 300, status, json: async () => body } as unknown as Response;
   }) as unknown as typeof fetch;
@@ -110,10 +114,17 @@ describe("Requester Ticket Detail screen", () => {
     expect(textboxes).toHaveLength(1);
     expect(textboxes[0]).toHaveAccessibleName(/public comment/i);
 
-    // Still absent in Lab 3: Internal Notes for a Requester (lab-03 BR-20),
-    // and Actions Taken, which the handout defers to Lab 4.
+    // Still absent for a Requester: Internal Notes (lab-03 BR-20).
     expect(screen.queryByText(/internal note/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/actions taken/i)).not.toBeInTheDocument();
+
+    // Lab 4, Issue #47: Actions Taken now exists and a Requester *reads* it
+    // (lab-04 FR-06), so this assertion changed from "absent" to "present and
+    // read-only". The read-only half is the part worth keeping: the panel may
+    // appear, but no control that writes to it may.
+    expect(await screen.findByTestId("actions-taken")).toBeInTheDocument();
+    for (const name of ["Add Action", "Edit", "Complete", "Cancel action"]) {
+      expect(screen.queryByRole("button", { name })).not.toBeInTheDocument();
+    }
   });
 
   it("UI-DETAIL-02: a ticket that is not yours reads as not found, with no data flash (BR-12, AC-03)", async () => {

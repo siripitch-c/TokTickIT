@@ -169,17 +169,17 @@ Asserts `src/actionRules.ts`, the pure-rule module the Actions endpoints consult
 
 | ID | Type | Req / AC | What it tests | Expected result | File | Status |
 |---|---|---|---|---|---|---|
-| UI-ACTION-01 | UI | FR-01 | Actions table renders | Six columns, rows in the order the API returned | `ActionsTaken.test.tsx` | Planned |
-| UI-ACTION-02 | UI | BR-05 | Status badges | All four render with text, not colour alone | same | Planned |
-| UI-ACTION-03 | UI | FR-05, BR-07 | Follow-up reveal | Choosing Yes reveals the note field and marks it required; No hides and clears it | same | Planned |
-| UI-ACTION-04 | UI | BR-10 | Counters and limits | Description counter updates; submit disabled over the limit | same | Planned |
-| UI-ACTION-05 | UI | BR-06 | Complete without a result | Focuses Result and shows its message; no request is sent | same | Planned |
-| UI-ACTION-06 | UI | BR-31 | Double submit | The save control disables for the duration; only one request leaves the client | same | Planned |
-| UI-ACTION-07 | UI | FR-06, AC-07 | Requester view | No Add Action button and no row controls are rendered | same | Planned |
-| UI-ACTION-08 | UI | BR-04 | Assignee select | Lists active staff only, defaults to the signed-in user | same | Planned |
-| UI-ACTION-09 | UI | §2.3 | Stale write feedback | A 409 renders the conflict block with Reload, and the typed text survives | same | Planned |
-| UI-ACTION-10 | UI | FR-04 | Cancel dialog | Confirmation required; cancelling leaves the row with the Cancelled badge | same | Planned |
-| UI-ACTION-11 | UI | FR-24 | Safe failure | A failed save keeps every entered value | same | Planned |
+| UI-ACTION-01 | UI | FR-01 | Actions table renders | Six columns, rows in the order the API returned | `ActionsTaken.test.tsx` | **Pass** |
+| UI-ACTION-02 | UI | BR-05 | Status badges | All four render with text, not colour alone | same | **Pass** |
+| UI-ACTION-03 | UI | FR-05, BR-07 | Follow-up reveal | Choosing Yes reveals the note field and marks it required; No hides and clears it | same | **Pass** |
+| UI-ACTION-04 | UI | BR-10 | Counters and limits | Description counter updates; submit disabled over the limit | same | **Pass** |
+| UI-ACTION-05 | UI | BR-06 | Complete without a result | Focuses Result and shows its message; no request is sent | same | **Pass** |
+| UI-ACTION-06 | UI | BR-31 | Double submit | The save control disables for the duration; only one request leaves the client | same | **Pass** |
+| UI-ACTION-07 | UI | FR-06, AC-07 | Requester view | No Add Action button and no row controls are rendered | same | **Pass** |
+| UI-ACTION-08 | UI | BR-04 | Assignee select | Lists active staff only, defaults to the signed-in user | same | **Pass** |
+| UI-ACTION-09 | UI | §2.3 | Stale write feedback | A 409 renders the conflict block with Reload, and the typed text survives | same | **Pass** |
+| UI-ACTION-10 | UI | FR-04 | Cancel dialog | Confirmation required; cancelling leaves the row with the Cancelled badge | same | **Pass** |
+| UI-ACTION-11 | UI | FR-24 | Safe failure | A failed save keeps every entered value | same | **Pass** |
 | UI-DASHS-01 | UI | FR-12, FR-14 | Metric grid and lists | Six cards, the by-status strip and both Ticket lists render from the API payload, and a list row opens its Ticket | `StaffDashboard.test.tsx` | Planned |
 | UI-DASHS-02 | UI | BR-21 | Zero metric | Renders `0` with its sub-line, still focusable and still a link | same | Planned |
 | UI-DASHS-03 | UI | AC-17, FR-15 | Drill-down links | Each card's href carries the documented query | same | Planned |
@@ -368,6 +368,43 @@ leaked column visible, which is why those three rows exist.
 not require it yet. The precondition and the resolution gate arrive together in Issue #48, because requiring
 the field earlier would break the Lab 3 ticket suites for a sprint-internal reason rather than a contractual
 one.
+
+### Fixes found by hand-testing Issue #47
+
+Two defects the suites had not caught, both found by using the screen rather than reading it:
+
+| What was wrong | Why the tests missed it | Fix |
+|---|---|---|
+| Saving an edit that carried an assignee answered **500**, and the screen showed "Something went wrong" | every assignee case in `actions-taken.api.test.ts` was a *refusal*, so the successful write was never exercised: the update carries its version in the WHERE, which makes it an `updateMany`, and `updateMany` cannot take Prisma's nested `connect` syntax | the update now sets `assignedToId` as a scalar, and **API-ACTION-06** gained a case for a successful reassignment |
+| The form's fields were the 40px single-line height, and validation messages were not red | the component used `zg-field` (the wrapper class) and `zg-field-message` (a class that does not exist) instead of the house `zg-field--textarea`, `zg-field--editable` and `zg-validation-message`; a component test asserts text and roles, not which stylesheet rule applies | the form now uses the Lab 2 field classes, so both textareas start at 120px and resize taller only |
+
+A third change came out of the same session: **Complete** no longer sits disabled with its reason in a
+tooltip. It opens the edit form on the Result field with the message, which is what `ui-spec.md` §6.4 had
+specified all along.
+
+### After Issue #47 — Actions Taken UI
+
+| Date | Command | Result |
+|---|---|---|
+| 2026-10-13 | `npm test --prefix server` | 253 passed / 253 |
+| 2026-10-13 | `npm test --prefix client` | 150 passed / 150 (16 new) |
+| 2026-10-14 | `npm test --prefix server` after the reassignment fix | 254 passed / 254 |
+| 2026-10-13 | `npx tsc --noEmit` (client) | clean |
+
+The Actions Taken panel lands on Ticket Detail: the log, the inline create and edit form, complete and
+cancel with their confirmation, the follow-up note that becomes required the moment follow-up is set to
+Yes, and the stale-write conflict with its Reload. A Requester sees every Action and no write control at
+all, and their screen never asks for the staff assignee list.
+
+**Two earlier tests were updated deliberately.** `UI-DETAIL-01` in `client/tests/lab-02` asserted that
+"Actions Taken" was *absent*, because Lab 2 deferred it; the assertion now checks that the panel is present
+and that no write control is, which is the part that still matters for a Requester (FR-06). The same file's
+fetch fixture learned the `/actions` endpoint, as it learned `/comments` in Lab 3.
+
+**The documented layout changed before it was built.** `ui-spec.md` §6.2 had specified a six-column
+`zg-table` with a separate mobile card rendering. It now specifies one responsive layout for every width,
+because two renderings of the same data are two things to keep honest, and the column a table would drop
+first is Result — the one the log exists for. The handout's §8.3 allows "an appropriate list or table".
 
 ## 8. Known Limitations and Deferred Tests
 

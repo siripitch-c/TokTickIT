@@ -1666,6 +1666,22 @@ textarea.zg-field--editable {
   margin: 0 0 var(--zg-space-3);
 }
 
+/* The follow-up note is a short textarea: two lines is enough for "chase the
+   supplier on Monday", and it still grows if somebody writes more. Every other
+   textarea here keeps Lab 2's 120px start (§2.1). */
+.zg-field--textarea-short {
+  min-height: 72px;
+  height: 72px;
+}
+
+/* A fieldset is not a flex container by default in every engine, so the radio
+   group gets the same column layout the other fields have. */
+.zg-field--group {
+  border: 0;
+  padding: 0;
+  margin-bottom: var(--zg-space-3);
+}
+
 .zg-radio {
   display: inline-flex;
   align-items: center;
@@ -1723,5 +1739,165 @@ textarea.zg-field--editable {
     right: var(--zg-space-3);
     bottom: var(--zg-space-3);
     max-width: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Lab 4, Issue #47 — Actions Taken (lab-04/ui-spec.md §6).
+
+   No new colour token: every rule below reuses what Labs 2 and 3 already
+   defined, which is what keeps the finished product one application rather
+   than four sprints stacked on top of each other.
+   --------------------------------------------------------------------------- */
+
+.zg-actions {
+  margin-top: var(--zg-space-4);
+  padding-top: var(--zg-space-3);
+  border-top: 1px solid var(--zg-border);
+}
+
+.zg-actions-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--zg-space-2);
+  margin-bottom: var(--zg-space-2);
+}
+
+.zg-actions-heading {
+  font-size: var(--zg-text-lg);
+  margin: 0;
+}
+
+.zg-actions-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.zg-action {
+  padding: var(--zg-space-2) 0;
+  border-bottom: 1px solid var(--zg-border);
+}
+
+.zg-action-top {
+  display: flex;
+  align-items: center;
+  gap: var(--zg-space-2);
+}
+
+.zg-action-when {
+  font-size: var(--zg-text-sm);
+  color: var(--zg-text-muted);
+}
+
+.zg-action-description {
+  margin: var(--zg-space-1) 0;
+  white-space: pre-wrap;
+}
+
+/* Label/value pairs rather than a table: the same markup reads as rows on a
+   wide screen and as stacked cards on a phone, so there is one layout to keep
+   honest instead of two (ui-spec.md §6.2). */
+.zg-action-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--zg-space-2);
+  margin: 0;
+}
+
+.zg-action-fields dt {
+  font-size: var(--zg-text-xs);
+  color: var(--zg-text-muted);
+}
+
+.zg-action-fields dd {
+  margin: 0;
+  font-size: var(--zg-text-sm);
+  white-space: pre-wrap;
+}
+
+.zg-action-assignee {
+  color: var(--zg-text-muted);
+}
+
+.zg-action-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--zg-space-2);
+  margin-top: var(--zg-space-2);
+}
+
+.zg-action-form {
+  background: var(--zg-pale);
+  border: 1px solid var(--zg-border);
+  border-radius: 8px;
+  padding: var(--zg-space-3);
+  margin-bottom: var(--zg-space-3);
+}
+
+.zg-action-form .zg-field {
+  gap: var(--zg-space-1);
+}
+
+.zg-action-form-heading {
+  margin: 0 0 var(--zg-space-2);
+  font-size: var(--zg-text-base);
+}
+
+.zg-action-form-controls {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--zg-space-2);
+  margin-top: var(--zg-space-2);
+}
+
+.zg-radio-row {
+  display: flex;
+  gap: var(--zg-space-4);
+  align-items: center;
+}
+
+.zg-radio {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--zg-space-1);
+  min-height: 44px;
+}
+
+/* ui-spec.md §2.2 — four action statuses, each with its own label text so
+   colour is never the only signal; Cancelled also carries a strikethrough. */
+.zg-badge--action-planned {
+  background: var(--zg-pale);
+  color: var(--zg-text);
+}
+
+.zg-badge--action-progress {
+  background: var(--zg-primary);
+  color: #fff;
+}
+
+.zg-badge--action-complete {
+  background: var(--zg-pale);
+  color: var(--zg-success);
+}
+
+.zg-badge--action-cancelled {
+  background: var(--zg-surface);
+  color: var(--zg-text-muted);
+  border: 1px solid var(--zg-border);
+  text-decoration: line-through;
+}
+
+@media (max-width: 767px) {
+  .zg-actions-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .zg-action-controls .zg-btn,
+  .zg-actions-header .zg-btn {
+    width: 100%;
+    min-height: 44px;
   }
 }

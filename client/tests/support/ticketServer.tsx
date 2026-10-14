@@ -2,7 +2,7 @@ import { render } from "@testing-library/react";
 import { vi } from "vitest";
 import { MemoryRouter, Outlet, Route, Routes } from "react-router-dom";
 import TicketDetail from "../../src/pages/TicketDetail.js";
-import type { ActorSummary, AuthUser, Role, ThreadEntry, Ticket } from "../../src/api.js";
+import type { ActionTaken, ActorSummary, AuthUser, Role, ThreadEntry, Ticket } from "../../src/api.js";
 
 // Shared by StaffTicketDetail.test.tsx and accessibility.test.tsx.
 //
@@ -54,6 +54,27 @@ export function makeTicket(overrides: Partial<Ticket> = {}): Ticket {
   };
 }
 
+/** lab-04/api-spec.md §4 — one Action, as the endpoints return it. */
+export function makeAction(overrides: Partial<ActionTaken> = {}): ActionTaken {
+  return {
+    id: 501,
+    ticketId: 118,
+    actionAt: "2026-05-13T09:30:00.000Z",
+    description: "Collected the laptop and ran the battery report.",
+    result: null,
+    status: "PLANNED",
+    performedBy: actor(STAFF),
+    assignedTo: actor(STAFF),
+    followUpRequired: false,
+    followUpNote: null,
+    attachmentNotes: null,
+    createdAt: "2026-05-13T09:31:00.000Z",
+    updatedAt: "2026-05-13T09:31:00.000Z",
+    version: 1,
+    ...overrides,
+  };
+}
+
 export interface Reply {
   status: number;
   body: unknown;
@@ -82,10 +103,14 @@ export interface FakeServer {
   appearsResolved?: () => Reply;
   /** Answers the Ticket read instead of returning `ticket`. */
   ticketReply?: () => Reply;
+  /** Lab 4 — the Ticket's work log (lab-04/api-spec.md §5). */
+  actions?: ActionTaken[];
+  /** Answers an Action write instead of applying it; return undefined to apply it. */
+  actionWrite?: (method: string, body: Record<string, unknown>) => Reply | undefined;
 }
 
 export function mockServer(caller: AuthUser, setup: Partial<Omit<FakeServer, "calls">> = {}): FakeServer {
-  const server: FakeServer = { ticket: makeTicket(), comments: [], notes: [], calls: [], ...setup };
+  const server: FakeServer = { ticket: makeTicket(), comments: [], notes: [], actions: [], calls: [], ...setup };
 
   const answer = (method: string, url: string, body: Record<string, unknown> | undefined): Reply => {
     if (url.includes("/api/categories") || url.includes("/api/related-systems")) return ok([]);
@@ -109,6 +134,54 @@ export function mockServer(caller: AuthUser, setup: Partial<Omit<FakeServer, "ca
       // updatedAt, and a note does not.
       if (thread[1] === "comments") server.ticket = { ...server.ticket, updatedAt: entry.createdAt };
       return ok(entry, 201);
+    }
+
+    // Lab 4 — Actions Taken (lab-04/api-spec.md §5).
+    if (/\/api\/tickets\/\d+\/actions$/.test(url)) {
+      const list = server.actions ?? [];
+      if (method === "GET") return ok([...list]);
+      const override = server.actionWrite?.(method, body ?? {});
+      if (override) return override;
+      const created: ActionTaken = {
+        ...makeAction({
+          id: 600 + list.length,
+          description: String(body?.description ?? ""),
+          result: (body?.result as string) || null,
+          status: (body?.status as ActionTaken["status"]) ?? "PLANNED",
+          followUpRequired: Boolean(body?.followUpRequired),
+          followUpNote: (body?.followUpNote as string) || null,
+          attachmentNotes: (body?.attachmentNotes as string) || null,
+          performedBy: actor(caller),
+          assignedTo:
+            ASSIGNEES.find((a) => a.id === (body?.assignedToId as number)) ?? actor(caller),
+        }),
+      };
+      list.push(created);
+      return ok(created, 201);
+    }
+
+    const actionWrite = url.match(/\/api\/actions\/(\d+)$/);
+    if (actionWrite && method === "PATCH") {
+      const override = server.actionWrite?.(method, body ?? {});
+      if (override) return override;
+      const list = server.actions ?? [];
+      const index = list.findIndex((a) => a.id === Number(actionWrite[1]));
+      if (index === -1) return refused(404, "ACTION_NOT_FOUND", "Action not found.");
+      const updated: ActionTaken = {
+        ...list[index],
+        ...(body?.description !== undefined ? { description: String(body.description) } : {}),
+        ...(body?.result !== undefined ? { result: (body.result as string) || null } : {}),
+        ...(body?.status !== undefined ? { status: body.status as ActionTaken["status"] } : {}),
+        ...(body?.followUpRequired !== undefined
+          ? {
+              followUpRequired: Boolean(body.followUpRequired),
+              followUpNote: body.followUpRequired ? ((body.followUpNote as string) ?? null) : null,
+            }
+          : {}),
+        version: list[index].version + 1,
+      };
+      list[index] = updated;
+      return ok(updated);
     }
 
     const operation = url.match(/\/api\/tickets\/\d+\/(owner|it-priority|status)$/);

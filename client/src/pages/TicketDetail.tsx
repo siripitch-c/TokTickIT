@@ -16,6 +16,7 @@ import { PriorityBadge, RoleBadge, StatusBadge } from "../components/Badge.js";
 import NotFoundState from "../components/NotFoundState.js";
 import OperationsPanel from "../components/OperationsPanel.js";
 import Thread from "../components/Thread.js";
+import ActionsTaken from "../components/ActionsTaken.js";
 import { formatDateTime } from "../lib/attachmentRules.js";
 import { readId } from "../lib/ids.js";
 
@@ -250,6 +251,11 @@ export default function TicketDetail() {
       ) : (
         <ResolutionSignal ticket={ticket} onChange={setTicket} />
       )}
+
+      {/* lab-04/ui-spec.md §6: the work log sits below Internal Notes for staff
+          and below Public Comments for a Requester, who sees every Action but
+          is offered no write control at all (FR-06). */}
+      <ActionsTaken key={ticket.id} ticketId={ticket.id} user={user} canManage={isStaff} />
     </section>
   );
 }

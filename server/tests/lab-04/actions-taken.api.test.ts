@@ -232,6 +232,26 @@ describe("Creating an Action Taken", () => {
     expect(stored.version).toBe(1);
   });
 
+  it("API-ACTION-06 / BR-04: reassigning an open Action to another active staff member succeeds and raises the version", async () => {
+    const ticket = await makeTicket();
+    const action = await createAction(ticket.id);
+
+    // The gap this fills: every earlier assignee case was a refusal, so the
+    // successful write was never exercised — and it was broken, because the
+    // update carries its version in the WHERE and cannot take nested relation
+    // syntax. A 500 reached the screen as "Something went wrong".
+    const res = await as(staffCookie).patch(`/api/actions/${action.id}`, {
+      version: action.version,
+      assignedToId: staffTwoId,
+      result: "Handed over to the second line.",
+    });
+
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
+    expect(res.body.data.assignedTo).toMatchObject({ id: staffTwoId, role: "IT_STAFF" });
+    expect(res.body.data.performedBy.id).toBe(staffId);
+    expect(res.body.data.version).toBe(action.version + 1);
+  });
+
   it("API-ACTION-07 / BR-04: a Requester cannot be the assignee", async () => {
     const ticket = await makeTicket();
 
