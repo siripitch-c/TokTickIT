@@ -49,6 +49,13 @@ export interface Ticket {
   ownerId: number | null;
   owner: ActorSummary | null;
   requesterResolvedAt: string | null;
+  // Lab 4, Issue #46 — the version the caller is holding. Every write that
+  // changes this Ticket sends it back, and a mismatch is refused (BR-26, BR-28).
+  version: number;
+  // Lab 4, Issue #48 — how many of its Actions are still Planned or In
+  // Progress. The screen uses it to explain a refused resolution before
+  // anybody presses Resolve; the server still decides (BR-18, AC-09).
+  openActionCount: number;
 }
 
 export interface NewTicket {
@@ -190,8 +197,11 @@ export async function uploadAttachment(
 // Issue #14 — My Tickets
 // ---------------------------------------------------------------------------
 
-/** A row in the ticket list: the Ticket fields without its attachments (api-spec.md §4). */
-export type TicketSummary = Omit<Ticket, "attachments">;
+/** A row in the ticket list: the Ticket fields without its attachments
+ *  (api-spec.md §4). Lab 4, Issue #48: `openActionCount` is dropped too — it
+ *  is counted for one Ticket on its own screen, never for a page of rows
+ *  nobody is resolving (lab-04/api-spec.md §6). */
+export type TicketSummary = Omit<Ticket, "attachments" | "openActionCount">;
 
 export interface Pagination {
   page: number;
@@ -413,7 +423,7 @@ export interface ActorSummary {
 }
 
 /** A queue row: the §5 Ticket object without `attachments` (§7). */
-export type StaffTicket = Omit<Ticket, "attachments">;
+export type StaffTicket = Omit<Ticket, "attachments" | "openActionCount">;
 
 export type QueueSortField = "ticketNumber" | "createdAt" | "updatedAt" | "itPriority";
 
@@ -473,19 +483,33 @@ async function patchTicket(ticketId: number, operation: string, body: object): P
   return (await res.json()).data as Ticket;
 }
 
+// Lab 4, Issue #48 — all three writes carry the version the screen is showing
+// (lab-04 BR-26, BR-28). It is a required argument rather than something read
+// from the Ticket inside these functions, so a caller cannot accidentally send
+// a version it never displayed.
+
 /** FR-15: claim (the caller's own id), reassign, or release with `null`. */
-export function setTicketOwner(ticketId: number, ownerId: number | null): Promise<Ticket> {
-  return patchTicket(ticketId, "owner", { ownerId });
+export function setTicketOwner(ticketId: number, version: number, ownerId: number | null): Promise<Ticket> {
+  return patchTicket(ticketId, "owner", { version, ownerId });
 }
 
 /** FR-17: IT Priority only; Requested Priority never changes (BR-29). */
-export function setItPriority(ticketId: number, itPriority: RequestedPriority): Promise<Ticket> {
-  return patchTicket(ticketId, "it-priority", { itPriority });
+export function setItPriority(
+  ticketId: number,
+  version: number,
+  itPriority: RequestedPriority,
+): Promise<Ticket> {
+  return patchTicket(ticketId, "it-priority", { version, itPriority });
 }
 
-/** FR-18: the server answers 409 for any move BR-31 does not permit. */
-export function setTicketStatus(ticketId: number, currentStatus: CurrentStatus): Promise<Ticket> {
-  return patchTicket(ticketId, "status", { currentStatus });
+/** FR-18: the server answers 409 for any move BR-31 does not permit, and for a
+ *  move to Resolved while the Ticket still has open Actions (lab-04 BR-18). */
+export function setTicketStatus(
+  ticketId: number,
+  version: number,
+  currentStatus: CurrentStatus,
+): Promise<Ticket> {
+  return patchTicket(ticketId, "status", { version, currentStatus });
 }
 
 /** FR-12, BR-34: the Requester's signal; it does not change the status. */

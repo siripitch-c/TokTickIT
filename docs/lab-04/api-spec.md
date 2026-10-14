@@ -221,12 +221,20 @@ shapes, and gain two behaviours:
 
 Cancelling a Ticket is never gated by its Actions (BR-19, AC-11). Every other
 transition rule is the matrix in BR-16, and a move it does not permit still
-answers 409 `INVALID_TRANSITION` as it did in Lab 3 (AC-12).
+answers 409 `INVALID_STATUS_TRANSITION` as it did in Lab 3 (AC-12).
 
 `GET /api/tickets/:id` and `GET /api/staff/tickets` now include `version` on
 each Ticket, and `GET /api/tickets/:id` additionally includes
 `openActionCount`, so the interface can disable Resolve before the user presses
-it while the server still makes the decision.
+it while the server still makes the decision. A queue row carries no
+`openActionCount`: it is counted for the one Ticket somebody is looking at, not
+for a page of rows nobody is resolving.
+
+`POST /api/tickets/:id/appears-resolved` keeps its Lab 3 contract and carries no
+`version` of its own — it is not an edit two people could be making at once, and
+the endpoint is already exactly-once — but it raises the Ticket's version like
+any other successful write (BR-26), so a staff member holding the Ticket on
+screen learns that the Requester has spoken.
 
 `GET /api/staff/tickets` also accepts two new optional query parameters, which
 exist so the dashboard's *My open actions* card can drill down into the queue

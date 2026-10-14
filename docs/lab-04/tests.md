@@ -103,19 +103,19 @@ Asserts `src/actionRules.ts`, the pure-rule module the Actions endpoints consult
 
 | ID | Type | Req / AC | What it tests | Expected result | File | Status |
 |---|---|---|---|---|---|---|
-| API-FLOW-01 | API | AC-09, BR-18, FR-08 | Resolve with one Planned Action | 409 `OPEN_ACTIONS_REMAIN`, message names the count, status unchanged, and the Ticket read reports the same `openActionCount` | `ticket-workflow.api.test.ts` | Planned |
-| API-FLOW-02 | API | AC-09 | Resolve with one In Progress Action | 409, as above | same | Planned |
-| API-FLOW-03 | API | AC-10 | Resolve after every Action is final | 200; status Resolved | same | Planned |
-| API-FLOW-04 | API | AC-27, BR-18 | Resolve a legacy Ticket with no Actions | 200; the gate passes trivially | same | Planned |
-| API-FLOW-05 | API | AC-11, BR-19 | Cancel a Ticket holding open Actions | 200; the Actions are untouched | same | Planned |
-| API-FLOW-06 | API | AC-12, BR-16 | Every transition the matrix forbids | 409 `INVALID_TRANSITION` for each pair tested, status unchanged | same | Planned |
-| API-FLOW-07 | API | BR-16 | Every transition the matrix permits | 200 for each pair tested | same | Planned |
-| API-FLOW-08 | API | BR-17 | Requester attempts a status change | 403 | same | Planned |
-| API-FLOW-09 | API | AC-13, BR-26 | Two writers, second holds the old version | Second answers 409 `STALE_UPDATE`; the first write is intact | same | Planned |
-| API-FLOW-10 | API | AC-14, BR-28 | Status write with no version | 400 `VERSION_REQUIRED` | same | Planned |
-| API-FLOW-11 | API | BR-26 | Version increments | Owner, IT priority and status writes each raise the version by exactly one | same | Planned |
-| API-FLOW-12 | API | BR-20, AC-20 | Requester resolution signal | Recorded once with its time; status unchanged; a second attempt refused | same | Planned |
-| API-FLOW-14 | API | BR-30 | Unexpected failure path | 500 with a generic message and no internal detail | same | Planned |
+| API-FLOW-01 | API | AC-09, BR-18, FR-08 | Resolve with one Planned Action | 409 `OPEN_ACTIONS_REMAIN`, message names the count, status unchanged, and the Ticket read reports the same `openActionCount` | `ticket-workflow.api.test.ts` | **Pass** |
+| API-FLOW-02 | API | AC-09 | Resolve with one In Progress Action | 409, as above | same | **Pass** |
+| API-FLOW-03 | API | AC-10 | Resolve after every Action is final | 200; status Resolved | same | **Pass** |
+| API-FLOW-04 | API | AC-27, BR-18 | Resolve a legacy Ticket with no Actions | 200; the gate passes trivially | same | **Pass** |
+| API-FLOW-05 | API | AC-11, BR-19 | Cancel a Ticket holding open Actions | 200; the Actions are untouched | same | **Pass** |
+| API-FLOW-06 | API | AC-12, BR-16 | Every transition the matrix forbids | 409 `INVALID_STATUS_TRANSITION` for each pair tested, status unchanged | same | **Pass** |
+| API-FLOW-07 | API | BR-16 | Every transition the matrix permits | 200 for each pair tested | same | **Pass** |
+| API-FLOW-08 | API | BR-17 | Requester attempts a status change | 403 | same | **Pass** |
+| API-FLOW-09 | API | AC-13, BR-26 | Two writers, second holds the old version | Second answers 409 `STALE_UPDATE`; the first write is intact | same | **Pass** |
+| API-FLOW-10 | API | AC-14, BR-28 | Status write with no version | 400 `VERSION_REQUIRED` | same | **Pass** |
+| API-FLOW-11 | API | BR-26 | Version increments | Owner, IT priority and status writes each raise the version by exactly one | same | **Pass** |
+| API-FLOW-12 | API | BR-20, AC-20 | Requester resolution signal | Recorded once with its time; status unchanged; a second attempt refused | same | **Pass** |
+| API-FLOW-14 | API | BR-30 | Unexpected failure path | 500 with a generic message and no internal detail | same | **Pass** |
 
 ### 2.4 API — Staff dashboard — `server/tests/lab-04/staff-dashboard.api.test.ts`
 
@@ -180,6 +180,7 @@ Asserts `src/actionRules.ts`, the pure-rule module the Actions endpoints consult
 | UI-ACTION-09 | UI | §2.3 | Stale write feedback | A 409 renders the conflict block with Reload, and the typed text survives | same | **Pass** |
 | UI-ACTION-10 | UI | FR-04 | Cancel dialog | Confirmation required; cancelling leaves the row with the Cancelled badge | same | **Pass** |
 | UI-ACTION-11 | UI | FR-24 | Safe failure | A failed save keeps every entered value | same | **Pass** |
+| UI-ACTION-12 | UI | FR-26 | Panels are not duplicated | After any update to Ticket Detail, Attachments, Public Comments and Actions Taken each render exactly once, and React logs no duplicate-key warning | same | **Pass** |
 | UI-DASHS-01 | UI | FR-12, FR-14 | Metric grid and lists | Six cards, the by-status strip and both Ticket lists render from the API payload, and a list row opens its Ticket | `StaffDashboard.test.tsx` | Planned |
 | UI-DASHS-02 | UI | BR-21 | Zero metric | Renders `0` with its sub-line, still focusable and still a link | same | Planned |
 | UI-DASHS-03 | UI | AC-17, FR-15 | Drill-down links | Each card's href carries the documented query | same | Planned |
@@ -189,11 +190,11 @@ Asserts `src/actionRules.ts`, the pure-rule module the Actions endpoints consult
 | UI-DASHR-02 | UI | FR-18 | Attention panel | Combines waiting-for-me and resolved rows, each with its reason | same | Planned |
 | UI-DASHR-03 | UI | AC-21 | Empty dashboard | Three zeros, the empty line, and a Create Ticket call to action | same | Planned |
 | UI-DASHR-04 | UI | FR-19 | Drill-down links | Each card links into My Tickets with the matching filter | same | Planned |
-| UI-FLOW-01 | UI | FR-08 | Status options | Only permitted transitions are offered for the current status | `TicketWorkflow.test.tsx` | Planned |
-| UI-FLOW-02 | UI | AC-09 | Resolve blocked | With open Actions the option is disabled and explains why; a server 409 renders the conflict text | same | Planned |
-| UI-FLOW-03 | UI | BR-16 | Terminal confirmations | Closed and Cancelled confirm before saving | same | Planned |
-| UI-FLOW-04 | UI | BR-27 | Stale status write | The conflict block offers Reload and the select returns to the current status | same | Planned |
-| UI-FLOW-05 | UI | FR-25 | Navigation | Dashboard is the first item and the landing route for all three roles | `AppShell.test.tsx` (lab-04) | Planned |
+| UI-FLOW-01 | UI | FR-08 | Status options | Only permitted transitions are offered for the current status | `TicketWorkflow.test.tsx` | **Pass** |
+| UI-FLOW-02 | UI | AC-09 | Resolve blocked | With open Actions the option is disabled and explains why; a server 409 renders the conflict text | same | **Pass** |
+| UI-FLOW-03 | UI | BR-16 | Terminal confirmations | Closed and Cancelled confirm before saving | same | **Pass** |
+| UI-FLOW-04 | UI | BR-27 | Stale status write | The conflict block offers Reload and the select returns to the current status | same | **Pass** |
+| UI-FLOW-05 | UI | FR-25 | Navigation | Dashboard is the first item and the landing route for all three roles | `AppShell.test.tsx` (lab-04) | Planned — Issue #50 (see §7) |
 
 ### 2.9 Accessibility — `client/tests/lab-04/accessibility.test.tsx`
 
@@ -368,6 +369,80 @@ leaked column visible, which is why those three rows exist.
 not require it yet. The precondition and the resolution gate arrive together in Issue #48, because requiring
 the field earlier would break the Lab 3 ticket suites for a sprint-internal reason rather than a contractual
 one.
+
+### After Issue #48 — Ticket workflow and resolution
+
+| Date | Command | Result |
+|---|---|---|
+| 2026-10-14 | `npm test --prefix server` | 267 passed / 267 (22 files, 13 new) |
+| 2026-10-15 | `npm test --prefix client` | 158 passed / 158 (8 new) |
+| 2026-10-14 | `npx tsc --noEmit` (server, client) | clean on both |
+| 2026-10-14 | `npm run build` (server, client) | both succeed |
+
+The three Ticket writes gain the version precondition (BR-26, BR-28) and the status write gains the
+resolution gate (BR-18): a Ticket cannot reach Resolved while any of its Actions is still Planned or In
+Progress, and the refusal counts them. Cancelling stays ungated (BR-19). `GET /api/tickets/:id` now carries
+`openActionCount`, and the Operations panel uses it to disable Resolve with the reason attached to the
+select — while the server remains the authority. Thirteen API cases (API-FLOW-01..12, API-FLOW-14) and seven
+component cases (UI-FLOW-01..04) land with it.
+
+**Three naming and shape corrections.**
+
+The sprint contract named the refused-transition code `INVALID_TRANSITION` and said it was what Lab 3
+answered. Lab 3 answers `INVALID_STATUS_TRANSITION` — in `docs/lab-03/api-spec.md`, in the server suite and
+in the client suite alike. `api-spec.md` §6 and the `API-FLOW-06` row were corrected to the name the service
+actually uses: renaming a code the previous sprint shipped would break a published contract to fix a typo in
+this one.
+
+`TicketSummary` and `StaffTicket` exclude `openActionCount`, because a list row is not a Ticket anybody is
+resolving. `POST /api/tickets/:id/appears-resolved` raises the version without requiring one, which
+`api-spec.md` §6 now states.
+
+**Four earlier tests were deliberately updated**, with the reason recorded here as the Definition of Done
+requires:
+
+| Test | Change | Reason |
+|---|---|---|
+| `API-TICKET-01` | `openActionCount` added to the exact field list | the detail read carries it now (BR-18, AC-09); the list is kept exact rather than loosened, which is the point of that assertion |
+| `API-TICKET-02..11, 19` | the suite's `patch` helper reads the Ticket's current version and sends it | those cases are about ownership, priority and the matrix, not about concurrency; the version rules are asserted on their own in `API-FLOW-09..11` |
+| `API-TICKET-10` (two simultaneous moves) | the loser's code is now `STALE_UPDATE` | unchanged in substance — exactly one writer still wins — but the loser is told the Ticket moved underneath them, which is truer than "Open to Open is not a move" |
+| `UI-DETAIL-03, 04, 06` | the four asserted request bodies carry `version` | the screen sends the version it is showing; `UI-DETAIL-03` sends `version: 2` on its second write, because the first write returned a new one |
+
+**A defect from Issue #47, found by reading the code rather than running it.** The Actions panel renders a
+stale-write conflict with `className="zg-conflict"`, and no `.zg-conflict` rule existed in `zen-green.css`
+— the block had been shipping unstyled. It is the same failure mode as the two caught by hand-testing: a
+component test asserts text and roles, never which stylesheet rule applies. The class is now defined once
+and the Operations panel renders the same block, which is what `ui-spec.md` §2.3 asked for.
+
+**One accessibility rule was written down and not built.** `ui-spec.md` §11 says the stale-write alert takes
+focus to its Reload button, because the person is about to lose their change if they scroll past it. Neither
+panel did — the Actions panel had shipped without it in Issue #47, and the Operations panel was about to
+repeat the omission. Both now move focus, and `UI-ACTION-09` and `UI-FLOW-04` each assert it. The same
+reading corrected §2.3, which quoted a generic sentence the service never sends: the block carries the
+server's own message, which names the ticket or the action.
+
+**A defect the two components could not have caught, found by hand-testing.** Pressing *Problem Appears
+Resolved* re-rendered Ticket Detail with **two Attachments panels**. Neither component was wrong:
+`AttachmentSection` and `ActionsTaken` are both keyed, so that moving to another Ticket resets their own
+state instead of carrying the last Ticket's rows across — and Issue #47 keyed the new panel `ticket.id`,
+which is what the panel above it was already keyed. React is explicit that two siblings sharing a key may be
+duplicated or dropped on an update, and it logs a warning saying so. The keys are now prefixed, and
+**`UI-ACTION-12`** asserts that every panel renders once after an update and that React logs no such
+warning; it fails on the previous code, which is the only reason to believe it. The lesson is the one
+already recorded for Issue #47: component tests assert what a component renders, never how the screen that
+composes them reconciles.
+
+**One visual defect, seen in the Part 7 evidence itself.** In the Ticket header, the Requester's name and
+the role badge share a 40px read-only field as flex items, and a flex item may shrink below its own content:
+a long name pushed both onto two lines, breaking the word "Requester" across the middle of its pill and
+spilling out of the box. It appears at the width a half-screen window gives, which is why 1440 / 768 / 375
+spot checks had not met it. The badge now never shrinks and the name truncates with its full text on
+`title`. No test asserts it — jsdom has no layout, which is the same reason the class-name defects of Issue
+#47 went unseen — so it belongs to the visual checklist (`ui-spec.md` §12, VIS-01..03 in Issue #52).
+
+**`UI-FLOW-05` moves to Issue #50.** It asserts that Dashboard is the first navigation item and the landing
+route for all three roles (FR-25). Neither dashboard exists until Issues #49 and #50, so the case is written
+where the thing it describes is built, rather than against a route that would have to be stubbed.
 
 ### Fixes found by hand-testing Issue #47
 

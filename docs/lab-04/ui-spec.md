@@ -59,10 +59,14 @@ never the only cue:
 
 A 409 `STALE_UPDATE` (BR-26) is not a validation message and not the generic
 failure block. It renders as the Lab 3 conflict feedback (§2.6) immediately
-above the control that was being saved, with the wording *"This changed after
-you opened it. Reload to see the current version."* and a **Reload** button
+above the control that was being saved, carrying the server's own sentence —
+*"This ticket changed after you opened it. Reload to see the current version."*
+for a Ticket and the same sentence naming the action for an Action, never a
+message the screen invented — and a **Reload** button
 that re-fetches the record and leaves the user's typed text in place where the
 field still exists (BR-27, FR-24). The record is never silently resubmitted.
+Reloading clears the block it was shown for: the record the warning described is
+the record that just came back, so leaving it up would warn about nothing.
 
 ## 3. Application Shell Changes
 
