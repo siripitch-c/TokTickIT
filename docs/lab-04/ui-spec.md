@@ -196,26 +196,31 @@ from Lab 3 §8.1.
 staff, a primary **Add Action** button on the right. For a Requester the button
 is absent — not disabled (FR-06).
 
-### 6.2 List (desktop ≥ 992px)
+### 6.2 The list
 
-A `zg-table` with six columns:
+One layout at every width, rather than a table that becomes cards: an ordered
+list of entries, each carrying
 
-| Column | Content |
+| Part | Content |
 |---|---|
-| When | `actionAt`, date and 24-hour time |
-| Action | description, wrapped, maximum three lines then "more" |
-| Result | result, or an em dash while the Action is open |
-| Who | performed-by name, and "for <assignee>" underneath when the assignee differs (BR-02) |
-| Follow-up | "Yes — <note>" or "No"; the note wraps under the word |
-| Status | `zg-badge--action-*`, then the row's controls for staff |
+| Status and when | `zg-badge--action-*` and `actionAt` as date and 24-hour time, on one line |
+| What was done | the description, wrapped, preserving the line breaks the author typed |
+| Result | the result, or an em dash while the Action is still open |
+| Who | performed-by name, and "for <assignee>" when the assignee differs (BR-02) |
+| Follow-up | "Yes — <note>" or "No" |
+| Files | the attachment notes, when present (BR-08) |
+| Controls | Edit, Complete and Cancel action for staff on an open Action |
 
-Rows are ordered oldest action time first with the id as tie-break (BR-11), so
-the table reads as a work log from the top down. Attachment notes render under
-the Action column in `--zg-muted` prefixed with "Files:" when present (BR-08).
+The four label/value pairs sit in a grid that fits as many columns as the width
+allows and falls to one on a phone, so the same markup reads as a row of
+columns on a desktop and as a stacked card below 768px. The handout's §8.3 asks
+for "an appropriate list or table", and a list is what keeps this honest: a
+six-column table would need a second mobile rendering to maintain, and the
+column that would be dropped first — Result — is the one the log exists for.
 
-Below 992px each Action becomes a card: status badge and date on the first
-line, description, then result, then who and follow-up as label/value pairs,
-then the controls as full-width buttons ≥ 44px.
+Entries are ordered oldest action time first with the id as the tie-break
+(BR-11), so the panel reads as a work log from the top down. Controls become
+full-width buttons of at least 44px below 768px.
 
 ### 6.3 Create and edit
 
@@ -225,14 +230,17 @@ order:
 
 1. **When** — date-time field, defaults to now, must not be in the future or
    before the Ticket's creation time (BR-09).
-2. **What was done** — textarea, 5–2000 characters, live counter.
+2. **What was done** — textarea, 5–2000 characters, live counter. It uses Lab 2
+   §2.1's textarea treatment: 120px tall to start, resizable taller only, never
+   the 40px single-line control height.
 3. **Result** — textarea, 0–2000, with the hint "Required to complete the
    action." (BR-06).
 4. **Assigned to** — select of active IT Staff and Administrators, defaulting
    to the signed-in user; inactive accounts are not listed, and a stale
    selection is refused by the server with the field named (BR-04, AC-04).
 5. **Status** — Planned · In Progress · Completed.
-6. **Follow-up required** — a two-option radio group, No by default. Choosing
+6. **Follow-up required** — a two-option radio group on its own row beneath the
+   explanation, No by default, each option at least 44px tall. Choosing
    **Yes** reveals the **Follow-up note** field immediately below it, marked
    required from that moment; choosing No hides it and clears it (BR-07).
 7. **Attachment notes** — single-line text, 0–2000, hint "Which file should a
@@ -247,9 +255,11 @@ write as a conflict (AC-06).
 
 ### 6.4 Complete and cancel
 
-- **Complete** is enabled only when a result is present; pressing it with an
-  empty result focuses the Result field and shows its validation message rather
-  than sending a request (the server also refuses, BR-06).
+- **Complete** stays pressable. With no result recorded it opens the edit form
+  for that Action, focuses the Result field and shows its message, rather than
+  sending a request or sitting disabled with the reason hidden in a tooltip —
+  a dead control teaches nobody what is missing. The server refuses the same
+  write independently (BR-06).
 - **Cancel action** opens `zg-confirm-dialog` — "Cancel this action? It stays
   in the log and cannot be reopened." — with a destructive confirm button, as
   Lab 3 does for Closed and Cancelled tickets.
@@ -316,14 +326,14 @@ Extends Lab 3 §10 with the two new screens.
 
 | Viewport | Range | Lab 4 behaviour |
 |---|---|---|
-| Desktop | ≥ 992px | Dashboards: 3-column metric grid, two lists side by side. Actions: six-column table |
-| Tablet | 768–991px | Dashboards: 2-column grid, lists stacked with *Needs attention* first. Actions: table drops the Result column into the Action cell |
+| Desktop | ≥ 992px | Dashboards: 3-column metric grid, two lists side by side. Actions: entries with their fields in a multi-column grid |
+| Tablet | 768–991px | Dashboards: 2-column grid, lists stacked with *Needs attention* first. Actions: the field grid falls to two columns |
 | Mobile | < 768px | Dashboards: single column, by-status strip in two columns. Actions: cards, controls full width ≥ 44px |
 
 Non-negotiable at every size, as in Labs 2 and 3: no clipped labels, no
 overlapping messages, no hidden buttons, and no unintended horizontal
-scrolling — including the Actions table at 992px, which is why Result folds
-into the Action cell at tablet width rather than being allowed to overflow.
+scrolling — which the Actions list gets for free by never being a table, and
+which the dashboards get by reflowing their grid rather than shrinking it.
 
 ## 11. Accessibility Additions
 

@@ -252,7 +252,9 @@ actionRoutes.patch("/actions/:id", staffOnly, async (req: Request, res: Response
       return sendError(res, 409, "ACTION_FINAL", MESSAGES.final, "status");
     }
 
-    const changes: Prisma.ActionTakenUpdateInput = {};
+    // Scalars only: the write below is an `updateMany`, which carries the
+    // version in its WHERE and therefore cannot take nested relation syntax.
+    const changes: Prisma.ActionTakenUncheckedUpdateManyInput = {};
 
     if (body.description !== undefined) {
       const description = readDescription(body.description);
@@ -300,7 +302,7 @@ actionRoutes.patch("/actions/:id", staffOnly, async (req: Request, res: Response
       if (assignedToId === null || !(await assigneeIsEligible(assignedToId))) {
         return sendError(res, 400, "INVALID_ASSIGNEE", MESSAGES.assignee, "assignedToId");
       }
-      changes.assignedTo = { connect: { id: assignedToId } };
+      changes.assignedToId = assignedToId;
     }
 
     if (body.status !== undefined) {
@@ -320,7 +322,7 @@ actionRoutes.patch("/actions/:id", staffOnly, async (req: Request, res: Response
     // write, because the second updates no row (BR-26).
     const updated = await getPrisma().actionTaken.updateMany({
       where: { id: actionId, version: existing.version },
-      data: { ...(changes as Prisma.ActionTakenUncheckedUpdateManyInput), version: { increment: 1 } },
+      data: { ...changes, version: { increment: 1 } },
     });
     if (updated.count === 0) return sendError(res, 409, "STALE_UPDATE", MESSAGES.stale, "version");
 

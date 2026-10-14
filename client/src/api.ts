@@ -527,6 +527,76 @@ export async function postToThread(ticketId: number, kind: ThreadKind, body: str
 }
 
 // ---------------------------------------------------------------------------
+// Lab 4, Issue #46/#47 — Actions Taken (lab-04/api-spec.md §5)
+// ---------------------------------------------------------------------------
+
+export type ActionStatus = "PLANNED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
+
+/** lab-04/api-spec.md §4 — one Action, as every endpoint returns it. */
+export interface ActionTaken {
+  id: number;
+  ticketId: number;
+  actionAt: string;
+  description: string;
+  result: string | null;
+  status: ActionStatus;
+  performedBy: ActorSummary;
+  assignedTo: ActorSummary;
+  followUpRequired: boolean;
+  followUpNote: string | null;
+  attachmentNotes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  /** BR-26: sent back on every write so a concurrent change cannot be overwritten. */
+  version: number;
+}
+
+export interface NewAction {
+  actionAt?: string;
+  description: string;
+  result?: string;
+  assignedToId?: number;
+  status?: ActionStatus;
+  followUpRequired: boolean;
+  followUpNote?: string;
+  attachmentNotes?: string;
+}
+
+/** Every field is optional except `version`, which BR-28 makes mandatory. */
+export type ActionChanges = Partial<Omit<NewAction, "followUpRequired">> & {
+  followUpRequired?: boolean;
+  version: number;
+};
+
+export async function fetchActions(ticketId: number): Promise<ActionTaken[]> {
+  const res = await fetch(`${API_URL}/api/tickets/${ticketId}/actions`, { ...withSession });
+  if (!res.ok) throw await toApiError(res);
+  return (await res.json()).data as ActionTaken[];
+}
+
+export async function createAction(ticketId: number, action: NewAction): Promise<ActionTaken> {
+  const res = await fetch(`${API_URL}/api/tickets/${ticketId}/actions`, {
+    method: "POST",
+    ...withSession,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(action),
+  });
+  if (!res.ok) throw await toApiError(res);
+  return (await res.json()).data as ActionTaken;
+}
+
+export async function updateAction(actionId: number, changes: ActionChanges): Promise<ActionTaken> {
+  const res = await fetch(`${API_URL}/api/actions/${actionId}`, {
+    method: "PATCH",
+    ...withSession,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(changes),
+  });
+  if (!res.ok) throw await toApiError(res);
+  return (await res.json()).data as ActionTaken;
+}
+
+// ---------------------------------------------------------------------------
 // Lab 3, Issue #33 — Administrator user management (api-spec.md §9)
 // ---------------------------------------------------------------------------
 
