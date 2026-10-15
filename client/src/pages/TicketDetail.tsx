@@ -200,7 +200,9 @@ export default function TicketDetail() {
           <div className="zg-field">
             <span className="zg-field-label">Requester</span>
             <output className="zg-field--readonly zg-field--with-badge" aria-readonly="true">
-              <span>{ticket.requester.name}</span>
+              {/* `title`, because the name is the part allowed to give way when
+                  the field is narrow — truncated on screen, never lost. */}
+              <span title={ticket.requester.name}>{ticket.requester.name}</span>
               <RoleBadge role={ticket.requester.role} />
             </output>
           </div>
@@ -227,14 +229,20 @@ export default function TicketDetail() {
       <ReadOnly label="Summary" value={ticket.summary} block />
       <ReadOnly label="Description" value={ticket.description} block multiline />
 
-      {isStaff && <OperationsPanel ticket={ticket} user={user} onChange={setTicket} />}
+      {isStaff && <OperationsPanel ticket={ticket} user={user} onChange={setTicket} onReload={refreshTicket} />}
 
       {/* §7.1 item 2: a hard visual break, because the handout requires ticket
           information and attachment actions to be clearly distinguished. */}
       <hr className="zg-detail-divider" />
 
+      {/* The key exists so that moving to another Ticket resets the panel's own
+          state rather than carrying the last Ticket's rows into it. It must be
+          unique among its siblings: `ActionsTaken` below is keyed the same way,
+          and two siblings sharing a key let React duplicate or drop one of them
+          on an update — which is exactly what happened between Issue #47 and
+          Issue #48. Hence the prefix. */}
       <AttachmentSection
-        key={ticket.id}
+        key={`attachments-${ticket.id}`}
         ticketId={ticket.id}
         initialAttachments={ticket.attachments}
         canManage={!isStaff}
@@ -255,7 +263,7 @@ export default function TicketDetail() {
       {/* lab-04/ui-spec.md §6: the work log sits below Internal Notes for staff
           and below Public Comments for a Requester, who sees every Action but
           is offered no write control at all (FR-06). */}
-      <ActionsTaken key={ticket.id} ticketId={ticket.id} user={user} canManage={isStaff} />
+      <ActionsTaken key={`actions-${ticket.id}`} ticketId={ticket.id} user={user} canManage={isStaff} />
     </section>
   );
 }

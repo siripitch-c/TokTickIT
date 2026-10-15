@@ -57,6 +57,10 @@ function makeTickets(count: number): StaffTicket[] {
       requesterResolvedAt: null,
       createdAt: "2026-05-12T09:14:00.000Z",
       updatedAt: "2026-05-13T09:14:00.000Z",
+      // Lab 4, Issue #46: the queue returns each Ticket's version so a row can
+      // be opened and written without a second read (lab-04/api-spec.md §6).
+      // `openActionCount` is not part of a queue row and so is not here.
+      version: 1,
     };
   });
 }

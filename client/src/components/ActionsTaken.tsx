@@ -171,7 +171,7 @@ export default function ActionsTaken({ ticketId, user, canManage }: Props) {
   }
 
   return (
-    <section className="zg-actions" data-testid="actions-taken" aria-labelledby={headingId}>
+    <section id="actions-taken" className="zg-actions" data-testid="actions-taken" aria-labelledby={headingId}>
       <div className="zg-actions-header">
         <h3 id={headingId} className="zg-actions-heading">
           Actions Taken ({actions.length})
@@ -257,21 +257,14 @@ export default function ActionsTaken({ ticketId, user, canManage }: Props) {
                 </dl>
 
                 {rowError?.id === action.id && (
-                  <div className={rowError.stale ? "zg-conflict" : "zg-callout zg-callout--error"} role="alert">
-                    <span>{rowError.message}</span>
-                    {rowError.stale && (
-                      <button
-                        type="button"
-                        className="zg-btn zg-btn--secondary"
-                        onClick={() => {
-                          setRowError(null);
-                          setAttempt((n) => n + 1);
-                        }}
-                      >
-                        Reload
-                      </button>
-                    )}
-                  </div>
+                  <RowConflict
+                    message={rowError.message}
+                    stale={rowError.stale}
+                    onReload={() => {
+                      setRowError(null);
+                      setAttempt((n) => n + 1);
+                    }}
+                  />
                 )}
 
                 {/* FR-06: a Requester gets no control here, and a finished
@@ -608,5 +601,37 @@ function ActionForm({ heading, assignees, currentUserId, initial, missingResult,
         </button>
       </div>
     </form>
+  );
+}
+
+/**
+ * ui-spec.md §2.3 and §11 — a refused write, announced. A stale one offers
+ * Reload and takes focus to it, because the person is about to lose work if
+ * they scroll past the message; an ordinary refusal is read where it sits.
+ */
+function RowConflict({
+  message,
+  stale,
+  onReload,
+}: {
+  message: string;
+  stale: boolean;
+  onReload: () => void;
+}) {
+  const reload = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (stale) reload.current?.focus();
+  }, [stale, message]);
+
+  return (
+    <div className={stale ? "zg-conflict" : "zg-callout zg-callout--error"} role="alert">
+      <span>{message}</span>
+      {stale && (
+        <button ref={reload} type="button" className="zg-btn zg-btn--secondary" onClick={onReload}>
+          Reload
+        </button>
+      )}
+    </div>
   );
 }

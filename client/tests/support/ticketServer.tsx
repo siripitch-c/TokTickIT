@@ -50,6 +50,10 @@ export function makeTicket(overrides: Partial<Ticket> = {}): Ticket {
     createdAt: "2026-05-12T09:14:00.000Z",
     updatedAt: "2026-05-13T10:00:00.000Z",
     attachments: [],
+    // Lab 4: the two fields every Ticket now carries (lab-04 BR-26, BR-18).
+    // A fixture Ticket has no open Actions unless a test says it has.
+    version: 1,
+    openActionCount: 0,
     ...overrides,
   };
 }
@@ -197,6 +201,9 @@ export function mockServer(caller: AuthUser, setup: Partial<Omit<FakeServer, "ca
       } else {
         server.ticket = { ...server.ticket, currentStatus: body.currentStatus as Ticket["currentStatus"] };
       }
+      // Lab 4 BR-26: a successful write raises the version, so a screen that
+      // keeps writing keeps sending a version the server would still accept.
+      server.ticket = { ...server.ticket, version: server.ticket.version + 1 };
       return ok(server.ticket);
     }
 

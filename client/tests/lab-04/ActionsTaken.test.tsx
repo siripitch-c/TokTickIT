@@ -2,9 +2,9 @@ import "@testing-library/jest-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { REQUESTER, STAFF, makeAction, mockServer, refused, renderDetail } from "../support/ticketServer.js";
+import { REQUESTER, STAFF, makeAction, makeTicket, mockServer, refused, renderDetail } from "../support/ticketServer.js";
 
-// tests.md UI-ACTION-01..11; ui-spec.md §2.2, §2.3, §6; specification.md
+// tests.md UI-ACTION-01..12; ui-spec.md §2.2, §2.3, §6; specification.md
 // FR-01..FR-07, BR-04..BR-11, BR-27, BR-31, AC-07.
 //
 // What a person on each side of the work log sees and can do. That the API
@@ -281,8 +281,13 @@ describe("Completing, cancelling and conflicts", () => {
 
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent(/changed after you opened it/i);
+    const reload = within(alert).getByRole("button", { name: "Reload" });
+    // ui-spec.md §11: focus lands on Reload, because the work is about to be
+    // lost if the message is scrolled past. Added in Issue #48, where the
+    // audit found the rule written down and not built.
+    await waitFor(() => expect(reload).toHaveFocus());
     const patches = server.calls.filter((c) => c.method === "PATCH").length;
-    await user.click(within(alert).getByRole("button", { name: "Reload" }));
+    await user.click(reload);
     // Reload re-reads; it never silently sends the write again (BR-27).
     await waitFor(() => expect(server.calls.filter((c) => c.method === "PATCH")).toHaveLength(patches));
     expect(server.calls.filter((c) => c.method === "GET" && c.url.includes("/actions"))).not.toHaveLength(1);
@@ -302,6 +307,43 @@ describe("What a Requester gets", () => {
     for (const name of ["Add Action", "Edit", "Complete", "Cancel action"]) {
       expect(within(section).queryByRole("button", { name })).not.toBeInTheDocument();
     }
+  });
+
+  it("UI-ACTION-12 / FR-26: adding the panel did not duplicate the one above it — the detail screen survives an update with every panel once", async () => {
+    // Found by hand-testing Issue #48, after the panel below had already
+    // shipped. `AttachmentSection` and `ActionsTaken` are both keyed, so the
+    // Ticket's own panels reset when the screen moves to another Ticket. They
+    // were keyed with the same value, and React is explicit that two siblings
+    // sharing a key may be duplicated or dropped on an update: pressing
+    // Problem Appears Resolved re-rendered the screen with two Attachments
+    // panels. Nothing in the two components was wrong, which is why neither
+    // component's own tests could have caught it — only the screen that
+    // composes them.
+    const warnings: string[] = [];
+    vi.spyOn(console, "error").mockImplementation((...args: unknown[]) => void warnings.push(String(args[0])));
+
+    const user = userEvent.setup();
+    mockServer(REQUESTER, {
+      ticket: makeTicket({ requesterId: REQUESTER.id, currentStatus: "WAITING_FOR_REQUESTER" }),
+      actions: [makeAction()],
+    });
+    renderDetail(REQUESTER);
+    await panel();
+
+    const panels = () => ({
+      attachments: screen.queryAllByTestId("attachment-section").length,
+      actions: screen.queryAllByTestId("actions-taken").length,
+      comments: screen.queryAllByTestId("public-comments").length,
+    });
+    expect(panels()).toEqual({ attachments: 1, actions: 1, comments: 1 });
+
+    // Any state change on the screen is enough to trigger the reconciliation
+    // that duplicated a panel; this is the one a Requester can cause.
+    await user.click(screen.getByRole("button", { name: "Problem Appears Resolved" }));
+    await screen.findByText(/You reported this looked resolved/);
+
+    expect(panels()).toEqual({ attachments: 1, actions: 1, comments: 1 });
+    expect(warnings.filter((message) => /two children with the same key/i.test(message))).toEqual([]);
   });
 
   it("UI-ACTION-07 / BR-04: the Requester's screen never asks for the staff assignee list", async () => {

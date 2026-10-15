@@ -653,6 +653,39 @@ textarea.zg-field--editable {
   margin-top: var(--zg-space-3);
 }
 
+/* lab-04/ui-spec.md §2.3 — stale-write feedback. A 409 STALE_UPDATE is neither
+   a validation message nor the generic failure block: it says the record moved
+   underneath the user and offers Reload, so it carries its button on the same
+   line. Issue #47 wrote this class name into the Actions panel without ever
+   defining it, so the block rendered unstyled; Issue #48 defines it once and
+   the Operations panel uses the same one. */
+.zg-conflict {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--zg-space-2);
+  background: var(--zg-warning-bg);
+  border: 1px solid var(--zg-warning);
+  border-left: 4px solid var(--zg-warning);
+  color: var(--zg-warning);
+  padding: var(--zg-space-2) var(--zg-space-3);
+  border-radius: 6px;
+  font-size: var(--zg-text-sm);
+  margin-top: var(--zg-space-2);
+}
+
+.zg-conflict > span {
+  flex: 1 1 14rem;
+}
+
+/* The link that takes the reader to the Actions the refusal is about
+   (lab-04/ui-spec.md §7). It inherits the block's colour so the warning reads
+   as one sentence rather than a warning with a blue word in it. */
+.zg-conflict a {
+  color: inherit;
+  font-weight: 600;
+}
+
 /* ---------- Responsive (ui-spec.md §5.2, §5.3, §8) ---------- */
 
 @media (max-width: 991px) {
@@ -1504,6 +1537,24 @@ textarea.zg-field--editable {
   display: flex;
   align-items: center;
   gap: var(--zg-space-2);
+}
+
+/* The field is 40px tall, and a flex item may shrink below its own content: a
+   long name next to the badge pushed both onto two lines, which broke the word
+   "Requester" across the middle of its pill and spilled out of the box. Seen in
+   the Part 7 evidence for Issue #48, at the width a half-screen window gives.
+   The badge is one word and stays one word; the name gives way instead, with
+   its full text on the element's `title` (§12: nothing clipped or overlapping). */
+.zg-field--with-badge > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.zg-field--with-badge > .zg-badge {
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 @media (max-width: 991px) {
