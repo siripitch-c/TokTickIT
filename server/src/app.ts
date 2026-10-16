@@ -5,6 +5,8 @@ import { authRoutes } from "./authRoutes.js";
 import { userRoutes } from "./userRoutes.js";
 import { actionRoutes } from "./actionRoutes.js";
 import { openActionCount } from "./actionRules.js";
+import { dashboardRoutes } from "./dashboardRoutes.js";
+import { OPEN_STATUSES } from "./dashboardMetrics.js";
 import { getPrisma } from "./prisma.js";
 import { CURRENT_STATUSES, STATUS_LABEL, canTransition } from "./statusTransitions.js";
 import { nextTicketNumber } from "./ticketNumber.js";
@@ -19,7 +21,7 @@ import {
   storedFilePath,
   toDisplayFilename,
 } from "./uploads.js";
-import type { Attachment, CurrentStatus, Prisma, User } from "@prisma/client";
+import type { ActionStatus, Attachment, CurrentStatus, Prisma, User } from "@prisma/client";
 import type { NextFunction } from "express";
 import { MulterError } from "multer";
 // getPrisma() is your lazy database handle. Call it INSIDE a route when you
@@ -53,6 +55,12 @@ app.use("/api/users", userRoutes);
 // rather than one prefix, because the log is read through its Ticket
 // (/api/tickets/:id/actions) and written to through itself (/api/actions/:id).
 app.use("/api", actionRoutes);
+
+// Lab 4, Issue #49 — the dashboards (lab-04/api-spec.md §7). Its own prefix,
+// because a dashboard is not a collection: nothing under it is a Ticket you can
+// address, and the two paths differ by who is asking rather than by what is
+// asked for.
+app.use("/api/dashboard", dashboardRoutes);
 
 // ---------------------------------------------------------------------------
 // Issue 2 — API health check
@@ -125,6 +133,21 @@ const ACTOR_SUMMARY = { select: { id: true, name: true, role: true } } as const;
 // mistake. Every endpoint that returns a Ticket includes its people this way.
 const TICKET_PEOPLE = { requester: ACTOR_SUMMARY, owner: ACTOR_SUMMARY } as const;
 
+/** The four an `actionStatus` query parameter may name (lab-04/api-spec.md §6). */
+const ACTION_STATUSES: readonly ActionStatus[] = ["PLANNED", "IN_PROGRESS", "COMPLETED", "CANCELLED"];
+
+/**
+ * Lab 4, Issue #49 — api-spec.md §4 and §7 list a Ticket's fields exactly, and
+ * `resolvedAt` is not among them: it is a column the dashboard reads (BR-21),
+ * never something a screen shows. Every endpoint that answers with a Ticket
+ * goes through here, so the field cannot reach a client by being forgotten in
+ * one place while being stripped in another.
+ */
+function publicTicket<T extends { resolvedAt: Date | null }>(ticket: T): Omit<T, "resolvedAt"> {
+  const { resolvedAt: _resolvedAt, ...rest } = ticket;
+  return rest;
+}
+
 /**
  * The Tickets this caller may read (api-spec.md §6): a Requester their own, IT
  * Staff and Administrators any (BR-16, BR-17). A where-clause rather than a
@@ -156,7 +179,8 @@ async function loadTicket(where: Prisma.TicketWhereInput) {
     },
   });
   if (!ticket) return null;
-  const { attachments, actions, ...fields } = ticket;
+  const { attachments, actions, ...rest } = ticket;
+  const fields = publicTicket(rest);
   return {
     ...fields,
     attachments: attachments.map(toAttachmentResponse),
@@ -250,7 +274,7 @@ app.post("/api/tickets", requesterOnly, async (req: Request, res: Response) => {
     };
     const ticket = await createTicketWithNumber(prisma, data);
 
-    res.status(201).json({ data: { ...ticket, attachments: [] } });
+    res.status(201).json({ data: { ...publicTicket(ticket), attachments: [] } });
   } catch (error) {
     console.error("Error creating ticket:", error);
     sendInternalError(res);
@@ -366,7 +390,7 @@ app.get("/api/tickets", requesterOnly, async (req: Request, res: Response) => {
       include: TICKET_PEOPLE,
     });
 
-    res.json({ data, pagination });
+    res.json({ data: data.map(publicTicket), pagination });
   } catch (error) {
     console.error("Error listing tickets:", error);
     sendInternalError(res);
@@ -869,7 +893,15 @@ app.patch("/api/tickets/:id/status", staffOnly, async (req: Request, res: Respon
     // moment, the second is refused instead of overwriting the first.
     const moved = await prisma.ticket.updateMany({
       where: { id: ticketId, version },
-      data: { currentStatus: next, version: { increment: 1 } },
+      data: {
+        currentStatus: next,
+        version: { increment: 1 },
+        // Lab 4 BR-21: the one moment the dashboard's seven-day window needs.
+        // Written only on the way in to Resolved, and never cleared on the way
+        // out — a reopened Ticket keeps the time it was last resolved, which is
+        // history, and the metric reads it only beside `currentStatus`.
+        ...(next === "RESOLVED" ? { resolvedAt: new Date() } : {}),
+      },
     });
     if (moved.count === 0) return staleTicket(res);
 
@@ -1090,10 +1122,38 @@ app.get("/api/staff/tickets", staffOnly, async (req: Request, res: Response) => 
   const categoryId = readId(query.category);
   const requestedPriority = REQUESTED_PRIORITIES.find((p) => p === query.requestedPriority);
   const itPriority = REQUESTED_PRIORITIES.find((p) => p === query.itPriority);
+  // Lab 4, Issue #49 — `open` joins the status filter as the shorthand the
+  // dashboard's cards link with (lab-04/ui-spec.md §4.5). Without it, the card
+  // that counts open Unassigned Tickets would open a queue listing the closed
+  // ones too, and the number on the card would not match the list it opened
+  // (AC-17). Lenient like the rest: any other unknown value is still ignored.
   const currentStatus = CURRENT_STATUSES.find((s) => s === query.status);
+  const statusFilter: Prisma.TicketWhereInput = currentStatus
+    ? { currentStatus }
+    : query.status === "open"
+      ? { currentStatus: { in: [...OPEN_STATUSES] } }
+      : {};
+
+  // Lab 4, Issue #49 — the Tickets carrying somebody's Actions
+  // (lab-04/api-spec.md §6). `me` is the caller; a number is that user. The
+  // status defaults to the unfinished ones, because the card this serves counts
+  // work still to do.
+  const actionsAssignedToId = query.actionsAssignedTo === "me" ? req.user!.id : readId(query.actionsAssignedTo);
+  const chosenActionStatus = ACTION_STATUSES.find((value) => value === query.actionStatus);
+  const actionStatuses: ActionStatus[] = chosenActionStatus
+    ? [chosenActionStatus]
+    : ["PLANNED", "IN_PROGRESS"];
+  const actionFilter: Prisma.TicketWhereInput =
+    actionsAssignedToId === null
+      ? {}
+      : { actions: { some: { assignedToId: actionsAssignedToId, status: { in: [...actionStatuses] } } } };
 
   // `unassigned` or a User id. Anything else — `me` included — is ignored and
-  // the filter simply does not apply (api-spec.md §7).
+  // the filter simply does not apply (api-spec.md §7). Unlike
+  // `actionsAssignedTo` directly above, which does accept `me`: that parameter
+  // is new in Lab 4 and could be defined either way, while this one shipped in
+  // Lab 3 and API-QUEUE-09 asserts that the word means nothing to it. The
+  // screen resolves `owner=me` to an id before asking.
   const ownerId = query.owner === "unassigned" ? null : readId(query.owner);
   const ownerFilter =
     query.owner === "unassigned" ? { ownerId: null } : ownerId !== null ? { ownerId } : {};
@@ -1111,7 +1171,8 @@ app.get("/api/staff/tickets", staffOnly, async (req: Request, res: Response) => 
       ...(categoryId !== null ? { categoryId } : {}),
       ...(requestedPriority ? { requestedPriority } : {}),
       ...(itPriority ? { itPriority } : {}),
-      ...(currentStatus ? { currentStatus } : {}),
+      ...statusFilter,
+      ...actionFilter,
       ...ownerFilter,
       ...(search
         ? {
@@ -1155,7 +1216,7 @@ app.get("/api/staff/tickets", staffOnly, async (req: Request, res: Response) => 
       include: TICKET_PEOPLE,
     });
 
-    res.json({ data, pagination });
+    res.json({ data: data.map(publicTicket), pagination });
   } catch (error) {
     console.error("Error listing the staff ticket queue:", error);
     sendInternalError(res);

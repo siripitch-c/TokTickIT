@@ -35,11 +35,19 @@ const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { to: "/my-tickets", label: "My Tickets" },
     { to: "/tickets/new", label: "Create Ticket" },
   ],
-  IT_STAFF: [{ to: "/staff/tickets", label: "Ticket Queue" }],
-  // ui-spec.md §3 lists User Management first for the Administrator and the
-  // Queue second, so account management reads as their job and the queue as
-  // somewhere they go deliberately.
+  // lab-04/ui-spec.md §3 — Dashboard comes first for both staff roles: it is
+  // where the day starts, and every card leads into the Queue below it. Making
+  // it the *landing* destination for all three roles is FR-25, which waits for
+  // Issue #50 so that all three change together rather than twice.
+  IT_STAFF: [
+    { to: "/dashboard", label: "Dashboard" },
+    { to: "/staff/tickets", label: "Ticket Queue" },
+  ],
+  // After the Dashboard, ui-spec.md §3 keeps User Management ahead of the
+  // Queue for the Administrator, so account management reads as their job and
+  // the queue as somewhere they go deliberately.
   ADMINISTRATOR: [
+    { to: "/dashboard", label: "Dashboard" },
     { to: "/admin/users", label: "User Management" },
     { to: "/staff/tickets", label: "Ticket Queue" },
   ],

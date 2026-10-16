@@ -289,12 +289,19 @@ agent does not build them:
   | Waiting for Requester | Tickets in Waiting for Requester | 0 | Queue filtered to that status |
   | High IT priority | open Tickets with IT Priority High | 0 | Queue filtered to IT Priority = High |
   | By status | one count per status, zero rows included | all zeros shown, never hidden | Queue filtered to the chosen status |
-  | Resolved in the last 7 days | Tickets whose status became Resolved within the last 7 days, counted on Asia/Bangkok day boundaries | 0 | Queue filtered to Resolved |
+  | Resolved in the last 7 days | Tickets that **are** Resolved and became so within the last 7 days, counted on Asia/Bangkok day boundaries | 0 | Queue filtered to Resolved |
   | Recently updated | the 10 most recently updated open Tickets | an empty-state line | each row opens its Ticket |
   | Needs attention | open Tickets with IT Priority High, oldest update first, 10 at most | an empty-state line | each row opens its Ticket |
 
   An Administrator additionally sees **Active users** and **Inactive users**,
   counted across all roles; no other role receives those two numbers.
+
+  *On "are Resolved and became so"* (settled in Issue #49): a Ticket resolved on
+  Monday and closed on Tuesday was finished this week, and an earlier wording
+  would have counted it. It is not counted, because the card's drill-down is the
+  queue filtered to Resolved — counting it would make the card disagree with the
+  list it opens, which is exactly what AC-17 forbids. The same reasoning excludes
+  a Ticket that was resolved and then reopened: it is somebody's problem again.
 * **BR-22**: The Requester Dashboard shows exactly these metrics, all scoped to
   the signed-in Requester:
 
@@ -395,6 +402,25 @@ Full screen-by-screen detail is in `ui-spec.md`. In summary:
 * **ActionStatus** — a new Postgres enum with `PLANNED`, `IN_PROGRESS`,
   `COMPLETED`, `CANCELLED` (BR-05). Created with the table, so unlike the Lab 3
   status extension it needs no migration of its own.
+* **Ticket** — also adds `resolvedAt DateTime?` (Issue #49), the moment the
+  Ticket last became Resolved. **This is the third justified database decision.**
+  BR-21 counts Tickets that *became* Resolved in the last seven days, and
+  `updatedAt` cannot answer that: it moves for an IT Priority change, an owner
+  change and the Requester's resolution signal alike, so a Ticket resolved a
+  month ago and edited yesterday would be reported as this week's work. The
+  alternatives were both worse. Deriving the moment from an audit table means
+  building an audit table for one number. Accepting `updatedAt` means a metric
+  that is wrong in a way nobody can see from the screen, which is the most
+  expensive kind. A nullable timestamp written by the one transition that
+  creates the fact is the smallest thing that answers the question honestly.
+  It is written on the way *in* to Resolved and never cleared on the way out: a
+  reopened Ticket keeps the time it was last resolved, which is history, and the
+  metric reads the column only beside `currentStatus = RESOLVED`. The migration
+  backfills existing Resolved Tickets with their `updatedAt` — right when the
+  resolution was the last thing done to them and an over-estimate otherwise —
+  because no pre-Lab-4 row records the real moment and leaving them NULL would
+  report every migrated Ticket as never resolved. Rollback is a `DROP COLUMN`:
+  nothing in it is unrecoverable, because nothing else depends on it.
 * **Ticket** — adds `version Int @default(1)` for BR-26. Nothing else changes:
   the eight statuses, `ownerId`, `itPriority` and `requesterResolvedAt` are
   already in place from Lab 3.

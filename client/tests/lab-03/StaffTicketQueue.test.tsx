@@ -253,9 +253,31 @@ describe("IT Staff Ticket Queue", () => {
     expect(screen.getByTestId("location")).toHaveTextContent(/^$/);
   });
 
+  it("UI-QUEUE-02 / lab-04 AC-17: `owner=me` is resolved to the signed-in user rather than discarded", async () => {
+    // Lab 4, Issue #49 changed this one value's meaning. The dashboard's cards
+    // link with `me` so the address stays readable, and the screen is where
+    // "me" is known — so it resolves to an id and the address corrects itself,
+    // which is the same §7.4 rule that corrects everything else here. The
+    // server still ignores `owner=me` (API-QUEUE-09 asserts that); it never
+    // sees the word.
+    const { calls } = mockFetch(() => ({ tickets: makeTickets(2) }));
+    renderQueue("/staff/tickets?owner=me&status=open");
+    await screen.findByTestId("queue-table");
+
+    await waitFor(() => expect(screen.getByLabelText(/^Owner$/)).toHaveValue(String(STAFF.id)));
+    expect(screen.getByLabelText(/^Current Status$/)).toHaveValue("open");
+    await waitFor(() =>
+      expect(screen.getByTestId("location")).toHaveTextContent(`?status=open&owner=${STAFF.id}`),
+    );
+
+    const query = lastQuery(calls);
+    expect(query.get("owner")).toBe(String(STAFF.id));
+    expect(query.get("status")).toBe("open");
+  });
+
   it("UI-QUEUE-02 / AC-28, BR-40: a hand-edited address falls back to its defaults, and the address is corrected to match", async () => {
     const { calls } = mockFetch(() => ({ tickets: makeTickets(2) }));
-    renderQueue("/staff/tickets?status=ESCALATED&pageSize=11&sortBy=summary&owner=me&category=2");
+    renderQueue("/staff/tickets?status=ESCALATED&pageSize=11&sortBy=summary&owner=nobody&category=2");
     await screen.findByTestId("queue-table");
 
     // The invalid values are shown as the defaults they fell back to...

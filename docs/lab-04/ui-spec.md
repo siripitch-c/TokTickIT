@@ -104,8 +104,13 @@ Route `/dashboard` for IT Staff and Administrator. FR-12–FR-16, BR-21.
    is the same shape every day.
 4. **Administrator counts** — for an Administrator only, two further
    `zg-metric` cards, Active users and Inactive users, in a row of their own
-   under a divider labelled "Accounts". They link to User Management with the
-   matching status filter. IT Staff never render this block (AC-18).
+   under a divider labelled "Accounts". They open User Management itself: that
+   screen carries search and role, and no filter on account status, so a link
+   promising one would not be kept. The handout makes these two counts optional
+   in the first place (§4.6), and adding a filter to a Lab 3 screen to serve
+   them would be a larger change than the numbers are worth (corrected in Issue
+   #49, which is where the gap was found). IT Staff never render this block
+   (AC-18).
 5. **Two lists side by side** — *Recently updated* (10 rows) and *Needs
    attention* (10 rows, High IT priority, oldest update first). Each row is
    ticket number, summary, status badge, IT priority badge, owner (or
@@ -120,9 +125,13 @@ the urgent one.
 ### 4.3 Mobile (< 768px)
 
 Metric grid becomes one column; the by-status strip wraps to two columns of
-badge + count; list rows become the Lab 3 queue card (ticket number and status
-on the first line, summary on the second, owner and time on the third). Touch
-targets stay ≥ 44px.
+badge + count. Touch targets stay ≥ 44px.
+
+A list row is already the Lab 3 queue card at every width — ticket number and
+badges on the first line, summary on the second, owner and time on the third —
+so nothing transforms here. That is the same choice §6.2 made for the Actions
+panel in Issue #47: two renderings of the same row are two things to keep
+honest, and the row a desktop layout would drop first is the summary.
 
 ### 4.4 States
 
@@ -331,7 +340,7 @@ Extends Lab 3 §10 with the two new screens.
 | Viewport | Range | Lab 4 behaviour |
 |---|---|---|
 | Desktop | ≥ 992px | Dashboards: 3-column metric grid, two lists side by side. Actions: entries with their fields in a multi-column grid |
-| Tablet | 768–991px | Dashboards: 2-column grid, lists stacked with *Needs attention* first. Actions: the field grid falls to two columns |
+| Tablet | 768–991px | Dashboards: 2-column grid, lists stacked with *Needs attention* first. Actions: unchanged — the form is one column at every width (§6.3 lists the fields in order and asks for no grid) |
 | Mobile | < 768px | Dashboards: single column, by-status strip in two columns. Actions: cards, controls full width ≥ 44px |
 
 Non-negotiable at every size, as in Labs 2 and 3: no clipped labels, no

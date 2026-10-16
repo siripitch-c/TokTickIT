@@ -5,6 +5,7 @@ import ChangePassword from "./pages/ChangePassword.js";
 import CreateTicket from "./pages/CreateTicket.js";
 import Login from "./pages/Login.js";
 import MyTickets from "./pages/MyTickets.js";
+import StaffDashboard from "./pages/StaffDashboard.js";
 import StaffTicketQueue from "./pages/StaffTicketQueue.js";
 import TicketDetail from "./pages/TicketDetail.js";
 import UserManagement from "./pages/UserManagement.js";
@@ -96,6 +97,10 @@ export function AppRoutes() {
         />
 
         <Route element={<RoleGuard user={user} allow={["IT_STAFF", "ADMINISTRATOR"]} />}>
+          {/* lab-04/ui-spec.md §4 — one dashboard for both staff roles; the
+              Administrator's two extra numbers come from the API, not from a
+              second route (FR-16). */}
+          <Route path="/dashboard" element={<StaffDashboard />} />
           <Route path="/staff/tickets" element={<StaffTicketQueue />} />
         </Route>
 

@@ -70,7 +70,7 @@ Asserts `src/actionRules.ts`, the pure-rule module the Actions endpoints consult
 | UNIT-03 | Unit | BR-07 | Follow-up dependency | Follow-up yes with a note under 5 characters rejected; follow-up no discards any note | same | **Pass** |
 | UNIT-04 | Unit | BR-09 | Action date bounds | A future `actionAt`, and one before the Ticket's creation, are both rejected | same | **Pass** |
 | UNIT-05 | Unit | BR-18 | Resolution predicate | A ticket with any Planned or In Progress Action blocks resolution; zero Actions, or all final, allows it | same | **Pass** |
-| UNIT-06 | Unit | BR-25 | Asia/Bangkok day boundary | "Last 7 days" starts at 00:00 Bangkok seven days ago, independent of the server's timezone | `dashboard-metrics.unit.test.ts` | Planned |
+| UNIT-06 | Unit | BR-25 | Asia/Bangkok day boundary | "Last 7 days" starts at 00:00 Bangkok seven days ago, independent of the server's timezone | `dashboard-metrics.unit.test.ts` | **Pass** |
 
 ### 2.2 API — Actions Taken — `server/tests/lab-04/actions-taken.api.test.ts`
 
@@ -121,16 +121,17 @@ Asserts `src/actionRules.ts`, the pure-rule module the Actions endpoints consult
 
 | ID | Type | Req / AC | What it tests | Expected result | File | Status |
 |---|---|---|---|---|---|---|
-| API-DASHS-01 | API | AC-15, BR-21, BR-23 | Every metric present, nothing more | All nine keys returned as integers; the body carries counts and short lists only, with no full Ticket collection and no email address | `staff-dashboard.api.test.ts` | Planned |
-| API-DASHS-02 | API | AC-15, BR-24 | Counts match direct queries | Each count equals the same query run through Prisma in the test | same | Planned |
-| API-DASHS-03 | API | BR-21, BR-22 | "Open" excludes terminal statuses | Resolved, Closed and Cancelled Tickets are absent from every metric on either dashboard that claims to count open work | same | Planned |
-| API-DASHS-04 | API | AC-16, FR-13 | My open actions | Counts only Planned and In Progress Actions assigned to the caller | same | Planned |
-| API-DASHS-05 | API | BR-21 | By-status map | Contains all eight statuses, including zeros | same | Planned |
-| API-DASHS-06 | API | BR-25 | Resolved in the last 7 days | A Ticket resolved 6 days ago counts; one resolved 8 days ago does not; boundary evaluated in Asia/Bangkok | same | Planned |
-| API-DASHS-07 | API | FR-14 | Recently updated and needs attention | At most 10 rows each, correct ordering, only open Tickets | same | Planned |
-| API-DASHS-08 | API | AC-18, FR-16 | Administrator counts | Present for an Administrator, absent for IT Staff | same | Planned |
-| API-DASHS-09 | API | AC-22 | Requester calls the staff dashboard | 403 | same | Planned |
-| API-DASHS-10 | API | BR-14 | Unauthenticated call | 401 | same | Planned |
+| API-DASHS-01 | API | AC-15, BR-21, BR-23 | Every metric present, nothing more | All nine keys returned as integers; the body carries counts and short lists only, with no full Ticket collection and no email address | `staff-dashboard.api.test.ts` | **Pass** |
+| API-DASHS-02 | API | AC-15, BR-24 | Counts match direct queries | Each count equals the same query run through Prisma in the test | same | **Pass** |
+| API-DASHS-03 | API | BR-21, BR-22 | "Open" excludes terminal statuses | Resolved, Closed and Cancelled Tickets are absent from every metric on either dashboard that claims to count open work | same | **Pass** |
+| API-DASHS-04 | API | AC-16, FR-13 | My open actions | Counts only Planned and In Progress Actions assigned to the caller | same | **Pass** |
+| API-DASHS-05 | API | BR-21 | By-status map | Contains all eight statuses, including zeros | same | **Pass** |
+| API-DASHS-06 | API | BR-25 | Resolved in the last 7 days | A Ticket resolved 6 days ago counts; one resolved 8 days ago does not; boundary evaluated in Asia/Bangkok | same | **Pass** |
+| API-DASHS-07 | API | FR-14 | Recently updated and needs attention | At most 10 rows each, correct ordering, only open Tickets | same | **Pass** |
+| API-DASHS-08 | API | AC-18, FR-16 | Administrator counts | Present for an Administrator, absent for IT Staff | same | **Pass** |
+| API-DASHS-09 | API | AC-22 | Requester calls the staff dashboard | 403 | same | **Pass** |
+| API-DASHS-10 | API | BR-14 | Unauthenticated call | 401 | same | **Pass** |
+| API-DASHS-11 | API | AC-17, FR-15, BR-40 | The drill-down queries | Each card's documented query returns a total equal to the card, and the three new queue parameters stay lenient | same | **Pass** |
 
 ### 2.5 API — Requester dashboard — `server/tests/lab-04/requester-dashboard.api.test.ts`
 
@@ -181,11 +182,11 @@ Asserts `src/actionRules.ts`, the pure-rule module the Actions endpoints consult
 | UI-ACTION-10 | UI | FR-04 | Cancel dialog | Confirmation required; cancelling leaves the row with the Cancelled badge | same | **Pass** |
 | UI-ACTION-11 | UI | FR-24 | Safe failure | A failed save keeps every entered value | same | **Pass** |
 | UI-ACTION-12 | UI | FR-26 | Panels are not duplicated | After any update to Ticket Detail, Attachments, Public Comments and Actions Taken each render exactly once, and React logs no duplicate-key warning | same | **Pass** |
-| UI-DASHS-01 | UI | FR-12, FR-14 | Metric grid and lists | Six cards, the by-status strip and both Ticket lists render from the API payload, and a list row opens its Ticket | `StaffDashboard.test.tsx` | Planned |
-| UI-DASHS-02 | UI | BR-21 | Zero metric | Renders `0` with its sub-line, still focusable and still a link | same | Planned |
-| UI-DASHS-03 | UI | AC-17, FR-15 | Drill-down links | Each card's href carries the documented query | same | Planned |
-| UI-DASHS-04 | UI | AC-18 | Administrator block | Rendered for an Administrator, absent for IT Staff | same | Planned |
-| UI-DASHS-05 | UI | ui-spec §4.4, §5.2 | Loading and failure | Skeleton while loading; one error block with Retry on failure. Both dashboards render through the same state component, so this covers the Requester screen too | same | Planned |
+| UI-DASHS-01 | UI | FR-12, FR-14 | Metric grid and lists | Six cards, the by-status strip and both Ticket lists render from the API payload, and a list row opens its Ticket | `StaffDashboard.test.tsx` | **Pass** |
+| UI-DASHS-02 | UI | BR-21 | Zero metric | Renders `0` with its sub-line, still focusable and still a link | same | **Pass** |
+| UI-DASHS-03 | UI | AC-17, FR-15 | Drill-down links | Each card's href carries the documented query | same | **Pass** |
+| UI-DASHS-04 | UI | AC-18 | Administrator block | Rendered for an Administrator, absent for IT Staff | same | **Pass** |
+| UI-DASHS-05 | UI | ui-spec §4.4, §5.2 | Loading and failure | Skeleton while loading; one error block with Retry on failure. Both dashboards render through the same state component, so this covers the Requester screen too | same | **Pass** |
 | UI-DASHR-01 | UI | FR-17 | Three metric cards | Render from the payload with correct labels | `RequesterDashboard.test.tsx` | Planned |
 | UI-DASHR-02 | UI | FR-18 | Attention panel | Combines waiting-for-me and resolved rows, each with its reason | same | Planned |
 | UI-DASHR-03 | UI | AC-21 | Empty dashboard | Three zeros, the empty line, and a Create Ticket call to action | same | Planned |
@@ -250,7 +251,7 @@ Asserts `src/actionRules.ts`, the pure-rule module the Actions endpoints consult
 | AC-14 | API-FLOW-10, API-ACTION-22 |
 | AC-15 | API-DASHS-01, API-DASHS-02, API-DASHS-03, API-DASHS-05, API-DASHS-07, UI-DASHS-01, UI-DASHS-02, E2E-06 |
 | AC-16 | API-DASHS-04 |
-| AC-17 | UI-DASHS-03, E2E-06 |
+| AC-17 | API-DASHS-11, UI-DASHS-03, E2E-06 |
 | AC-18 | API-DASHS-08, UI-DASHS-04 |
 | AC-19 | API-DASHR-01, API-DASHR-03, API-DASHR-04, UI-DASHR-01, UI-DASHR-02, UI-DASHR-04, E2E-07 |
 | AC-20 | API-DASHR-02, API-FLOW-12 |
@@ -443,6 +444,74 @@ spot checks had not met it. The badge now never shrinks and the name truncates w
 **`UI-FLOW-05` moves to Issue #50.** It asserts that Dashboard is the first navigation item and the landing
 route for all three roles (FR-25). Neither dashboard exists until Issues #49 and #50, so the case is written
 where the thing it describes is built, rather than against a route that would have to be stubbed.
+
+### After Issue #49 — IT Staff dashboard
+
+| Date | Command | Result |
+|---|---|---|
+| 2026-10-15 | `npm test --prefix server` | 285 passed / 285 (24 files, 18 new) |
+| 2026-10-15 | `npm test --prefix client` | 167 passed / 167 (9 new) |
+| 2026-10-15 | `npx tsc --noEmit` (server, client, e2e) | clean on all three |
+| 2026-10-15 | `npm run build` (server, client) | both succeed |
+
+`GET /api/dashboard/staff` lands with every metric BR-21 names, the by-status map including its zeros, the
+two ten-row lists, and the Administrator's account counts. The screen renders them at `/dashboard`, each
+card a link to the queue query that produced its number, with the loading, empty, forbidden and
+safe-failure states §4.4 defines. Dashboard also joins the navigation for both staff roles.
+
+**A fourth database decision, recorded in `specification.md` §7.** The dashboard counts Tickets that
+*became* Resolved in the last seven days, and `updatedAt` cannot answer that — it moves for an IT Priority
+change too, so a Ticket resolved a month ago and edited yesterday would be reported as this week's work.
+`Ticket.resolvedAt` is written by the status transition, never cleared, read only beside
+`currentStatus = RESOLVED`, and never returned by the API. The migration backfills existing Resolved
+Tickets with their `updatedAt` and says in its own header that this is an over-estimate where the
+resolution was not the last thing done to them, because no pre-Lab-4 row records the real moment.
+
+**Three queue parameters that the contract had promised and nobody had built.** `status=open`,
+`actionsAssignedTo` and `actionStatus` are what the cards link with; without them a card counting open
+Tickets would open a queue listing closed ones, which is exactly the disagreement AC-17 forbids. The first
+was described in `ui-spec.md` §4.5 as "the queue's existing shorthand" and did not exist — the same kind of
+drift as `INVALID_TRANSITION` in Issue #48, and found the same way, by reading the code the document
+describes. **API-DASHS-11** was added for them: the contract left "the card's number equals the queue's
+total" to `E2E-06` in Issue #52, which would have left three new filters untested for two days. It asserts
+the equality at the API now, and E2E-06 still proves it through the browser later.
+
+**`owner=me` changed meaning on the client only.** The dashboard links with `me` so the address stays
+readable; the screen resolves it to an id and the address corrects itself, which is the §7.4 rule it already
+applied to everything else. The server still ignores the word, as Lab 3's `API-QUEUE-09` requires — so that
+case keeps a junk owner value, and a new `UI-QUEUE-02` case asserts the resolution.
+
+**`ui-spec.md` §4.1 was corrected.** It said the two Administrator cards link to User Management "with the
+matching status filter", and that screen has no filter on account status — only search and role. The cards
+open the screen itself. The handout makes those two counts optional (§4.6), so adding a filter to a Lab 3
+screen and its API to serve them would have been a larger change than the numbers are worth.
+
+**Two earlier tests were deliberately updated.** `UI-SHELL-02` now expects Dashboard first in the navigation
+for both staff roles. `UI-QUEUE-02`'s junk-value case swapped `owner=me` for `owner=nobody`, because `me` is
+no longer junk. Making Dashboard the *landing* destination for all three roles is FR-25 and `UI-FLOW-05`,
+which stay in Issue #50 so that all three roles change together rather than this assertion changing twice.
+
+**A sweep for class names that do not exist.** The `.zg-conflict` defect of Issue #48 was a class the code
+referenced and the stylesheet never defined — the kind of thing no test can see, because jsdom has no
+layout. Every class name the Lab 4 components use was therefore checked against `zen-green.css`
+mechanically. The dashboard's thirty-three are all defined. Two others were not: `zg-field-row--2`, written
+in Issue #47 for the Action form's *Assigned to* row, which has rendered as one column ever since because
+only `--3` and `--4` have rules; and `zg-queue-card`, named in `docs/lab-03/ui-spec.md` §356 and never
+given one, which is inert beside `zg-ticket-card` and belongs to a sprint already submitted. The first was
+removed rather than invented, because §6.3 lists the form's fields in order and asks for no grid, and
+inventing it would have invalidated the Part 6 screenshots a day before the deadline for a cosmetic change.
+The responsive table was corrected to match. The second is recorded and left alone.
+
+**One limitation left for Issue #51.** Arriving from the *My open actions* card filters the queue by
+`actionsAssignedTo`, and that filter has no control of its own — the only sign the list is narrowed is that
+Clear Filters is enabled. It is not wrong, and Clear does return the whole queue, but a person who opened
+the card and then scrolled is not told why the list is short. The polish pass is where a line saying so
+belongs; inventing a control for it here would be new interface nobody specified.
+
+**Part 5's figures 5.1, 5.7, 5.8 and 5.10 are artifact paths**, which in Lab 3 came from `visual.spec.ts`.
+`e2e/lab-04/visual.spec.ts` was written here rather than left to Issue #52, because Lab 3 was submitted with
+four figures missing for exactly that reason. Issue #52 extends the file; its shape is Lab 3's, so that is
+adding blocks rather than rewriting it.
 
 ### Fixes found by hand-testing Issue #47
 
