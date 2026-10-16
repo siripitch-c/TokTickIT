@@ -1952,3 +1952,251 @@ textarea.zg-field--editable {
     min-height: 44px;
   }
 }
+
+/* ---------- lab-04/ui-spec.md §4 — the dashboards ---------- */
+
+/* §4.1 item 2: six cards in two rows of three on the desktop. One grid serves
+   the metric cards and the Administrator pair, so the two blocks cannot drift
+   apart in size or spacing. No new colour token: a dashboard that introduced
+   its own palette would stop looking like the rest of the product. */
+.zg-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--zg-space-3);
+  margin-top: var(--zg-space-3);
+}
+
+.zg-metric-grid--pair {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  max-width: 36rem;
+}
+
+/* Each card is one link, so the whole card is the target rather than the
+   number inside it (§11, and a 44px touch target several times over). */
+.zg-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 104px;
+  padding: var(--zg-space-3);
+  border: 1px solid var(--zg-border);
+  border-radius: 8px;
+  background: var(--zg-surface);
+  color: var(--zg-text);
+  text-decoration: none;
+}
+
+.zg-metric:hover,
+.zg-metric:focus-visible {
+  border-color: var(--zg-secondary);
+  background: var(--zg-pale);
+}
+
+.zg-metric-label {
+  font-size: var(--zg-text-sm);
+  color: var(--zg-text-muted);
+}
+
+/* §4.4: a zero renders as `0` in the same size as any other number. Hiding it,
+   or shrinking it, would make "nothing to do" look like "nothing loaded". */
+.zg-metric-value {
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--zg-primary);
+}
+
+.zg-metric-sub {
+  font-size: var(--zg-text-xs);
+  color: var(--zg-text-muted);
+}
+
+.zg-metric--skeleton {
+  background: var(--zg-bg);
+  border-style: dashed;
+}
+
+/* The list half of the loading state (§4.4). Dashed like the cards, so the two
+   read as one placeholder rather than two different kinds of nothing. */
+.zg-skeleton-heading {
+  height: 24px;
+  width: 11rem;
+  margin-bottom: var(--zg-space-3);
+  border: 1px dashed var(--zg-border);
+  border-radius: 6px;
+  background: var(--zg-bg);
+}
+
+.zg-skeleton-row {
+  height: 56px;
+  margin-bottom: var(--zg-space-2);
+  border: 1px dashed var(--zg-border);
+  border-radius: 6px;
+  background: var(--zg-bg);
+}
+
+/* §4.1 item 3 — the by-status strip. A list, so a screen reader is told how
+   many pairs there are.
+
+   It carries its own surface rather than `zg-card`: that class is the *page*
+   card, with the 840px measure a page of prose wants and `margin: auto` to
+   centre it. Used for a block inside a `zg-card--wide` page it indents itself
+   out of line with the grid above and the lists below — which is exactly how it
+   first rendered, and what looking at the screenshot caught. */
+.zg-status-strip {
+  background: var(--zg-surface);
+  border: 1px solid var(--zg-border);
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  padding: var(--zg-space-4);
+  margin-top: var(--zg-space-3);
+}
+
+.zg-status-strip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--zg-space-2);
+  list-style: none;
+  margin: var(--zg-space-2) 0 0;
+  padding: 0;
+}
+
+.zg-status-pair {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--zg-space-2);
+  min-height: 44px;
+  padding: 0 var(--zg-space-2);
+  border: 1px solid var(--zg-border);
+  border-radius: 999px;
+  text-decoration: none;
+  color: var(--zg-text);
+}
+
+.zg-status-pair:hover,
+.zg-status-pair:focus-visible {
+  border-color: var(--zg-secondary);
+  background: var(--zg-pale);
+}
+
+.zg-status-count {
+  font-weight: 700;
+}
+
+/* §4.1 item 5 — the two lists, side by side on the desktop. */
+.zg-dashboard-lists {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--zg-space-3);
+  margin-top: var(--zg-space-3);
+}
+
+/* The same surface as the strip, and for the same reason. */
+.zg-dashboard-list {
+  background: var(--zg-surface);
+  border: 1px solid var(--zg-border);
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  padding: var(--zg-space-4);
+  margin: 0;
+}
+
+.zg-dashboard-rows {
+  list-style: none;
+  margin: var(--zg-space-2) 0 0;
+  padding: 0;
+}
+
+/* The whole row opens the Ticket: one intent, one target. */
+.zg-dashboard-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--zg-space-2) 0;
+  border-bottom: 1px solid var(--zg-border);
+  text-decoration: none;
+  color: var(--zg-text);
+}
+
+.zg-dashboard-rows li:last-child .zg-dashboard-row {
+  border-bottom: none;
+}
+
+.zg-dashboard-row:hover,
+.zg-dashboard-row:focus-visible {
+  background: var(--zg-pale);
+}
+
+/* §12: focus is visible on every new control, and visible the way the rest of
+   the product makes it visible. The tint above is the hover affordance; a ring
+   is what a keyboard user needs, and Lab 2 §9 fixed its width, colour and
+   offset for every control in the system — these three join that list rather
+   than inventing a quieter signal of their own. */
+.zg-metric:focus-visible,
+.zg-status-pair:focus-visible,
+.zg-dashboard-row:focus-visible {
+  outline: 2px solid var(--zg-secondary);
+  outline-offset: 2px;
+}
+
+.zg-dashboard-row-top,
+.zg-dashboard-row-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--zg-space-2);
+  flex-wrap: wrap;
+}
+
+.zg-dashboard-number {
+  font-weight: 600;
+}
+
+.zg-dashboard-summary {
+  color: var(--zg-text);
+}
+
+.zg-dashboard-row-foot {
+  font-size: var(--zg-text-xs);
+  color: var(--zg-text-muted);
+  justify-content: space-between;
+}
+
+/* §4.2 — tablet: two columns, and the lists stack with Needs attention first,
+   because at this width one list is read without scrolling and it should be
+   the urgent one. */
+@media (max-width: 991px) {
+  .zg-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .zg-dashboard-lists {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .zg-dashboard-lists > [data-testid="needs-attention"] {
+    order: -1;
+  }
+}
+
+/* §4.3 — mobile: one column, and the strip wraps to two columns of pairs. */
+@media (max-width: 767px) {
+  .zg-metric-grid,
+  .zg-metric-grid--pair {
+    grid-template-columns: minmax(0, 1fr);
+    max-width: none;
+  }
+
+  .zg-status-strip-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .zg-status-pair {
+    justify-content: space-between;
+  }
+
+  .zg-dashboard-row {
+    padding: var(--zg-space-2) 0;
+    min-height: 44px;
+  }
+}

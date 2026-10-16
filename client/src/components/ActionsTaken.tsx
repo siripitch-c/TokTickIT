@@ -482,7 +482,12 @@ function ActionForm({ heading, assignees, currentUserId, initial, missingResult,
         )}
       </div>
 
-      <div className="zg-field-row zg-field-row--2">
+      {/* One column, like every other row in this form. `zg-field-row--2`
+          was written here in Issue #47 and no such rule exists, so this row
+          has always rendered as one column; Issue #49 removed the class
+          rather than inventing the rule, because §6.3 lists the fields in
+          order and never asks for columns. */}
+      <div className="zg-field-row">
         <div className="zg-field">
           <label className="zg-field-label" htmlFor={`${descriptionId}-assignee`}>
             Assigned to

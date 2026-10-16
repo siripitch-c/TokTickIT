@@ -432,8 +432,14 @@ export interface StaffQueueQuery {
   category?: number;
   requestedPriority?: RequestedPriority;
   itPriority?: RequestedPriority;
-  status?: CurrentStatus;
+  // Lab 4, Issue #49: `open` is the shorthand the dashboard's cards link with —
+  // the five statuses that are still somebody's problem (lab-04/api-spec.md §6).
+  status?: CurrentStatus | "open";
   owner?: number | "unassigned";
+  /** Lab 4, Issue #49 — Tickets carrying an Action assigned to this person. */
+  actionsAssignedTo?: number | "me";
+  /** Which of those Actions count; the unfinished ones by default. */
+  actionStatus?: ActionStatus | "open";
   sortBy?: QueueSortField;
   sortDir?: SortDirection;
   page?: number;
@@ -678,4 +684,46 @@ export function updateUser(userId: number, changes: UserChanges): Promise<AdminU
 /** FR-26: the password is sent once and never returned (BR-07). */
 export function setInitialPassword(userId: number, initialPassword: string): Promise<AdminUser> {
   return writeUser(`/api/users/${userId}/initial-password`, "POST", { initialPassword });
+}
+
+// ---------------------------------------------------------------------------
+// Lab 4, Issue #49 — the dashboards (lab-04/api-spec.md §7)
+// ---------------------------------------------------------------------------
+
+/** A row in one of the dashboard's short lists: enough to read it and open it. */
+export interface DashboardTicketRow {
+  id: number;
+  ticketNumber: string;
+  summary: string;
+  currentStatus: CurrentStatus;
+  itPriority: RequestedPriority | null;
+  owner: ActorSummary | null;
+  updatedAt: string;
+}
+
+export interface StaffDashboard {
+  metrics: {
+    unassigned: number;
+    assignedToMe: number;
+    myOpenActions: number;
+    waitingForRequester: number;
+    highItPriority: number;
+    resolvedLast7Days: number;
+    byStatus: Record<CurrentStatus, number>;
+  };
+  /** Present only for an Administrator (FR-16, AC-18) — absent, not null. */
+  administratorMetrics?: { activeUsers: number; inactiveUsers: number };
+  recentlyUpdated: DashboardTicketRow[];
+  needsAttention: DashboardTicketRow[];
+}
+
+/**
+ * BR-24: every number comes from here, computed server-side at request time.
+ * Nothing on the screen adds, filters or re-counts anything, because a number
+ * the client derived could disagree with the queue the card links to.
+ */
+export async function fetchStaffDashboard(): Promise<StaffDashboard> {
+  const res = await fetch(`${API_URL}/api/dashboard/staff`, { ...withSession });
+  if (!res.ok) throw await toApiError(res);
+  return (await res.json()) as StaffDashboard;
 }

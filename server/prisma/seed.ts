@@ -214,6 +214,12 @@ async function main() {
           // Spread out so the queue's default order — Last Updated, newest
           // first — reads like a working desk rather than one burst of rows.
           updatedAt: new Date(now - t.updatedDaysAgo * DAY_MS),
+          // Lab 4, Issue #49 — a Ticket that is Resolved now was resolved when
+          // it was last touched. One of the two seeded Resolved Tickets falls
+          // inside the dashboard's seven-day window and the other outside it,
+          // so "Resolved in the last 7 days" demonstrates a non-zero count and
+          // a boundary that actually excludes something (handout §5.3).
+          resolvedAt: t.status === "RESOLVED" ? new Date(now - t.updatedDaysAgo * DAY_MS) : null,
         },
       });
     });

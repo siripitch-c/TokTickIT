@@ -230,6 +230,11 @@ it while the server still makes the decision. A queue row carries no
 `openActionCount`: it is counted for the one Ticket somebody is looking at, not
 for a page of rows nobody is resolving.
 
+A Ticket carries one column the API never returns: `resolvedAt`, written by the
+status transition and read only by the dashboard (BR-21, BR-25). It is not in
+the Ticket object above, because no screen shows it and publishing a field for
+nobody widens the contract for nothing.
+
 `POST /api/tickets/:id/appears-resolved` keeps its Lab 3 contract and carries no
 `version` of its own — it is not an edit two people could be making at once, and
 the endpoint is already exactly-once — but it raises the Ticket's version like
@@ -244,6 +249,15 @@ exist so the dashboard's *My open actions* card can drill down into the queue
 |---|---|---|
 | `actionsAssignedTo` | `me` or a user id | only Tickets carrying at least one Action assigned to that user |
 | `actionStatus` | `open` (default when `actionsAssignedTo` is present), `PLANNED`, `IN_PROGRESS`, `COMPLETED`, `CANCELLED` | which of that user's Actions count |
+| `status` | the eight statuses, **or `open`** | `open` means the five statuses that are not Resolved, Closed or Cancelled |
+
+`status=open` is new in Lab 4 and is what every "open" card on the dashboard
+links with. Without it a card counting open Tickets would open a queue listing
+the closed ones too, and the number on the card would not match the list it
+opened (AC-17). `owner=me` is deliberately **not** added: the queue has always
+ignored it (Lab 3 API-QUEUE-09) and the screen resolves it to an id before
+asking, so the address stays readable without the server learning a second way
+to name a person.
 
 Both follow the queue's lenient rule (Lab 3 BR-40): an unrecognised value falls
 back to its default rather than failing the request. Every other queue

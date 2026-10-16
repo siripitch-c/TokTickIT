@@ -60,10 +60,17 @@ describe("Application shell", () => {
     expect(screen.queryByRole("link", { name: /user management/i })).not.toBeInTheDocument();
   });
 
-  it("UI-SHELL-02 / FR-09: IT Staff carry the Ticket Queue; an Administrator carries User Management first, then the Queue", () => {
+  it("UI-SHELL-02 / FR-09: both staff roles lead with the Dashboard; an Administrator then carries User Management and the Queue", () => {
+    // Lab 4, Issue #49: the Dashboard joins the navigation for both staff
+    // roles and leads it — it is where the day starts, and every card on it
+    // leads into the Queue below (lab-04/ui-spec.md §3). Making it the
+    // *landing* destination for all three roles is FR-25, which waits for
+    // Issue #50 so the Requester's dashboard changes with it rather than this
+    // assertion changing twice.
     const staff = renderShell(userWith("IT_STAFF"));
     const staffNav = screen.getByRole("navigation", { name: "Main" });
     expect(within(staffNav).getAllByRole("link").map((link) => [link.textContent, link.getAttribute("href")])).toEqual([
+      ["Dashboard", "/dashboard"],
       ["Ticket Queue", "/staff/tickets"],
     ]);
     staff.unmount();
@@ -73,6 +80,7 @@ describe("Application shell", () => {
     // ui-spec.md §3: account management reads as the Administrator's job, and
     // the queue as somewhere they go deliberately. Nothing of the Requester's.
     expect(within(adminNav).getAllByRole("link").map((link) => [link.textContent, link.getAttribute("href")])).toEqual([
+      ["Dashboard", "/dashboard"],
       ["User Management", "/admin/users"],
       ["Ticket Queue", "/staff/tickets"],
     ]);
