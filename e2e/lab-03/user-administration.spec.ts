@@ -65,6 +65,9 @@ test.describe("Lab 3 — Administrator user management", () => {
     };
 
     await signIn(page, ADMINISTRATOR);
+    // lab-04 FR-25: the Administrator lands on the Dashboard; User
+    // Management is the screen this case works on.
+    await page.goto("/admin/users");
     await expect(userTable(page)).toBeVisible();
 
     const dialog = await submitCreateUser(page, account);
@@ -92,8 +95,9 @@ test.describe("Lab 3 — Administrator user management", () => {
       await newcomer.page.locator("#confirmPassword").fill(chosen);
       await newcomer.page.getByRole("button", { name: "Save New Password" }).click();
 
-      await expect(newcomer.page).toHaveURL(/\/my-tickets$/);
-      await expect(newcomer.page.getByRole("heading", { name: "My Tickets", level: 1 })).toBeVisible();
+      // lab-04 FR-25: the landing screen is the Dashboard for every role.
+      await expect(newcomer.page).toHaveURL(/\/dashboard$/);
+      await expect(newcomer.page.getByRole("heading", { name: "Dashboard", level: 1 })).toBeVisible();
     } finally {
       await newcomer.context.close();
     }
@@ -103,6 +107,9 @@ test.describe("Lab 3 — Administrator user management", () => {
     page,
   }) => {
     await signIn(page, ADMINISTRATOR);
+    // lab-04 FR-25: the Administrator lands on the Dashboard; User
+    // Management is the screen this case works on.
+    await page.goto("/admin/users");
     await expect(userTable(page)).toBeVisible();
     const me = await currentUser(page);
 
@@ -210,12 +217,14 @@ test.describe("Lab 3 — Administrator user management", () => {
     const person = ACCOUNTS.deactivation;
     const victim = await openSignedIn(browser, person);
     try {
-      await expect(victim.page.getByRole("heading", { name: "My Tickets", level: 1 })).toBeVisible();
+      // lab-04 FR-25: signing in lands on the Dashboard, whatever the role.
+      await expect(victim.page.getByRole("heading", { name: "Dashboard", level: 1 })).toBeVisible();
       // They are halfway through raising a ticket…
       await fillTicketForm(victim.page, uniqueSummary("Cannot open the shared timetable"));
 
       // …when an Administrator deactivates the account.
       await signIn(page, ADMINISTRATOR);
+      await page.goto("/admin/users");
       await page.getByLabel("Search users").fill(person.email);
       const edit = await openEdit(page, person.name);
       await edit.getByLabel("Inactive", { exact: true }).check();

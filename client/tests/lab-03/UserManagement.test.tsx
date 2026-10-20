@@ -564,9 +564,9 @@ describe("Refusal", () => {
     renderUsers(STAFF);
 
     const forbidden = await screen.findByTestId("zg-state-forbidden");
-    expect(within(forbidden).getByRole("link", { name: /back to ticket queue/i })).toHaveAttribute(
+    expect(within(forbidden).getByRole("link", { name: /back to dashboard/i })).toHaveAttribute(
       "href",
-      "/staff/tickets",
+      "/dashboard",
     );
     expect(screen.queryByTestId("user-table")).not.toBeInTheDocument();
     expect(screen.queryByTestId("zg-state-error")).not.toBeInTheDocument();

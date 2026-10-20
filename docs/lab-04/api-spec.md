@@ -263,6 +263,16 @@ Both follow the queue's lenient rule (Lab 3 BR-40): an unrecognised value falls
 back to its default rather than failing the request. Every other queue
 parameter, the ordering and the pagination envelope are unchanged.
 
+`GET /api/tickets`, the Requester's own list, takes the same widening for the
+same reason. Its `status` parameter accepted only `NEW`, because New was the
+only status a Ticket could have when Lab 2 wrote it and Lab 3's seven others
+never reached it. It now accepts **the eight statuses, or `open`**, with `open`
+meaning exactly what it means above, so each card on the Requester dashboard can
+link into the list with the filter that produced its number (FR-19,
+`ui-spec.md` §5.3). Lab 2's BR-18 lenient rule is unchanged: an unrecognised value
+is ignored rather than refused. This supersedes the `status` row of
+`lab-02/api-spec.md` §4; nothing else about that endpoint changes.
+
 ## 7. Dashboard Endpoints
 
 ### `GET /api/dashboard/staff`
@@ -324,16 +334,27 @@ Requester only, and only ever the caller's own data (BR-23, FR-20).
     "waitingForMe": 1,
     "resolvedAwaitingConfirmation": 2
   },
-  "recentlyUpdated": [
+  "attention": [
     { "id": 41, "ticketNumber": "TKT-2026-002770", "summary": "Keyboard keys stopped responding",
       "currentStatus": "WAITING_FOR_REQUESTER", "requestedPriority": "MEDIUM",
       "updatedAt": "2026-10-12T08:05:44.001Z" }
   ],
+  "recentlyUpdated": [ /* same row shape */ ],
   "recentlyResolved": [ /* same row shape */ ]
 }
 ```
 
-- Both lists hold at most 5 rows.
+- `attention` holds the Tickets behind the second and third cards - those
+  `WAITING_FOR_REQUESTER` or `RESOLVED` - most recently updated first, at most
+  10. The row's own `currentStatus` is the reason it is listed, so no separate
+  `reason` field carries it: two sources for one fact is one too many, and the
+  interface maps the status to its sentence (`ui-spec.md` §5.1). The cards above
+  link to the full list, which is why the panel is capped while the counts are
+  not. *(Added in Issue #50: `ui-spec.md` §5.1 and `API-DASHR-04`
+  both required this list and the example here had omitted it.)*
+- The Requester's row shape is narrower than the staff one: no `itPriority`,
+  which a Requester never set, and no `owner`, which is not their business.
+- `recentlyUpdated` and `recentlyResolved` hold at most 5 rows.
 - A `requesterId` in the query string is ignored; the answer is the caller's
   own data (AC-20).
 - A Requester with no Tickets receives zeros and empty arrays, never an error

@@ -377,10 +377,11 @@ describe("IT Staff Ticket Queue", () => {
     // §12: the refusal takes focus, so a keyboard user hears it.
     const heading = within(forbidden).getByRole("heading", { name: /you do not have access to this page/i });
     await waitFor(() => expect(heading).toHaveFocus());
-    // §2.4: one way out — back to the person's own landing screen.
-    expect(within(forbidden).getByRole("link", { name: /back to ticket queue/i })).toHaveAttribute(
+    // §2.4: one way out — back to the person's own landing screen, which
+    // lab-04 FR-25 makes the Dashboard for every role.
+    expect(within(forbidden).getByRole("link", { name: /back to dashboard/i })).toHaveAttribute(
       "href",
-      "/staff/tickets",
+      "/dashboard",
     );
     // And nothing about what was behind the refusal.
     expect(forbidden.textContent).not.toMatch(/TKT-|Requester/);

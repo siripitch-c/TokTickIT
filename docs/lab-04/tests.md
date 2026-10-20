@@ -131,19 +131,21 @@ Asserts `src/actionRules.ts`, the pure-rule module the Actions endpoints consult
 | API-DASHS-08 | API | AC-18, FR-16 | Administrator counts | Present for an Administrator, absent for IT Staff | same | **Pass** |
 | API-DASHS-09 | API | AC-22 | Requester calls the staff dashboard | 403 | same | **Pass** |
 | API-DASHS-10 | API | BR-14 | Unauthenticated call | 401 | same | **Pass** |
-| API-DASHS-11 | API | AC-17, FR-15, BR-40 | The drill-down queries | Each card's documented query returns a total equal to the card, and the three new queue parameters stay lenient | same | **Pass** |
+| API-DASHS-11 | API | AC-17, FR-15, Lab 3 BR-40 | The drill-down queries | Each card's documented query returns a total equal to the card, and the three new queue parameters stay lenient | same | **Pass** |
 
 ### 2.5 API — Requester dashboard — `server/tests/lab-04/requester-dashboard.api.test.ts`
 
 | ID | Type | Req / AC | What it tests | Expected result | File | Status |
 |---|---|---|---|---|---|---|
-| API-DASHR-01 | API | AC-19, BR-22 | Own data only | Every count and row belongs to the caller; another Requester's Ticket appears nowhere | `requester-dashboard.api.test.ts` | Planned |
-| API-DASHR-02 | API | AC-20, FR-20 | `requesterId` in the query string | Ignored; the caller's own data is returned | same | Planned |
-| API-DASHR-03 | API | BR-22 | Metric definitions, limits and ordering | The three counts match direct queries, and each list holds at most five rows, most recent first | same | Planned |
-| API-DASHR-04 | API | FR-18 | Attention lists | Waiting-for-me and resolved rows carry the reason they are listed | same | Planned |
-| API-DASHR-06 | API | AC-21 | Requester with no Tickets | Zeros and empty arrays, 200, no error | same | Planned |
-| API-DASHR-07 | API | AC-22 | IT Staff or Administrator calls it | 403 | same | Planned |
-| API-DASHR-08 | API | BR-14 | Unauthenticated call | 401 | same | Planned |
+| API-DASHR-01 | API | AC-19, BR-22 | Own data only | Every count and row belongs to the caller; another Requester's Ticket appears nowhere | `requester-dashboard.api.test.ts` | **Pass** |
+| API-DASHR-02 | API | AC-20, FR-20 | `requesterId` in the query string | Ignored; the caller's own data is returned | same | **Pass** |
+| API-DASHR-03 | API | BR-22 | Metric definitions, limits and ordering | The three counts match direct queries, and the two short lists hold at most five rows, most recent first | same | **Pass** |
+| API-DASHR-04 | API | FR-18 | Attention lists | Waiting-for-me and resolved rows carry the reason they are listed | same | **Pass** |
+| API-DASHR-05 | API | BR-22, FR-18 | The attention panel's own limit | With more than ten Tickets waiting or resolved, the panel holds the ten most recent and stops there | same | **Pass** |
+| API-DASHR-06 | API | AC-21 | Requester with no Tickets | Zeros and empty arrays, 200, no error | same | **Pass** |
+| API-DASHR-07 | API | AC-22 | IT Staff or Administrator calls it | 403 | same | **Pass** |
+| API-DASHR-08 | API | BR-14 | Unauthenticated call | 401 | same | **Pass** |
+| API-DASHR-09 | API | AC-17, FR-19, Lab 2 BR-18 | The drill-down queries | Each card's documented query returns a total equal to the card, the rows stay the caller's own, and junk falls back | same | **Pass** |
 
 ### 2.6 Migration, rollback and Lab 1–3 regression — `server/tests/lab-04/migration.api.test.ts`
 
@@ -186,16 +188,18 @@ Asserts `src/actionRules.ts`, the pure-rule module the Actions endpoints consult
 | UI-DASHS-02 | UI | BR-21 | Zero metric | Renders `0` with its sub-line, still focusable and still a link | same | **Pass** |
 | UI-DASHS-03 | UI | AC-17, FR-15 | Drill-down links | Each card's href carries the documented query | same | **Pass** |
 | UI-DASHS-04 | UI | AC-18 | Administrator block | Rendered for an Administrator, absent for IT Staff | same | **Pass** |
-| UI-DASHS-05 | UI | ui-spec §4.4, §5.2 | Loading and failure | Skeleton while loading; one error block with Retry on failure. Both dashboards render through the same state component, so this covers the Requester screen too | same | **Pass** |
-| UI-DASHR-01 | UI | FR-17 | Three metric cards | Render from the payload with correct labels | `RequesterDashboard.test.tsx` | Planned |
-| UI-DASHR-02 | UI | FR-18 | Attention panel | Combines waiting-for-me and resolved rows, each with its reason | same | Planned |
-| UI-DASHR-03 | UI | AC-21 | Empty dashboard | Three zeros, the empty line, and a Create Ticket call to action | same | Planned |
-| UI-DASHR-04 | UI | FR-19 | Drill-down links | Each card links into My Tickets with the matching filter | same | Planned |
+| UI-DASHS-05 | UI | ui-spec §4.4 | Loading, failure and refusal | Skeleton while loading; one error block with Retry on failure; the forbidden state with the way back | same | **Pass** |
+| UI-DASHR-01 | UI | FR-17 | Three metric cards | Render from the payload with correct labels | `RequesterDashboard.test.tsx` | **Pass** |
+| UI-DASHR-02 | UI | FR-18 | Attention panel | Combines waiting-for-me and resolved rows, each with its reason | same | **Pass** |
+| UI-DASHR-03 | UI | AC-21 | Empty dashboard | Three zeros, the empty line, and a Create Ticket call to action | same | **Pass** |
+| UI-DASHR-04 | UI | FR-19 | Drill-down links | Each card links into My Tickets with the matching filter | same | **Pass** |
+| UI-DASHR-05 | UI | ui-spec §5.2, AC-22, AC-23 | Loading, failure and refusal | The header renders before the data; a failure is one error block with Retry; a 403 is the forbidden state and no numbers | same | **Pass** |
+| UI-LIST-09 | UI | FR-19, AC-17 | A status carried in the address | My Tickets applies it, shows it in the Current Status control and sends it to the API; a status the address invents is ignored | `lab-02/MyTickets.test.tsx` | **Pass** |
 | UI-FLOW-01 | UI | FR-08 | Status options | Only permitted transitions are offered for the current status | `TicketWorkflow.test.tsx` | **Pass** |
 | UI-FLOW-02 | UI | AC-09 | Resolve blocked | With open Actions the option is disabled and explains why; a server 409 renders the conflict text | same | **Pass** |
 | UI-FLOW-03 | UI | BR-16 | Terminal confirmations | Closed and Cancelled confirm before saving | same | **Pass** |
 | UI-FLOW-04 | UI | BR-27 | Stale status write | The conflict block offers Reload and the select returns to the current status | same | **Pass** |
-| UI-FLOW-05 | UI | FR-25 | Navigation | Dashboard is the first item and the landing route for all three roles | `AppShell.test.tsx` (lab-04) | Planned — Issue #50 (see §7) |
+| UI-FLOW-05 | UI | FR-25 | Navigation | Dashboard is the first item and the landing route for all three roles | `AppShell.test.tsx` (lab-04) | **Pass** |
 
 ### 2.9 Accessibility — `client/tests/lab-04/accessibility.test.tsx`
 
@@ -251,13 +255,13 @@ Asserts `src/actionRules.ts`, the pure-rule module the Actions endpoints consult
 | AC-14 | API-FLOW-10, API-ACTION-22 |
 | AC-15 | API-DASHS-01, API-DASHS-02, API-DASHS-03, API-DASHS-05, API-DASHS-07, UI-DASHS-01, UI-DASHS-02, E2E-06 |
 | AC-16 | API-DASHS-04 |
-| AC-17 | API-DASHS-11, UI-DASHS-03, E2E-06 |
+| AC-17 | API-DASHS-11, API-DASHR-09, UI-DASHS-03, UI-LIST-09, E2E-06 |
 | AC-18 | API-DASHS-08, UI-DASHS-04 |
 | AC-19 | API-DASHR-01, API-DASHR-03, API-DASHR-04, UI-DASHR-01, UI-DASHR-02, UI-DASHR-04, E2E-07 |
 | AC-20 | API-DASHR-02, API-FLOW-12 |
 | AC-21 | API-DASHR-06, UI-DASHR-03, E2E-07 |
-| AC-22 | API-DASHS-09, API-DASHS-10, API-DASHR-07, API-DASHR-08, E2E-08 |
-| AC-23 | UI-DASHS-05 |
+| AC-22 | API-DASHS-09, API-DASHS-10, API-DASHR-07, API-DASHR-08, UI-DASHR-05, E2E-08 |
+| AC-23 | UI-DASHS-05, UI-DASHR-05 |
 | AC-24 | UI-ACTION-06 |
 | AC-25 | UI-ACTION-11 |
 | AC-26 | PERF-01, PERF-02 |
@@ -274,7 +278,7 @@ Asserts `src/actionRules.ts`, the pure-rule module the Actions endpoints consult
 | BR-02 | E2E-05 | BR-19 | API-FLOW-05 |
 | BR-03 | API-ACTION-02 | BR-20 | API-FLOW-12 |
 | BR-04 | API-ACTION-06, API-ACTION-07, API-ACTION-08, UI-ACTION-08 | BR-21 | API-DASHS-01, API-DASHS-03, API-DASHS-05, API-DASHS-07, API-DASHS-08 |
-| BR-05 | UNIT-01, API-ACTION-13, UI-ACTION-02 | BR-22 | API-DASHR-03, API-DASHS-03 |
+| BR-05 | UNIT-01, API-ACTION-13, UI-ACTION-02 | BR-22 | API-DASHR-03, API-DASHR-05, API-DASHS-03 |
 | BR-06 | UNIT-02, API-ACTION-11, UI-ACTION-05 | BR-23 | API-DASHS-01, API-DASHR-01 |
 | BR-07 | UNIT-03, API-ACTION-04, API-ACTION-05 | BR-24 | API-DASHS-02 |
 | BR-08 | API-ACTION-01, UI-ACTION-01 | BR-25 | UNIT-06, API-DASHS-06 |
@@ -512,6 +516,84 @@ belongs; inventing a control for it here would be new interface nobody specified
 `e2e/lab-04/visual.spec.ts` was written here rather than left to Issue #52, because Lab 3 was submitted with
 four figures missing for exactly that reason. Issue #52 extends the file; its shape is Lab 3's, so that is
 adding blocks rather than rewriting it.
+
+### After Issue #50 — Requester dashboard
+
+| Date | Command | Result |
+|---|---|---|
+| 2026-10-16 | `npm test --prefix server` | 294 passed / 294 (25 files, 9 new) |
+| 2026-10-16 | `npm test --prefix client` | 179 passed / 179 (12 new) |
+| 2026-10-16 | `npx tsc --noEmit` (server, client, e2e) | clean on all three |
+| 2026-10-16 | `npm run build` (server, client) | both succeed |
+
+`GET /api/dashboard/requester` answers the three counts BR-22 names, the attention list, and the two
+five-row lists, all from the session and never from the query string. The screen renders them at
+`/dashboard`, and **FR-25 lands every role there**: one route, two screens, chosen by the caller's role
+rather than by the address, so a link shared between colleagues always opens somewhere the recipient is
+allowed to be.
+
+**A gap in the contract, not a contradiction.** `ui-spec.md` §5.1 and `API-DASHR-04` both require an
+attention panel holding the Tickets behind the second and third cards, and `api-spec.md` §7's example had
+no field for them — the screen could not have built that list from what the endpoint returned. `attention`
+was added and documented. It carries no separate `reason` field: a row is listed because of its own status,
+and a second copy of that fact is a second thing to keep honest.
+
+**The drill-down did not work, and the user found it by pressing a card.** Every Requester card links into
+My Tickets with the filter behind its number (FR-19, `ui-spec.md` §5.3), and the list opened unfiltered.
+Four separate things were wrong, each a leftover rather than a mistake made here:
+
+1. `GET /api/tickets` accepted `status=NEW` and nothing else - Lab 2's contract, written when New was the
+   only status a Ticket could have. Lab 3 added the other seven and this was never widened.
+2. The screen's Current Status control offered one option, `New`, for the same reason - a control that
+   cannot describe the Ticket in front of the reader (FR-26).
+3. My Tickets never read the address at all; its filters lived entirely in component state.
+4. With those three fixed, the list arrived filtered and then immediately re-fetched without the filter:
+   the effect that clears a previous Requester's view (BR-07) is keyed on `user.id`, and an effect keyed on
+   a value also runs on the first render. It now remembers the previous id and skips that first run.
+
+**`UI-DASHR-04` asserted the card's `href` and not what the href opens**, which is exactly the hole
+`API-DASHS-11` was added to close on the staff side in Issue #49 - and the same hole was left open here.
+**`API-DASHR-09`** now asserts that each card's query returns the number the card showed, and it fails on
+the previous code. **`UI-LIST-09`** in the Lab 2 suite asserts that the screen applies a status from the
+address, shows it in the control, and ignores one the address invents.
+
+**Eleven earlier tests were deliberately updated**, which is the whole cost of FR-25 and was expected when
+it was deferred from Issue #48 so that all three roles would change together rather than twice:
+
+| Test | Change |
+|---|---|
+| `UI-ROUTE-05` ×5 (`lab-03/AppRoutes`) | every role now lands on `/dashboard`; the two dashboard fetches are mocked like any other screen the suite passes through |
+| `UI-ROUTE-06` ×2, `UI-USER-09` ×2, `UI-QUEUE-06` (five cases across three files) | the forbidden state's way back is "Back to Dashboard" for everybody, because `LANDING` is now one destination |
+| `UI-DASHS-05` (`lab-04/StaffDashboard`) | the same, for the staff dashboard's own forbidden case |
+
+**The Lab 3 end-to-end specs needed the same change, and the component suites did not reveal it.** A
+component test renders one screen and is told which; only the browser follows a sign-in to wherever it
+leads. Eight places across four spec files still expected the old landing, and `npm run test:e2e` would
+have failed on `main`:
+
+| Case | Change |
+|---|---|
+| `E2E-01` (`lab-03/authentication`) | every role lands on `/dashboard`; each one then reaches its own screen from the navigation, which is a stronger assertion than the old direct landing, and the signed-out check still uses the role's own address |
+| `E2E-02` | the mandatory password change ends on the Dashboard |
+| `E2E-04` | "Dashboard" leads each role's navigation, the way back from a refusal is "Back to Dashboard" for everybody, and each role now also meets 403 at the *other* role's dashboard endpoint |
+| `E2E-05` (`lab-03/staff-ticket-flow`) | the retired `/select-requester` address lands on the Dashboard, which is where the catch-all route sends everything |
+| `E2E-06`, `E2E-12` | staff open the Queue rather than arriving on it |
+| `E2E-09`, `E2E-10`, `E2E-11` (`lab-03/user-administration`) | the Administrator opens User Management rather than arriving on it, and the deactivated person is on the Dashboard when their session is taken away |
+| `VIS-01..03` (`lab-03/visual`) | the queue and user-management captures navigate to their screens |
+
+Nothing in Lab 3's own behaviour changed: every one of these still asserts what it asserted before, from
+one screen further along. That is the price FR-25 was always going to charge, and it is paid once.
+
+**`e2e/lab-04/visual.spec.ts` gained the Requester dashboard** at all three widths, in default and empty
+states, which produces Part 8's figure 8.1 and its responsive pair without waiting for Issue #52.
+
+Its staff **forbidden** capture changed with FR-25. It used to sign a Requester in and send them to
+`/dashboard`, which was the real refusal while that route was guarded by role. One route now renders the
+screen the role may see, so no address carries a Requester to the staff variant and that capture would have
+photographed the *Requester* dashboard while being filed under the staff one. The staff member now stays
+signed in and the staff endpoint is made to answer 403 - the same way the empty state above it is produced,
+and the state `ui-spec.md` §4.4 actually describes. Report figure 5.8's caption was corrected to match:
+it is the dashboard's forbidden state, not a Requester reaching an address that no longer exists.
 
 ### Fixes found by hand-testing Issue #47
 

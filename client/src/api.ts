@@ -218,7 +218,9 @@ export interface TicketListQuery {
   category?: number | "";
   requestedPriority?: RequestedPriority | "";
   itPriority?: RequestedPriority | "";
-  status?: "NEW" | "";
+  // Lab 4, Issue #50: the eight statuses, or `open` - the Requester dashboard
+  // links here with the filter behind each card (FR-19).
+  status?: CurrentStatus | "open" | "";
   sortBy?: TicketSortField;
   sortDir?: SortDirection;
   page?: number;
@@ -726,4 +728,37 @@ export async function fetchStaffDashboard(): Promise<StaffDashboard> {
   const res = await fetch(`${API_URL}/api/dashboard/staff`, { ...withSession });
   if (!res.ok) throw await toApiError(res);
   return (await res.json()) as StaffDashboard;
+}
+
+/** A row in the Requester's dashboard lists (lab-04/api-spec.md §7). */
+export interface RequesterTicketRow {
+  id: number;
+  ticketNumber: string;
+  summary: string;
+  currentStatus: CurrentStatus;
+  requestedPriority: RequestedPriority;
+  updatedAt: string;
+}
+
+export interface RequesterDashboard {
+  metrics: {
+    openTickets: number;
+    waitingForMe: number;
+    resolvedAwaitingConfirmation: number;
+  };
+  /** The Tickets behind the second and third cards; the row's status says why. */
+  attention: RequesterTicketRow[];
+  recentlyUpdated: RequesterTicketRow[];
+  recentlyResolved: RequesterTicketRow[];
+}
+
+/**
+ * FR-20: the caller's identity comes from the session. There is deliberately no
+ * argument for whose dashboard to fetch — the server would ignore one anyway,
+ * and offering one here would suggest otherwise.
+ */
+export async function fetchRequesterDashboard(): Promise<RequesterDashboard> {
+  const res = await fetch(`${API_URL}/api/dashboard/requester`, { ...withSession });
+  if (!res.ok) throw await toApiError(res);
+  return (await res.json()) as RequesterDashboard;
 }

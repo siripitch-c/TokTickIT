@@ -139,7 +139,7 @@ honest, and the row a desktop layout would drop first is the summary.
 |---|---|
 | Loading | `zg-state--loading` skeleton cards in the grid's shape, then skeleton rows for the lists; the page header renders immediately so the screen never looks empty |
 | Partially empty | a metric of 0 shows its sub-line; a list with no rows shows `zg-state--empty` inside the list card, not a page-level empty state |
-| Forbidden | a Requester reaching the staff variant sees `zg-state--forbidden`; in practice the router sends them to their own dashboard, and the state exists for a hand-typed route (AC-22) |
+| Forbidden | `zg-state--forbidden`, shown when the server answers 403 to the dashboard endpoint (AC-22). One route renders the screen the role may see (§3), so no address reaches the other variant; the state is the screen trusting the server over itself, and it is what a session whose role changed under it would meet |
 | Safe failure | the whole dashboard fails as one unit: `zg-state--error` with **Retry**, because six half-loaded cards would be worse than one honest failure (AC-23) |
 
 ### 4.5 Drill-down
