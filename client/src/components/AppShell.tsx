@@ -32,13 +32,14 @@ interface NavItem {
 // this list is what a person sees, never what protects the data.
 const NAV_BY_ROLE: Record<Role, NavItem[]> = {
   REQUESTER: [
+    { to: "/dashboard", label: "Dashboard" },
     { to: "/my-tickets", label: "My Tickets" },
     { to: "/tickets/new", label: "Create Ticket" },
   ],
-  // lab-04/ui-spec.md §3 — Dashboard comes first for both staff roles: it is
-  // where the day starts, and every card leads into the Queue below it. Making
-  // it the *landing* destination for all three roles is FR-25, which waits for
-  // Issue #50 so that all three change together rather than twice.
+  // lab-04/ui-spec.md §3 — Dashboard comes first for every role: it is where
+  // the day starts, and every card leads into the list below it. Issue #50
+  // made it the *landing* destination for all three roles as well (FR-25), so
+  // `LANDING` in lib/landing.ts now names it for everybody.
   IT_STAFF: [
     { to: "/dashboard", label: "Dashboard" },
     { to: "/staff/tickets", label: "Ticket Queue" },

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useNavigate, useOutletContext } from "react-router-dom";
+import { Link, useNavigate, useOutletContext, useSearchParams } from "react-router-dom";
 import {
+  CURRENT_STATUSES,
+  CurrentStatus,
   Pagination,
   ReferenceItem,
   AuthUser,
@@ -11,7 +13,7 @@ import {
   fetchCategories,
   fetchTickets,
 } from "../api.js";
-import { PriorityBadge, StatusBadge } from "../components/Badge.js";
+import { PriorityBadge, STATUS_LABEL, StatusBadge } from "../components/Badge.js";
 import PaginationBar from "../components/PaginationBar.js";
 import { MOBILE_QUERY, useMediaQuery } from "../lib/useMediaQuery.js";
 
@@ -43,9 +45,21 @@ export default function MyTickets() {
   const navigate = useNavigate();
   const isMobile = useMediaQuery(MOBILE_QUERY);
 
+  // Lab 4, Issue #50 - the address is read once, on arrival. The Requester
+  // dashboard links here with the filter behind each card (FR-19), and before
+  // this the screen kept its filters entirely in its own state and ignored
+  // them, so every card opened an unfiltered list. Only `status` is read:
+  // that is the only parameter anything links here with, and inventing a
+  // two-way sync for the rest would be a larger change than §5.3 asks for.
+  const [params] = useSearchParams();
+
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
-  const [filters, setFilters] = useState<Filters>(NO_FILTERS);
+  const [filters, setFilters] = useState<Filters>(() => {
+    const status = params.get("status");
+    const known = status === "open" || CURRENT_STATUSES.includes(status as CurrentStatus);
+    return known ? { ...NO_FILTERS, status: status as string } : NO_FILTERS;
+  });
   const [sortBy, setSortBy] = useState<TicketSortField>("createdAt");
   const [sortDir, setSortDir] = useState<SortDirection>("desc");
   const [page, setPage] = useState(1);
@@ -76,7 +90,15 @@ export default function MyTickets() {
 
   // BR-07: a different Requester is a different list. Filters, search, sort and
   // page all reset rather than carrying someone else's view across.
+  //
+  // Only on a *change*, though. An effect keyed on `user.id` also runs on the
+  // first render, and doing so wiped the filter just read from the address -
+  // the list arrived filtered and then immediately re-fetched without it
+  // (Issue #50). The previous id is remembered so the first run is skipped.
+  const previousUser = useRef(user.id);
   useEffect(() => {
+    if (previousUser.current === user.id) return;
+    previousUser.current = user.id;
     setSearchInput("");
     setSearch("");
     setFilters(NO_FILTERS);
@@ -102,7 +124,7 @@ export default function MyTickets() {
         category: filters.category === "" ? "" : Number(filters.category),
         requestedPriority: filters.requestedPriority as RequestedPriority | "",
         itPriority: filters.itPriority as RequestedPriority | "",
-        status: filters.status as "NEW" | "",
+        status: filters.status as CurrentStatus | "open" | "",
         sortBy,
         sortDir,
         page,
@@ -472,7 +494,15 @@ function FilterSelects({
         label="Current Status"
         allLabel="All Statuses"
         value={filters.status}
-        options={[{ value: "NEW", label: "New" }]}
+        // Lab 4, Issue #50: all eight statuses and the `open` shorthand. Lab 2
+        // offered only New because New was the only status a Ticket could have
+        // then; leaving it that way would be a control that cannot express what
+        // the Ticket in front of the reader actually is (FR-26), and the
+        // dashboard's cards link here with the other values (FR-19).
+        options={[
+          { value: "open", label: "Open tickets" },
+          ...CURRENT_STATUSES.map((status) => ({ value: status, label: STATUS_LABEL[status] })),
+        ]}
         onChange={onChange}
       />
     </div>

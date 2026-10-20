@@ -1,10 +1,10 @@
 import { Router, type Request, type Response } from "express";
-import { staffOnly } from "./auth.js";
+import { requesterOnly, staffOnly } from "./auth.js";
 import { getPrisma } from "./prisma.js";
 import { sendInternalError } from "./requesterContext.js";
 import { CURRENT_STATUSES } from "./statusTransitions.js";
 import { OPEN_STATUSES, byStatusMap, resolvedWindowStart } from "./dashboardMetrics.js";
-import type { Prisma } from "@prisma/client";
+import type { CurrentStatus, Prisma } from "@prisma/client";
 
 // Lab 4, Issue #49 — the dashboards (lab-04/api-spec.md §7).
 //
@@ -39,6 +39,25 @@ const LIST_ROW = {
 } as const;
 
 const LIST_SIZE = 10;
+
+/**
+ * api-spec.md §7 — a Requester's list row. The staff row's `itPriority` and
+ * `owner` are not here: a Requester never set the first and has no business
+ * with the second, and BR-23 is a rule about what leaves the server.
+ */
+const OWN_ROW = {
+  id: true,
+  ticketNumber: true,
+  summary: true,
+  currentStatus: true,
+  requestedPriority: true,
+  updatedAt: true,
+} as const;
+
+/** BR-22's two attention statuses: waiting on the Requester, or resolved and unconfirmed. */
+const NEEDS_ATTENTION: CurrentStatus[] = ["WAITING_FOR_REQUESTER", "RESOLVED"];
+
+const OWN_LIST_SIZE = 5;
 
 // GET /api/dashboard/staff — FR-12..FR-16, BR-21, BR-23, BR-24, BR-25, AC-15..AC-18.
 // No query parameters: what makes this dashboard "mine" is the session, not
@@ -124,6 +143,64 @@ dashboardRoutes.get("/staff", staffOnly, async (req: Request, res: Response) => 
     res.json(body);
   } catch (error) {
     console.error("Error building the staff dashboard:", error);
+    sendInternalError(res);
+  }
+});
+
+// GET /api/dashboard/requester — FR-17..FR-20, BR-22, BR-23, AC-19..AC-22.
+//
+// Identity comes from the session and from nothing else. A `requesterId` in the
+// query string is ignored rather than refused (FR-20, AC-20): there is nothing
+// to disclose, and a 403 would confirm that the person asked about exists.
+dashboardRoutes.get("/requester", requesterOnly, async (req: Request, res: Response) => {
+  const requesterId = req.user!.id;
+
+  try {
+    const prisma = getPrisma();
+    const own = { requesterId };
+
+    const [openTickets, waitingForMe, resolvedAwaitingConfirmation, attention, recentlyUpdated, recentlyResolved] =
+      await Promise.all([
+        prisma.ticket.count({ where: { ...own, ...OPEN } }),
+        prisma.ticket.count({ where: { ...own, currentStatus: "WAITING_FOR_REQUESTER" } }),
+        prisma.ticket.count({ where: { ...own, currentStatus: "RESOLVED" } }),
+        // §5.1: the Tickets behind the second and third cards, in one list. The
+        // row's own status is the reason it is here, so no separate field says
+        // so — two sources for one fact is one too many.
+        prisma.ticket.findMany({
+          where: { ...own, currentStatus: { in: NEEDS_ATTENTION } },
+          select: OWN_ROW,
+          orderBy: { updatedAt: "desc" },
+          take: LIST_SIZE,
+        }),
+        prisma.ticket.findMany({
+          where: own,
+          select: OWN_ROW,
+          orderBy: { updatedAt: "desc" },
+          take: OWN_LIST_SIZE,
+        }),
+        // BR-22: "most recently moved to Resolved or Closed". `resolvedAt`
+        // records that moment exactly for a Ticket still Resolved, but a Closed
+        // one passed through Resolved earlier and nothing records when, so the
+        // mixed list is ordered by `updatedAt` — the one key both kinds carry.
+        // It is the best available answer rather than the exact one, and saying
+        // so here is cheaper than a `closedAt` column nothing else would use.
+        prisma.ticket.findMany({
+          where: { ...own, currentStatus: { in: ["RESOLVED", "CLOSED"] } },
+          select: OWN_ROW,
+          orderBy: { updatedAt: "desc" },
+          take: OWN_LIST_SIZE,
+        }),
+      ]);
+
+    res.json({
+      metrics: { openTickets, waitingForMe, resolvedAwaitingConfirmation },
+      attention,
+      recentlyUpdated,
+      recentlyResolved,
+    });
+  } catch (error) {
+    console.error("Error building the requester dashboard:", error);
     sendInternalError(res);
   }
 });

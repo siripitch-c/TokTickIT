@@ -13,15 +13,18 @@ import { ACCOUNTS, ADMINISTRATOR, api, signIn, signOut, uniqueSuffix } from "../
 const mainNavigation = (page: Page) => page.getByRole("navigation", { name: "Main" });
 
 test.describe("Lab 3 — authentication and role access", () => {
-  test("E2E-01 / AC-01, AC-06: each role lands on its own screen, and after logout neither the address nor the API opens again", async ({
+  test("E2E-01 / AC-01, AC-06, lab-04 FR-25: every role lands on the Dashboard and reaches its own screen from there, and after logout neither the address nor the API opens again", async ({
     page,
   }) => {
+    // lab-04 FR-25: every role lands on `/dashboard` now. `own` is still the
+    // role's own working screen, reached from the navigation and used for the
+    // signed-out check below, so each role is still exercised on something
+    // only it may see.
     const roles = [
       {
         who: "a Requester",
         account: ACCOUNTS.requester,
-        path: "/my-tickets",
-        heading: "My Tickets",
+        own: "/my-tickets",
         use: async () => {
           await mainNavigation(page).getByRole("link", { name: "Create Ticket" }).click();
           await expect(page.getByRole("heading", { name: "Create Ticket", level: 1 })).toBeVisible();
@@ -30,18 +33,18 @@ test.describe("Lab 3 — authentication and role access", () => {
       {
         who: "IT Staff",
         account: ACCOUNTS.staff,
-        path: "/staff/tickets",
-        heading: "Ticket Queue",
+        own: "/staff/tickets",
         use: async () => {
+          await mainNavigation(page).getByRole("link", { name: "Ticket Queue" }).click();
           await expect(page.getByTestId("queue-table")).toBeVisible();
         },
       },
       {
         who: "an Administrator",
         account: ADMINISTRATOR,
-        path: "/admin/users",
-        heading: "User Management",
+        own: "/admin/users",
         use: async () => {
+          await mainNavigation(page).getByRole("link", { name: "User Management" }).click();
           await expect(page.getByTestId("user-table")).toBeVisible();
         },
       },
@@ -49,15 +52,15 @@ test.describe("Lab 3 — authentication and role access", () => {
 
     for (const role of roles) {
       await signIn(page, role.account);
-      await expect(page, `${role.who} lands on their own screen`).toHaveURL(new RegExp(`${role.path}$`));
-      await expect(page.getByRole("heading", { name: role.heading, level: 1 })).toBeVisible();
+      await expect(page, `${role.who} lands on the Dashboard`).toHaveURL(/\/dashboard$/);
+      await expect(page.getByRole("heading", { name: "Dashboard", level: 1 })).toBeVisible();
       await role.use();
       expect((await api(page).get("/api/auth/me")).status(), `${role.who} is signed in`).toBe(200);
 
       await signOut(page);
 
       // AC-06: the address that worked a moment ago now leads to Login…
-      await page.goto(role.path);
+      await page.goto(role.own);
       await expect(page, `${role.who} after logout`).toHaveURL(/\/login$/);
       // …and the session behind it is gone at the server, not merely forgotten
       // by the client.
@@ -99,8 +102,9 @@ test.describe("Lab 3 — authentication and role access", () => {
     // ui-spec.md §5: the confirmation, then the application — its landing
     // screen, with its navigation, and its endpoints open.
     await expect(page.getByTestId("zg-state-success")).toBeVisible();
-    await expect(page).toHaveURL(/\/my-tickets$/);
-    await expect(page.getByRole("heading", { name: "My Tickets", level: 1 })).toBeVisible();
+    // lab-04 FR-25: the landing screen is the Dashboard for every role.
+    await expect(page).toHaveURL(/\/dashboard$/);
+    await expect(page.getByRole("heading", { name: "Dashboard", level: 1 })).toBeVisible();
     await expect(mainNavigation(page).getByRole("link", { name: "My Tickets" })).toBeVisible();
     expect((await api(page).get("/api/tickets")).status()).toBe(200);
   });
@@ -161,32 +165,30 @@ test.describe("Lab 3 — authentication and role access", () => {
       {
         who: "a Requester",
         account: ACCOUNTS.requester,
-        navigation: ["My Tickets", "Create Ticket"],
-        landing: "My Tickets",
+        navigation: ["Dashboard", "My Tickets", "Create Ticket"],
         refusedRoutes: ["/staff/tickets", "/admin/users"],
-        refusedEndpoints: ["/api/staff/tickets", "/api/users"],
+        refusedEndpoints: ["/api/staff/tickets", "/api/users", "/api/dashboard/staff"],
       },
       {
         who: "IT Staff",
         account: ACCOUNTS.staff,
-        navigation: ["Ticket Queue"],
-        landing: "Ticket Queue",
+        navigation: ["Dashboard", "Ticket Queue"],
         refusedRoutes: ["/my-tickets", "/tickets/new", "/admin/users"],
-        refusedEndpoints: ["/api/tickets", "/api/users"],
+        refusedEndpoints: ["/api/tickets", "/api/users", "/api/dashboard/requester"],
       },
       {
         who: "an Administrator",
         account: ADMINISTRATOR,
-        navigation: ["User Management", "Ticket Queue"],
-        landing: "User Management",
+        navigation: ["Dashboard", "User Management", "Ticket Queue"],
         refusedRoutes: ["/my-tickets", "/tickets/new"],
-        refusedEndpoints: ["/api/tickets"],
+        refusedEndpoints: ["/api/tickets", "/api/dashboard/requester"],
       },
     ];
 
     for (const role of roles) {
       await signIn(page, role.account);
-      await expect(page.getByRole("heading", { name: role.landing, level: 1 })).toBeVisible();
+      // lab-04 FR-25: one landing screen, the same sentence for everybody.
+      await expect(page.getByRole("heading", { name: "Dashboard", level: 1 })).toBeVisible();
 
       // FR-09: no destination the role may not use is rendered at all.
       await expect(mainNavigation(page).getByRole("link"), role.who).toHaveText(role.navigation);
@@ -195,7 +197,7 @@ test.describe("Lab 3 — authentication and role access", () => {
         await page.goto(route);
         const forbidden = page.getByTestId("zg-state-forbidden");
         await expect(forbidden, `${role.who} at ${route}`).toBeVisible();
-        await expect(forbidden.getByRole("link", { name: `Back to ${role.landing}` })).toBeVisible();
+        await expect(forbidden.getByRole("link", { name: "Back to Dashboard" })).toBeVisible();
       }
 
       // The refusal is the server's, whatever the screen shows (AC-21).

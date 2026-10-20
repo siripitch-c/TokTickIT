@@ -279,7 +279,7 @@ describe("While it loads, and when it cannot", () => {
     expect(await screen.findByTestId("zg-state-forbidden")).toBeInTheDocument();
     // §2.4: the refusal says nothing about what is behind it, and offers the
     // way back to the caller's own landing screen.
-    expect(screen.getByRole("link", { name: /Back to My Tickets/ })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Back to Dashboard/ })).toBeInTheDocument();
     expect(screen.queryByTestId("metric-grid")).not.toBeInTheDocument();
     expect(screen.queryByTestId("zg-state-error")).not.toBeInTheDocument();
   });

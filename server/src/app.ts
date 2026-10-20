@@ -337,7 +337,18 @@ app.get("/api/tickets", requesterOnly, async (req: Request, res: Response) => {
   const categoryId = readId(query.category);
   const requestedPriority = REQUESTED_PRIORITIES.find((p) => p === query.requestedPriority);
   const itPriority = REQUESTED_PRIORITIES.find((p) => p === query.itPriority);
-  const currentStatus = query.status === "NEW" ? ("NEW" as const) : undefined;
+  // Lab 4, Issue #50 - the Requester dashboard's cards link into this list
+  // with the filter that produced their number (FR-19, ui-spec.md 5.3), so the
+  // filter has to understand the eight statuses and `open`, exactly as the
+  // staff queue does. Lab 2 accepted only `NEW` because that was the only
+  // status there was; Lab 3 added the rest and this was never widened, which
+  // left every card opening an unfiltered list.
+  const ownStatus = CURRENT_STATUSES.find((value) => value === query.status);
+  const ownStatusFilter: Prisma.TicketWhereInput = ownStatus
+    ? { currentStatus: ownStatus }
+    : query.status === "open"
+      ? { currentStatus: { in: [...OPEN_STATUSES] } }
+      : {};
 
   const sortBy = SORT_FIELDS.find((f) => f === query.sortBy) ?? "createdAt";
   const sortDir = query.sortDir === "asc" ? "asc" : "desc";
@@ -353,7 +364,7 @@ app.get("/api/tickets", requesterOnly, async (req: Request, res: Response) => {
       ...(categoryId !== null ? { categoryId } : {}),
       ...(requestedPriority ? { requestedPriority } : {}),
       ...(itPriority ? { itPriority } : {}),
-      ...(currentStatus ? { currentStatus } : {}),
+      ...ownStatusFilter,
       // BR-13: Ticket Number or Summary, partial and case-insensitive.
       // Description is deliberately not searched (specification.md §11).
       ...(search

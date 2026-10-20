@@ -1971,6 +1971,20 @@ textarea.zg-field--editable {
   max-width: 36rem;
 }
 
+/* §5.1 item 2 — the Requester's three cards keep one row on the desktop and,
+   per §5.1's closing note, on the tablet too; the breakpoints below take over
+   from there. Same card, same sizes as the staff grid: one dashboard should
+   not look like a different product from the other. */
+.zg-metric-grid--three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/* §5.2, AC-21 — the one call to action on either dashboard, for a Requester
+   with nothing to look at. */
+.zg-dashboard-cta {
+  margin: var(--zg-space-3) 0 0;
+}
+
 /* Each card is one link, so the whole card is the target rather than the
    number inside it (§11, and a 44px touch target several times over). */
 .zg-metric {
@@ -2169,6 +2183,12 @@ textarea.zg-field--editable {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  /* §5.1: the Requester's three cards stay in one row at tablet width — there
+     are three of them, not six, and they fit. */
+  .zg-metric-grid--three {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .zg-dashboard-lists {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -2181,7 +2201,8 @@ textarea.zg-field--editable {
 /* §4.3 — mobile: one column, and the strip wraps to two columns of pairs. */
 @media (max-width: 767px) {
   .zg-metric-grid,
-  .zg-metric-grid--pair {
+  .zg-metric-grid--pair,
+  .zg-metric-grid--three {
     grid-template-columns: minmax(0, 1fr);
     max-width: none;
   }

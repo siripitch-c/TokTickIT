@@ -81,9 +81,17 @@ function mockFetch(reply: (url: URL) => ListReply) {
   return { calls };
 }
 
-function Wrapper({ requester }: { requester: { id: number; name: string } }) {
+function Wrapper({
+  requester,
+  entry = "/my-tickets",
+}: {
+  requester: { id: number; name: string };
+  // Lab 4, Issue #50: the Requester dashboard links here with a filter, so some
+  // cases need to arrive at an address rather than at the bare screen.
+  entry?: string;
+}) {
   return (
-    <MemoryRouter initialEntries={["/my-tickets"]}>
+    <MemoryRouter initialEntries={[entry]}>
       <Routes>
         <Route element={<Outlet context={requester} />}>
           <Route path="/my-tickets" element={<MyTickets />} />
@@ -317,5 +325,31 @@ describe("My Tickets screen", () => {
       expect(query.has("category")).toBe(false);
     });
     expect(screen.getByLabelText(/search tickets/i)).toHaveValue("");
+  });
+});
+
+describe("Arriving from the dashboard", () => {
+  it("UI-LIST-09 / lab-04 FR-19: a status in the address is applied, shown in the control, and sent to the API", async () => {
+    // Added in Lab 4, Issue #50. This screen kept its filters entirely in its
+    // own state and never looked at the address, so every card on the Requester
+    // dashboard opened an unfiltered list while claiming a number. The user
+    // found it by pressing one; `UI-DASHR-04` had only asserted the href.
+    const { calls } = mockFetch(() => ({ tickets: makeTickets(3) }));
+    render(<Wrapper requester={REQUESTER} entry="/my-tickets?status=WAITING_FOR_REQUESTER" />);
+
+    await screen.findByTestId("ticket-table");
+    await waitFor(() => expect(lastQuery(calls).get("status")).toBe("WAITING_FOR_REQUESTER"));
+    // And the control agrees with the address, so the reader can see why the
+    // list is short and can clear it.
+    expect(screen.getByLabelText(/^Current Status$/)).toHaveValue("WAITING_FOR_REQUESTER");
+  });
+
+  it("UI-LIST-09 / BR-18: a status the address invents is ignored rather than breaking the screen", async () => {
+    const { calls } = mockFetch(() => ({ tickets: makeTickets(3) }));
+    render(<Wrapper requester={REQUESTER} entry="/my-tickets?status=ESCALATED" />);
+
+    await screen.findByTestId("ticket-table");
+    expect(screen.getByLabelText(/^Current Status$/)).toHaveValue("");
+    expect(lastQuery(calls).has("status")).toBe(false);
   });
 });
