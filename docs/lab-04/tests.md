@@ -151,22 +151,22 @@ Asserts `src/actionRules.ts`, the pure-rule module the Actions endpoints consult
 
 | ID | Type | Req / AC | What it tests | Expected result | File | Status |
 |---|---|---|---|---|---|---|
-| MIG-01 | Migration | §7 | Apply Lab 4 to a Lab 3 database | Every User, Ticket, Attachment, Comment and Note row survives with its id | `migration.api.test.ts` | Planned |
-| MIG-02 | Migration | §7 | `Ticket.version` backfill | Every pre-existing Ticket is at version 1 | same | Planned |
-| MIG-03 | Migration | AC-27 | Legacy Tickets without Actions | Readable, resolvable, and counted by the dashboards as zero contributions | same | Planned |
-| MIG-04 | Migration | §7 | Documented rollback | Dropping the table, enum and column restores the Lab 3 schema with Lab 3 data intact | same | Planned |
-| MIG-05 | Migration | BR-32 | Seed idempotency | Running the seed twice changes nothing and keeps the Action mix of §7 | same | Planned |
-| MIG-06 | Migration | §7 | Seed coverage | Tickets exist with zero, one and several Actions; at least one Action in each status; one Ticket resolved inside the weekly window | same | Planned |
-| MIG-07 | Regression | AC-28, BR-32 | Lab 2 contract | Ticket creation, My Tickets queries, attachment rules and the 404-on-foreign-resource rule behave as `docs/lab-02/api-spec.md` describes | same | Planned |
-| MIG-08 | Regression | AC-28, BR-32 | Lab 3 contract | Login, the password-change gate, the queue, ownership, comments, notes and user management behave as `docs/lab-03/api-spec.md` describes | same | Planned |
-| MIG-09 | Regression | AC-28, BR-32 | The earlier suites themselves | The whole Lab 1, Lab 2 and Lab 3 server, client and Playwright suites pass unchanged on the Lab 4 branch | all existing suites | Planned |
+| MIG-01 | Migration | §7 | Apply Lab 4 to a Lab 3 database | Every User, Ticket, Attachment, Comment and Note row survives with its id | `migration.api.test.ts` | **Pass** |
+| MIG-02 | Migration | §7 | `Ticket.version` backfill | Every pre-existing Ticket is at version 1 | same | **Pass** |
+| MIG-03 | Migration | AC-27 | Legacy Tickets without Actions | Readable, resolvable, and counted by the dashboards as zero contributions | same | **Pass** |
+| MIG-04 | Migration | §7 | Documented rollback | Dropping the table, enum and column restores the Lab 3 schema with Lab 3 data intact | same | **Pass** |
+| MIG-05 | Migration | BR-32 | Seed idempotency | Running the seed against an already-seeded database changes no row and no password hash | same | **Pass** |
+| MIG-06 | Migration | §7 | Seed coverage | Tickets exist with zero, one and several Actions; at least one Action in each status; one Ticket resolved inside the weekly window | same | **Pass** |
+| MIG-07 | Regression | AC-28, BR-32 | Lab 2 contract | Ticket creation, My Tickets queries, attachment rules and the 404-on-foreign-resource rule behave as `docs/lab-02/api-spec.md` describes | same | **Pass** |
+| MIG-08 | Regression | AC-28, BR-32 | Lab 3 contract | Login, the password-change gate, the queue, ownership, comments, notes and user management behave as `docs/lab-03/api-spec.md` describes | same | **Pass** |
+| MIG-09 | Regression | AC-28, BR-32 | The earlier suites themselves | Every Lab 1, Lab 2 and Lab 3 server, client and Playwright suite passes on the Lab 4 branch. Twenty cases were updated deliberately rather than left to fail — nineteen for FR-25 and one for a class name Issue #51 removed — each reasoned in §7 | all existing suites | **Pass** |
 
 ### 2.7 Performance smoke — `server/tests/lab-04/performance.api.test.ts`
 
 | ID | Type | Req / AC | What it tests | Expected result | File | Status |
 |---|---|---|---|---|---|---|
-| PERF-01 | Perf | AC-26, BR-33 | Staff dashboard latency | Responds in under 500 ms on seeded data, measured server-side over 5 runs | `performance.api.test.ts` | Planned |
-| PERF-02 | Perf | AC-26, BR-33 | Requester dashboard latency | Same budget | same | Planned |
+| PERF-01 | Perf | AC-26, BR-33 | Staff dashboard latency | Responds in under 500 ms on seeded data, measured server-side over 5 runs | `performance.api.test.ts` | **Pass** |
+| PERF-02 | Perf | AC-26, BR-33 | Requester dashboard latency | Same budget | same | **Pass** |
 
 ### 2.8 UI components — `client/tests/lab-04/`
 
@@ -193,7 +193,12 @@ Asserts `src/actionRules.ts`, the pure-rule module the Actions endpoints consult
 | UI-DASHR-02 | UI | FR-18 | Attention panel | Combines waiting-for-me and resolved rows, each with its reason | same | **Pass** |
 | UI-DASHR-03 | UI | AC-21 | Empty dashboard | Three zeros, the empty line, and a Create Ticket call to action | same | **Pass** |
 | UI-DASHR-04 | UI | FR-19 | Drill-down links | Each card links into My Tickets with the matching filter | same | **Pass** |
-| UI-DASHR-05 | UI | ui-spec §5.2, AC-22, AC-23 | Loading, failure and refusal | The header renders before the data; a failure is one error block with Retry; a 403 is the forbidden state and no numbers | same | **Pass** |
+| UI-DASHR-05 | UI | ui-spec §5.2, AC-22, AC-23 | Loading, failure and refusal | The header renders before the data; a failure is one error block with Retry; a 403 is the forbidden state and no numbers | `RequesterDashboard.test.tsx` | **Pass** |
+| UI-STYLE-01 | UI | FR-26 | Class names have rules | Every `zg-` class the components render is matched by a rule in `zen-green.css` | `StyleConformance.test.tsx` | **Pass** |
+| UI-STYLE-02 | UI | FR-26 | The guard reads both sides | The stylesheet and the source are both found, so UI-STYLE-01 cannot pass by collecting nothing | same | **Pass** |
+| UI-LINK-01 | UI | FR-26 | Links lead somewhere | Every `to=` target the interface renders resolves to a route `App.tsx` defines; a link to a removed screen fails the build | same | **Pass** |
+| UI-DUP-01 | UI | FR-23, BR-31, AC-24 | Double-clicked comment | The control disables in flight and exactly one POST reaches `/comments`; the composer is usable and empty afterwards | `DuplicateSubmit.test.tsx` | **Pass** |
+| UI-DUP-02 | UI | FR-23, BR-31, AC-24 | Double-clicked internal note | The same for `/notes` | same | **Pass** |
 | UI-LIST-09 | UI | FR-19, AC-17 | A status carried in the address | My Tickets applies it, shows it in the Current Status control and sends it to the API; a status the address invents is ignored | `lab-02/MyTickets.test.tsx` | **Pass** |
 | UI-FLOW-01 | UI | FR-08 | Status options | Only permitted transitions are offered for the current status | `TicketWorkflow.test.tsx` | **Pass** |
 | UI-FLOW-02 | UI | AC-09 | Resolve blocked | With open Actions the option is disabled and explains why; a server 409 renders the conflict text | same | **Pass** |
@@ -262,7 +267,7 @@ Asserts `src/actionRules.ts`, the pure-rule module the Actions endpoints consult
 | AC-21 | API-DASHR-06, UI-DASHR-03, E2E-07 |
 | AC-22 | API-DASHS-09, API-DASHS-10, API-DASHR-07, API-DASHR-08, UI-DASHR-05, E2E-08 |
 | AC-23 | UI-DASHS-05, UI-DASHR-05 |
-| AC-24 | UI-ACTION-06 |
+| AC-24 | UI-ACTION-06, UI-DUP-01, UI-DUP-02, Lab 2 UI-CREATE-07 |
 | AC-25 | UI-ACTION-11 |
 | AC-26 | PERF-01, PERF-02 |
 | AC-27 | API-FLOW-04, MIG-01, MIG-02, MIG-03, MIG-04 |
@@ -287,7 +292,7 @@ Asserts `src/actionRules.ts`, the pure-rule module the Actions endpoints consult
 | BR-11 | API-ACTION-17, UI-ACTION-01 | BR-28 | API-FLOW-10, API-ACTION-22 |
 | BR-12 | API-ACTION-20 | BR-29 | API-ACTION-03, API-ACTION-09 |
 | BR-13 | API-ACTION-19 | BR-30 | API-ACTION-01, API-FLOW-14 |
-| BR-14 | API-ACTION-14, API-ACTION-18, API-DASHS-09, API-DASHR-07 | BR-31 | UI-ACTION-06 |
+| BR-14 | API-ACTION-14, API-ACTION-18, API-DASHS-09, API-DASHR-07 | BR-31 | UI-ACTION-06, UI-DUP-01, UI-DUP-02 |
 | BR-15 | API-ACTION-15 | BR-32 | MIG-05, MIG-07, MIG-08, MIG-09 |
 | BR-16 | API-FLOW-06, API-FLOW-07, UI-FLOW-01 | BR-33 | PERF-01, PERF-02 |
 | BR-17 | API-FLOW-08 | BR-34 | MIG-05, MIG-06, README review in Issue #51 |
@@ -349,9 +354,9 @@ Filled in as each issue lands; Issue #53 records the final run from the
 
 | Suite | Command | Tests | Result |
 |---|---|---|---|
-| Server unit + API + workflow + dashboards + migration + perf | `npm test --prefix server` | — | Planned |
-| Client UI components + accessibility | `npm test --prefix client` | — | Planned |
-| E2E + visual | `npm run test:e2e` | — | Planned |
+| Server unit + API + workflow + dashboards + migration + perf | `npm test --prefix server` | 305 | **Pass** (20 Oct) |
+| Client UI components + accessibility | `npm test --prefix client` | 185 | **Pass** (20 Oct) |
+| E2E + visual | `npm run test:e2e` | — | Planned — Issue #52 |
 
 ### After Issue #46 — Actions Taken foundation
 
@@ -632,8 +637,153 @@ fetch fixture learned the `/actions` endpoint, as it learned `/comments` in Lab 
 because two renderings of the same data are two things to keep honest, and the column a table would drop
 first is Result — the one the log exists for. The handout's §8.3 allows "an appropriate list or table".
 
+### After Issue #51 — final hardening and regression
+
+| Date | Command | Result |
+|---|---|---|
+| 2026-10-20 | `npm test --prefix server` | 305 passed / 305 (27 files, 11 new) |
+| 2026-10-20 | `npm test --prefix client` | 185 passed / 185 (6 new) |
+| 2026-10-20 | `npx tsc --noEmit` (server, client, e2e) | clean |
+| 2026-10-20 | `npm run build` (server, client) | both succeed |
+| 2026-10-21 | both suites again, after the hand-testing | 305 / 305 and 185 / 185 — the hand-tests claimed a Ticket, changed an IT Priority and added a comment and a note, and nothing in either suite depends on that data staying as it was |
+| 2026-10-21 | `npx playwright test e2e/lab-04/visual.spec.ts` | 6 passed |
+
+FR-26 cleanup, FR-22 conformance, the duplicate-submit cases BR-31 was missing, the performance smoke
+tests, the migration and regression suites, and the Lab 4 section of the README.
+
+**Four class names had no rule behind them, which is the third time this sprint.** `.zg-conflict` was
+written into the Actions panel in Issue #47 and defined in Issue #48; `zg-field-row--2` was removed in
+Issue #47 after a screenshot showed the field it was meant to lay out sitting in one column anyway. This
+issue found four more by reading the stylesheet against the source rather than by looking at a screen:
+
+| Class | Where | What was wrong |
+|---|---|---|
+| `zg-state` | `ActionsTaken.tsx` ×3 | a base class no rule matches; the other six screens carry only the modifier |
+| `zg-callout` | `ActionsTaken.tsx` ×2 | the same, and the five other callouts in the product carry the modifier alone |
+| `zg-user-status` | `UserManagement.tsx` | the same, inside a ternary that then said the same thing twice |
+| `zg-queue-card` | `StaffTicketQueue.tsx` | a second class on a card already styled by `zg-ticket-card` |
+
+None of them changed how anything looked, because in each case the modifier carried the styling. That is
+exactly why none of them was ever noticed, and why **`UI-STYLE-01`** now reads `zen-green.css` and fails
+the build naming the class and the file. It fails on each of the four, and on the two earlier defects.
+`UI-STYLE-02` guards the guard: a conformance test that collected nothing would pass while asserting
+nothing. **One Lab 3 test was updated deliberately** — `UI-USER-01` queried `.zg-user-status` to find the
+element; it now queries the modifier.
+
+Four CSS rules are defined and currently applied by nothing: `zg-btn--disabled`, `zg-callout--neutral`,
+`zg-field--focus` and `zg-text-base`. They stay. Each is a documented entry in the Zen Green design system
+in `lab-02/ui-spec.md` §2.1–§2.2 — the disabled button variant, the neutral callout, the focused-field ring
+and the body size — and FR-26 asks for no obsolete *control* left over, not for a design system trimmed to
+whatever this sprint happened to use. `zg-btn--disabled` is also still matched through the shared
+`:disabled` selector groups.
+
+**The console check had to be narrowed before it said anything useful.** FR-26 also asks for "no console
+error in normal use", so `watchConsole()` listens across each dashboard walk in `e2e/lab-04/visual.spec.ts`
+and asserts the console stayed quiet. Its first version failed all six walks on 12 to 16 messages, none of
+which was the product reporting a defect:
+
+| Message | Why it is not a defect |
+|---|---|
+| `Failed to load resource: … 401` | Chrome narrating the network. The app asks `/api/auth/me` before anyone has signed in and 401 is the documented answer (`lab-03/ui-spec.md` §2.1) |
+| `Failed to load resource: … 403` | the forbidden capture routes a dashboard endpoint to 403 on purpose |
+| `React Router Future Flag Warning` ×2 per navigation | a library notice about a v7 upgrade that has not happened |
+
+The three families are filtered and the filter is documented where it lives. The line is matched rather
+than the status code, because a 500 reads identically and the safe-failure capture provokes one of those
+too; what the application *does* with each of them is asserted by the cases around the walk, not by this.
+What remains is what the check is for: React's own warnings, and any uncaught exception, which is never
+filtered. **The router warnings are worth carrying forward** - they are a real upgrade notice, they will
+still be there in Lab 5, and acting on them means changing the router's configuration, which is not
+Issue #51's scope.
+
+**The seed had quietly stopped covering `IN_PROGRESS`, and `MIG-06` found it.** `specification.md` §7
+requires at least one Action in each of the four statuses so that every badge is demonstrable. The seed
+defines one, on the VPN hotspot Ticket — and Issue #47's hand-testing completed it on 14 October. The seed
+is idempotent by leaving an existing Action exactly as it is, on purpose, so that a status somebody changed
+while trying the screen is not reset; it therefore had nothing to restore, and no test looked. The seed now
+defines **two** In Progress Actions, so the status survives somebody working through one of them, which is
+the normal thing to do with an Action that is in progress. Re-running the seed adds the new one and touches
+nothing else.
+
+**`MIG-04` runs the rollback rather than describing it.** PostgreSQL makes DDL transactional, so the five
+statements in the two Lab 4 migration headers are executed against the live schema inside a transaction
+that is then aborted. Inside it the suite asserts that `ActionTaken`, `ActionStatus`, `Ticket.version` and
+`Ticket.resolvedAt` are gone, that `Ticket.ownerId` and `PublicComment` are not — which is what "restores
+the Lab 3 schema" means — and that every User, Ticket, Comment and Note row is still there. After the abort
+it asserts the counts again, so a rollback that failed to roll back fails the test rather than the database.
+
+**`MIG-01` looks for references that no longer resolve, not for missing tables.** The Lab 3 migration
+renamed `Requester` to `User` in place so that every id survived; if that had gone wrong the damage would
+show as a `Ticket.requesterId` pointing at nothing, which no other case in the suite looks for. One query
+checks all eight foreign keys across the whole database.
+
+**`MIG-02` asserts the column default, not the rows.** Every pre-existing Ticket was at version 1 the
+moment the migration ran, but a Ticket edited since is legitimately above it, so counting rows at 1 would
+prove nothing. What the migration promised is `DEFAULT 1`, read from `information_schema`.
+
+**The performance budget prints its measurement.** `PERF-01` and `PERF-02` write the five samples and the
+worst of them to stdout, because "2 passed" does not say whether a dashboard answered in 11 ms or in 480.
+Measured 20 October against 92 Tickets: staff worst 11 ms, Requester worst 7 ms, of a 500 ms budget.
+
+**FR-22 was audited rather than tested.** Every screen's state vocabulary was listed and compared: all nine
+pages pair a `zg-state--x` class with a `zg-state-x` test id, in the same spelling, for loading, empty,
+no-results, error, success, forbidden and not-found. The Actions panel and both threads deliberately use
+panel-scoped ids instead, which is `ui-spec.md` §4.4's rule that a list with no rows shows its empty state
+inside its own card and not as a page-level state. Login carries no `zg-state` at all because a refused
+sign-in is a validation message, not a failed page. The one inconsistency found was the base-class group
+above. A state matrix is a table of renderings, and asserting it mechanically would mean asserting that
+each screen contains a string — which is what `UI-STYLE-01` already does for the part that can go wrong
+silently.
+
+**FR-23 was already implemented on all four forms and tested on two.** `UI-CREATE-07` has covered the
+Ticket form since Lab 2 and `UI-ACTION-06` the Actions form since Issue #47; the two thread composers share
+one guard and had none. `UI-DUP-01` and `UI-DUP-02` hold the POST in flight, press again and count what
+reached the server — asserting the button is disabled is a weaker claim, because a disabled button still
+fires if the handler lets it. A third case asserts the guard *lifts*: a thread that accepted one comment
+and then refused every later one would pass both of the others.
+
+**The audit against the handout found three more things, after the work above was already verified.**
+Reading §8.5 and §5.3 bullet by bullet against the suite rather than against the specification:
+
+| Bullet | What was missing | Closed by |
+|---|---|---|
+| §8.5 "attachments ... remains correct" | `MIG-07`'s row had always promised "attachment rules" and the case did not exercise one. A migration that broke the upload path would have answered 500 and nothing would have failed | `MIG-07` now covers BR-26 (415 `UNSUPPORTED_FILE_TYPE`), BR-27 (413 `FILE_TOO_LARGE`), a successful upload, BR-11 on a foreign Ticket, Lab 2's BR-31 removal reason and its 409 `ALREADY_REMOVED`, and BR-30/BR-29 — a soft-removed attachment is never downloadable while its metadata stays readable |
+| §8.5 "broken links ... are removed" | never checked at all | **`UI-LINK-01`** resolves every `to=` target against the routes `App.tsx` defines |
+| §5.3 "all major statuses, priorities, assigned and unassigned ownership" and "non-zero *and zero* dashboard metrics" | `MIG-06` asserted the Action coverage and the weekly window, and nothing about the Tickets themselves | `MIG-06` now asserts six statuses, all three requested priorities, Tickets both assigned and unassigned, and that an active Requester with no Tickets still exists so the empty dashboard stays demonstrable |
+
+**One documentation defect was introduced during this issue and caught by the same audit.** The four new
+rows were inserted above `UI-DASHR-05`, whose File column reads `same` — so it silently came to name
+`DuplicateSubmit.test.tsx` instead of `RequesterDashboard.test.tsx`. A `same` in a table is a reference to
+whatever precedes it, and inserting a row rewrites it. The row now names its file outright, and a check
+that reads every id in the plan against the suites is what found it.
+
+**BR-31's second clause is not met, and is recorded in §8 rather than claimed here.** "The API is written
+so that a retry is safe to make" is true of every *update* — each carries a version and a replay is refused
+with 409 — and is not true of the four creates, which have no idempotency key. A double click cannot reach
+the server, but a retry after a timeout can, and would create a second record. Implementing that is a
+client-supplied key, storage for it and a dedup path on four endpoints, which is a larger change than this
+issue's scope and was not in the sprint plan.
+
 ## 8. Known Limitations and Deferred Tests
 
+- **`UI-LINK-01` finds a link to a screen that is gone, not a parameter that is
+  wrong.** `/tickets/create-old` matches the `/tickets/:id` route, so it passes
+  the check and renders the not-found state at runtime; only a target matching
+  no route at all - the removed `/select-requester` is the shape the case is
+  built for - fails it. Found while proving the case fails on the defect it
+  exists to catch, which the first attempt did not.
+- **BR-31's retry clause is met for updates and not for creates.** "The
+  interface disables its control for the duration of the request" holds on all
+  four create forms and is proven by `UI-CREATE-07`, `UI-ACTION-06`, `UI-DUP-01`
+  and `UI-DUP-02`, so a double click cannot reach the server. "The API is
+  written so that a retry is safe to make" holds for every *update*, which
+  carries a version and answers 409 to a replay (BR-26, BR-28, `API-FLOW-09`),
+  and does not hold for `POST /api/tickets`, `/actions`, `/comments` or
+  `/notes`: a retry after a timeout would create a second record. Making it true
+  means a client-supplied idempotency key, somewhere to keep it, and a dedup
+  path on four endpoints - a larger change than Issue #51's scope and not in the
+  sprint plan, so it is stated here rather than quietly counted as done. AC-24
+  is about a form submitted twice and is met.
 - **The performance budget is a smoke test, not a benchmark.** PERF-01 and
   PERF-02 assert a 500 ms ceiling on a seeded development database on one
   machine. They catch an N+1 query or a missing index, which is their purpose;

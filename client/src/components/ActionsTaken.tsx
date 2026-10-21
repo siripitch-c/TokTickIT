@@ -147,7 +147,7 @@ export default function ActionsTaken({ ticketId, user, canManage }: Props) {
         <h3 id={headingId} className="zg-actions-heading">
           Actions Taken
         </h3>
-        <div className="zg-state zg-state--loading" role="status">
+        <div className="zg-state--loading" role="status">
           Loading the actions…
         </div>
       </section>
@@ -160,7 +160,7 @@ export default function ActionsTaken({ ticketId, user, canManage }: Props) {
         <h3 id={headingId} className="zg-actions-heading">
           Actions Taken
         </h3>
-        <div className="zg-state zg-state--error" role="alert">
+        <div className="zg-state--error" role="alert">
           <p>We couldn't load the actions taken.</p>
           <button type="button" className="zg-btn zg-btn--secondary" onClick={() => setAttempt((n) => n + 1)}>
             Retry
@@ -198,7 +198,7 @@ export default function ActionsTaken({ ticketId, user, canManage }: Props) {
       )}
 
       {actions.length === 0 ? (
-        <div className="zg-state zg-state--empty">No actions have been recorded on this ticket yet.</div>
+        <div className="zg-state--empty">No actions have been recorded on this ticket yet.</div>
       ) : (
         <ol className="zg-actions-list">
           {actions.map((action) =>
@@ -434,7 +434,7 @@ function ActionForm({ heading, assignees, currentUserId, initial, missingResult,
       <h4 className="zg-action-form-heading">{heading}</h4>
 
       {failure && (
-        <div className="zg-callout zg-callout--error" role="alert">
+        <div className="zg-callout--error" role="alert">
           {failure}
         </div>
       )}
@@ -630,7 +630,7 @@ function RowConflict({
   }, [stale, message]);
 
   return (
-    <div className={stale ? "zg-conflict" : "zg-callout zg-callout--error"} role="alert">
+    <div className={stale ? "zg-conflict" : "zg-callout--error"} role="alert">
       <span>{message}</span>
       {stale && (
         <button ref={reload} type="button" className="zg-btn zg-btn--secondary" onClick={onReload}>
