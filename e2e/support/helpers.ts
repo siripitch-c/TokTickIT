@@ -255,6 +255,59 @@ export async function expectNoSpilledText(page: Page, step: string): Promise<voi
 }
 
 /**
+ * FR-26: "no console error in normal use" — meaning the *application* saying
+ * something is wrong. React reports a bad key, an invalid prop and a state
+ * update on an unmounted component to the console and nowhere else, so a screen
+ * can look right, pass every component test, and still be reporting a defect
+ * that nothing reads. That is what the duplicate Attachments panel did before
+ * Issue #47 named it, and it is the class of thing this exists to catch.
+ *
+ * Three families are ignored, because the first version of this check failed
+ * all six dashboard walks on them and none was the product talking:
+ *
+ * 1. `Failed to load resource: … 401` and `… 403`. That line is Chrome
+ *    narrating the network, emitted for every non-2xx response whether or not
+ *    anybody handled it. These specs *provoke* both: the app asks
+ *    `/api/auth/me` before anyone has signed in (401 is the documented answer,
+ *    ui-spec.md §2.1) and the forbidden capture routes a dashboard endpoint to
+ *    403 on purpose. Filtering the line rather than the status, because a 500
+ *    reads the same way and the error-state capture provokes that too — what
+ *    the app *does* with each of them is asserted by the cases around this one.
+ * 2. React Router's v7 future-flag warnings. A library notice about an upgrade
+ *    that has not happened, not a defect in this product.
+ * 3. Vite's dev-server chatter.
+ *
+ * Call it before the first navigation; it returns the assertion to run at the
+ * end of the journey, so one listener covers the whole walk rather than one
+ * per screen.
+ */
+const CONSOLE_NOISE = [
+  /^Failed to load resource:/i,
+  /React Router Future Flag Warning/i,
+  /\[vite\]|websocket|Download the React DevTools/i,
+];
+
+export function watchConsole(page: Page): (step: string) => void {
+  const problems: string[] = [];
+
+  page.on("console", (message) => {
+    if (message.type() !== "error" && message.type() !== "warning") return;
+    const text = message.text();
+    if (CONSOLE_NOISE.some((pattern) => pattern.test(text))) return;
+    problems.push(`${message.type()}: ${text.slice(0, 200)}`);
+  });
+
+  // An uncaught exception is never noise.
+  page.on("pageerror", (error) => {
+    problems.push(`uncaught: ${error.message.slice(0, 200)}`);
+  });
+
+  return (step: string) => {
+    expect(problems, `${step}: the browser console carries ${problems.length} message(s)`).toEqual([]);
+  };
+}
+
+/**
  * "No unintended horizontal scroll" at any width. Asserted from the document
  * itself rather than by eye, so a layout regression fails the run instead of
  * relying on someone noticing it in a screenshot.

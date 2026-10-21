@@ -6,6 +6,7 @@ import {
   expectNoClippedScroller,
   expectNoHorizontalOverflow,
   expectNoSpilledText,
+  watchConsole,
   resetE2eData,
   signIn,
   signOut,
@@ -73,6 +74,8 @@ for (const viewport of VIEWPORTS) {
   test(`${viewport.id}: the IT Staff Dashboard at ${viewport.width}px (${viewport.name})`, async ({ page }) => {
     test.setTimeout(120_000);
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    // FR-26: nothing on the console across the whole walk, not just at the end.
+    const expectQuietConsole = watchConsole(page);
 
     const capture = async (on: Page, state: string) => {
       const where = `staff-dashboard (${state}) at ${viewport.width}px`;
@@ -123,11 +126,14 @@ for (const viewport of VIEWPORTS) {
     await expect(page.getByTestId("zg-state-forbidden")).toBeVisible();
     await capture(page, "forbidden");
     await page.unroute("**/api/dashboard/staff");
+
+    expectQuietConsole(`staff-dashboard at ${viewport.width}px`);
   });
 
   test(`${viewport.id}: the Requester Dashboard at ${viewport.width}px (${viewport.name})`, async ({ page }) => {
     test.setTimeout(120_000);
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    const expectQuietConsole = watchConsole(page);
 
     const capture = async (on: Page, state: string) => {
       const where = `requester-dashboard (${state}) at ${viewport.width}px`;
@@ -197,5 +203,7 @@ for (const viewport of VIEWPORTS) {
     await expect(page.getByTestId("attention")).toContainText("Nothing needs you right now.");
     await capture(page, "empty");
     await page.unroute("**/api/dashboard/requester");
+
+    expectQuietConsole(`requester-dashboard at ${viewport.width}px`);
   });
 }

@@ -288,6 +288,14 @@ async function main() {
   //
   // Idempotent like the threads above: an Action already present is left as it
   // is, so a status someone changed while trying the screen is not reset.
+  //
+  // Which is how the In Progress coverage was quietly lost. Issue #47's
+  // hand-testing completed the one In Progress Action on 14 October, the seed
+  // then had nothing to restore - by design - and no test looked, so the badge
+  // became undemonstrable from seeded data while §7 still promised it. Issue
+  // #51's MIG-06 found it. There are now two, on purpose: the status survives
+  // somebody working through the screen on one of them, which is the normal
+  // thing to do with an Action that is in progress.
   // -------------------------------------------------------------------------
   const actions: {
     ticket: string;
@@ -334,6 +342,14 @@ async function main() {
       result: null,
       status: "CANCELLED", followUpRequired: false, followUpNote: null,
       attachmentNotes: null, daysAgo: 1.1,
+    },
+    {
+      ticket: "VPN drops when switching to mobile hotspot",
+      performedBy: "preecha.thongchai@example.edu", assignedTo: "preecha.thongchai@example.edu",
+      description: "Running the upgraded client against the hotspot for a full teaching day.",
+      result: null,
+      status: "IN_PROGRESS", followUpRequired: false, followUpNote: null,
+      attachmentNotes: null, daysAgo: 0.4,
     },
     // Exactly one Action.
     {

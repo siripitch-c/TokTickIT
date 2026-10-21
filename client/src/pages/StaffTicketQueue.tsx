@@ -397,7 +397,7 @@ export default function StaffTicketQueue() {
                 <li key={ticket.id}>
                   {/* §7.3: the whole card is a link, because the same action
                       must not become a button because the viewport narrowed. */}
-                  <Link className="zg-ticket-card zg-queue-card" to={`/tickets/${ticket.id}`}>
+                  <Link className="zg-ticket-card" to={`/tickets/${ticket.id}`}>
                     <span className="zg-text-sm zg-text-muted">
                       {ticket.ticketNumber} · Updated {formatDate(ticket.updatedAt)}
                     </span>
