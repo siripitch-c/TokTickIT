@@ -210,35 +210,35 @@ Asserts `src/actionRules.ts`, the pure-rule module the Actions endpoints consult
 
 | ID | Type | Req / AC | What it tests | Expected result | File | Status |
 |---|---|---|---|---|---|---|
-| A11Y-01 | UI | ui-spec §11 | Metric card name | Announces label, value and destination | `accessibility.test.tsx` | Planned |
-| A11Y-02 | UI | ui-spec §11 | By-status strip | Rendered as a list of links | same | Planned |
-| A11Y-03 | UI | ui-spec §11 | Actions heading and list | `Actions Taken` is a heading; the Actions are an ordered list | same | Planned |
-| A11Y-04 | UI | ui-spec §11 | Follow-up requirement | `aria-required` becomes true when Yes is chosen, and the field is described by its group | same | Planned |
-| A11Y-05 | UI | ui-spec §11 | Disabled Resolve | Carries `aria-describedby` naming the open-action reason | same | Planned |
-| A11Y-06 | UI | ui-spec §11 | Stale alert | `role="alert"` and focus moves to Reload | same | Planned |
-| A11Y-07 | UI | ui-spec §11 | Colour independence | Every action status renders its label text | same | Planned |
-| A11Y-08 | UI | ui-spec §11 | Cancel dialog focus | Focus trapped while open and returned to the trigger on close | same | Planned |
+| A11Y-01 | UI | ui-spec §11 | Metric card name | Announces label, value and destination | `accessibility.test.tsx` | **Pass** |
+| A11Y-02 | UI | ui-spec §11 | By-status strip | Rendered as a list of links | same | **Pass** |
+| A11Y-03 | UI | ui-spec §11 | Actions heading and list | `Actions Taken` is a heading; the Actions are an ordered list | same | **Pass** |
+| A11Y-04 | UI | ui-spec §11 | Follow-up requirement | `aria-required` becomes true when Yes is chosen, and the field is described by its group | same | **Pass** |
+| A11Y-05 | UI | ui-spec §11 | Disabled Resolve | Carries `aria-describedby` naming the open-action reason | same | **Pass** |
+| A11Y-06 | UI | ui-spec §11 | Stale alert | `role="alert"` and focus moves to Reload | same | **Pass** |
+| A11Y-07 | UI | ui-spec §11 | Colour independence | Every action status renders its label text | same | **Pass** |
+| A11Y-08 | UI | ui-spec §11 | Cancel dialog focus | Focus trapped while open and returned to the trigger on close | same | **Pass** |
 
 ### 2.10 E2E — `e2e/lab-04/`
 
 | ID | Type | Req / AC | What it tests | Expected result | File | Status |
 |---|---|---|---|---|---|---|
-| E2E-01 | E2E | AC-01, FR-01 | Staff records an Action end to end | The Action appears in the log with the signed-in user as performer | `actions-taken-flow.spec.ts` | Planned |
-| E2E-02 | E2E | AC-09, AC-10 | Resolution gate in the browser | Resolve is refused while an Action is open, then succeeds once it is completed | `ticket-resolution.spec.ts` | Planned |
-| E2E-03 | E2E | AC-05 | Complete and cancel | One Action completed, another cancelled, both badges correct after reload | `actions-taken-flow.spec.ts` | Planned |
-| E2E-04 | E2E | AC-07 | Requester sees a read-only log | Actions visible, no write control anywhere on the screen | same | Planned |
-| E2E-05 | E2E | BR-02 | Two staff on one Ticket | Actions by different performers appear on the same Ticket with the owner unchanged | same | Planned |
-| E2E-06 | E2E | AC-15, AC-17 | Staff dashboard drill-down | A card's number equals the queue total it opens | `dashboards.spec.ts` | Planned |
-| E2E-07 | E2E | AC-19, AC-21 | Requester dashboard | Shows only own Tickets; an empty account shows zeros and the create invitation | same | Planned |
-| E2E-08 | E2E | AC-22 | Dashboard authorization | A Requester cannot reach the staff dashboard and vice versa | same | Planned |
+| E2E-01 | E2E | AC-01, FR-01 | Staff records an Action end to end | The Action appears in the log with the signed-in user as performer | `actions-taken-flow.spec.ts` | **Pass** |
+| E2E-02 | E2E | AC-09, AC-10, BR-19 | Resolution gate in the browser | Resolve stays listed but cannot be chosen while an Action is open, the same move is refused 409 at the API, and both succeed once the Actions are closed one each way. A second case proves cancelling a Ticket is never gated | `ticket-resolution.spec.ts` | **Pass** |
+| E2E-03 | E2E | AC-05 | Complete and cancel | One Action completed, another cancelled, both badges correct after reload | `actions-taken-flow.spec.ts` | **Pass** |
+| E2E-04 | E2E | AC-07 | Requester sees a read-only log | Actions visible, no write control anywhere on the screen | same | **Pass** |
+| E2E-05 | E2E | BR-02 | Two staff on one Ticket | Actions by different performers appear on the same Ticket with the owner unchanged | same | **Pass** |
+| E2E-06 | E2E | AC-15, AC-17 | Staff dashboard drill-down | A card's number equals the queue total it opens | `dashboards.spec.ts` | **Pass** |
+| E2E-07 | E2E | AC-19, AC-21 | Requester dashboard | Shows only own Tickets; an empty account shows zeros and the create invitation | same | **Pass** |
+| E2E-08 | E2E | AC-22 | Dashboard authorization | A Requester cannot reach the staff dashboard and vice versa | same | **Pass** |
 
 ### 2.11 Visual and responsive — `e2e/lab-04/visual.spec.ts`
 
 | ID | Type | Req / AC | What it tests | Expected result | File | Status |
 |---|---|---|---|---|---|---|
-| VIS-01 | Visual | §5 checklist | Every Lab 4 screen and state at 1440×900 | Screenshots written under `artifacts/lab-04/screenshots/`; no horizontal overflow and no clipped scroller asserted at each capture | `visual.spec.ts` | Planned |
-| VIS-02 | Visual | §5 checklist | The same at 768×1024 | As above, with the tablet rearrangement in `ui-spec.md` §10 | same | Planned |
-| VIS-03 | Visual | §5 checklist | The same at 375×812 | As above, with cards replacing both tables | same | Planned |
+| VIS-01 | Visual | §5 checklist | Every Lab 4 screen and state at 1440×900 | Screenshots written under `artifacts/lab-04/screenshots/`; no horizontal overflow and no clipped scroller asserted at each capture | `visual.spec.ts` | **Pass** |
+| VIS-02 | Visual | §5 checklist | The same at 768×1024 | As above, with the tablet rearrangement in `ui-spec.md` §10 | same | **Pass** |
+| VIS-03 | Visual | §5 checklist | The same at 375×812 | As above, with cards replacing both tables | same | **Pass** |
 
 ## 3. Acceptance-Criterion Traceability
 
@@ -273,7 +273,7 @@ Asserts `src/actionRules.ts`, the pure-rule module the Actions endpoints consult
 | AC-27 | API-FLOW-04, MIG-01, MIG-02, MIG-03, MIG-04 |
 | AC-28 | MIG-07, MIG-08, MIG-09 |
 | AC-29 | UI-FLOW-05 |
-| AC-30 | VIS-01, VIS-02, VIS-03, A11Y-01, A11Y-02, A11Y-03, A11Y-04, A11Y-05, A11Y-06, A11Y-07, A11Y-08, §5 checklist |
+| AC-30 | VIS-01, VIS-02, VIS-03, A11Y-01..A11Y-08, UI-STYLE-01, UI-LINK-01, §5 checklist (completed 21 Oct) |
 
 ## 4. Business-Rule Traceability
 
@@ -299,32 +299,84 @@ Asserts `src/actionRules.ts`, the pure-rule module the Actions endpoints consult
 
 ## 5. Visual and Accessibility Checklist
 
-Completed at 1440, 768 and 375 against the captured screenshots, mirroring
-`ui-spec.md` §12.
+Completed 21 October at 1440, 768 and 375 against the captures in
+`artifacts/lab-04/screenshots/`, mirroring `ui-spec.md` §12. Each line names what
+decided it, because a tick with nothing behind it is the thing Lab 3 was
+criticised for. Where a line could be settled by a test it is; the rest were
+read off the screenshots at all three widths.
 
 **Visual**
 
-- [ ] Zen Green tokens only — no colour that is not in Lab 2 §1.1
-- [ ] Metric cards share one shape, label size and value size on both dashboards
-- [ ] A zero metric renders `0` with its sub-line, never blank
-- [ ] All four action status badges are distinguishable side by side, text plus colour
-- [ ] Editable and read-only fields stay distinct inside the Action form
-- [ ] Validation messages sit directly below their field, including the revealed follow-up note
-- [ ] The Actions panel is unmistakably separate from Public Comments and Internal Notes
-- [ ] The Requester's Actions panel shows no write control
-- [ ] No clipped text, overlap or horizontal scroll on either dashboard or the Actions table
-- [ ] Nothing from Lab 2's Requester-selector era remains on any screen
+- [x] **Zen Green tokens only** — no component carries a colour literal at all
+  (`client/src` holds none outside the stylesheet). The stylesheet uses one that
+  is not a `var()`: `#fff`, in fourteen places, for text and rings on dark green.
+  White *is* in Lab 2 §1.1 — it is `--zg-surface` and `--zg-editable-bg` — but
+  neither names that role, so a literal is what the sheet has. Carried forward:
+  an `--zg-on-primary` token would retire it, and adding one is a design-system
+  change rather than a QA fix.
+- [x] **Metric cards share one shape, label size and value size on both dashboards**
+  — both dashboards render `.zg-metric` with the same three spans; the difference
+  between them is the grid around it (`--three` vs the six-card default).
+  `desktop-default.png` in both directories, side by side.
+- [x] **A zero metric renders `0` with its sub-line, never blank** — `UI-DASHS-02`
+  asserts it and keeps the card focusable; `staff-dashboard/*-empty.png` shows all
+  six at zero and the by-status strip with `Cancelled 0`.
+- [x] **All four action status badges are distinguishable side by side, text plus colour**
+  — `A11Y-07` asserts the label text of each; `actions-taken/*-list.png` and
+  `*-validation.png` show Completed, Planned and Cancelled together, and
+  In Progress is on the seeded VPN Ticket (report figure 6.1).
+- [x] **Editable and read-only fields stay distinct inside the Action form** —
+  `actions-taken/*-create.png`: the editable textareas carry a border and a white
+  field, the read-only Ticket fields above are grey and borderless. This was a
+  real defect in Issue #47 (the form used `zg-field` instead of
+  `zg-field--editable`) and is why the line exists.
+- [x] **Validation messages sit directly below their field, including the revealed follow-up note**
+  — `actions-taken/*-validation.png` and `*-validation-follow-up.png`. The second
+  of those was re-taken in Issue #52: the first version revealed the note field
+  without submitting again, so it showed that the field appears rather than that
+  its message sits under it.
+- [x] **The Actions panel is unmistakably separate from Public Comments and Internal Notes**
+  — `UI-ACTION-12` asserts each panel renders exactly once with no duplicate-key
+  warning, after the duplicate-panel defect of Issue #47; report figure 8.10 shows
+  all three stacked on one Ticket, staff side.
+- [x] **The Requester's Actions panel shows no write control** — `E2E-04` checks
+  five control names one at a time and the API refusal behind them;
+  `actions-taken/*-requester-view.png` is the same panel with nothing to press.
+- [x] **No clipped text, overlap or horizontal scroll on either dashboard or the Actions table**
+  — asserted at every capture, not read off them: `expectNoHorizontalOverflow`,
+  `expectNoClippedScroller` and `expectNoSpilledText` run before each of the
+  forty-eight screenshots, so a layout regression fails the run.
+- [x] **Nothing from Lab 2's Requester-selector era remains on any screen** —
+  `UI-LINK-01` resolves every `to=` target against the route table, so a link to
+  the removed `/select-requester` fails the build; the only mentions of it left in
+  the source are comments explaining why it is gone.
 
 **Accessibility**
 
-- [ ] Every metric card is keyboard reachable and announces label, value and destination
-- [ ] Focus visible on every new control, including the Action form and the cancel dialog
-- [ ] `Actions Taken` is a heading and the Actions are an ordered list
-- [ ] The follow-up note is announced as required as soon as Yes is chosen
-- [ ] The disabled Resolve option announces why
-- [ ] The stale-write alert is announced and takes focus
-- [ ] Action status is never colour alone
-- [ ] The cancel dialog traps focus and returns it to the trigger
+- [x] **Every metric card is keyboard reachable and announces label, value and destination**
+  — `A11Y-01`. Each card is one `<a>`, so it is in the tab order by being a link,
+  and its name is asserted to read label, then value, then destination, in that
+  order, with the singular where the number is one.
+- [x] **Focus visible on every new control, including the Action form and the cancel dialog**
+  — the one line here no test settles: `:focus-visible` is a stylesheet rule, and
+  a component test cannot see which rule applied. Read off the screens at all
+  three widths, and `.zg-btn--disabled:focus-visible` and its neighbours give
+  every new control the same 2px ring the Lab 2 controls have.
+- [x] **`Actions Taken` is a heading and the Actions are an ordered list** —
+  `A11Y-03`, which asserts the element is an `OL` rather than trusting a class.
+- [x] **The follow-up note is announced as required as soon as Yes is chosen** —
+  `A11Y-04`: absent while No is chosen, `aria-required="true"` the moment Yes is,
+  and described by the group it belongs to.
+- [x] **The disabled Resolve option announces why** — `A11Y-05`, which reads the
+  `aria-describedby` ids and checks the text they point at names the count. It
+  fails if the Ticket has no open Actions, so it cannot pass vacuously.
+- [x] **The stale-write alert is announced and takes focus** — `A11Y-06`:
+  `role="alert"`, and focus on Reload. `E2E-02` meets the same block in a browser,
+  and `actions-taken/*-resolution-conflict.png` is the picture of it.
+- [x] **Action status is never colour alone** — `A11Y-07`.
+- [x] **The cancel dialog traps focus and returns it to the trigger** — `A11Y-08`,
+  which tabs six times and asserts focus never leaves, then that it comes back to
+  the control that opened the dialog.
 
 ## 6. Test Commands
 
@@ -356,7 +408,7 @@ Filled in as each issue lands; Issue #53 records the final run from the
 |---|---|---|---|
 | Server unit + API + workflow + dashboards + migration + perf | `npm test --prefix server` | 305 | **Pass** (20 Oct) |
 | Client UI components + accessibility | `npm test --prefix client` | 185 | **Pass** (20 Oct) |
-| E2E + visual | `npm run test:e2e` | — | Planned — Issue #52 |
+| E2E + visual | `npm run test:e2e` | 18 in `e2e/lab-04` | **Pass** (21 Oct) |
 
 ### After Issue #46 — Actions Taken foundation
 
@@ -763,6 +815,71 @@ with 409 — and is not true of the four creates, which have no idempotency key.
 the server, but a retry after a timeout can, and would create a second record. Implementing that is a
 client-supplied key, storage for it and a dedup path on four endpoints, which is a larger change than this
 issue's scope and was not in the sprint plan.
+
+### After Issue #52 — E2E, responsive, accessibility and visual QA
+
+| Date | Command | Result |
+|---|---|---|
+| 2026-10-21 | `npm test --prefix client` | 193 passed / 193 (8 new) |
+| 2026-10-21 | `npm test --prefix server` | 305 passed / 305, unchanged |
+| 2026-10-21 | `npx playwright test e2e/lab-04` | 18 passed |
+| 2026-10-21 | `npx tsc --noEmit` (server, client, e2e) | clean |
+
+**Every row in §2 now reads Pass.** A11Y-01..08 arrived as `client/tests/lab-04/accessibility.test.tsx`,
+E2E-01..08 as the three specs their rows name, and VIS-01..03 as the forty-eight captures listed below.
+
+**The accessibility work found nothing to fix, which is worth saying plainly.** All eight of `ui-spec.md`
+§11's sentences were already true of the code: the metric card's name reads label, value, destination; the
+by-status strip is a list of links; `Actions Taken` is a heading over an `<ol>`; the follow-up note becomes
+`aria-required` with Yes; the blocked Resolve points at its reason; the stale alert takes focus; every
+status carries text; the cancel dialog traps focus and gives it back. They were built that way across
+Issues #47 to #50 and nobody had checked. `A11Y-05` was additionally proved to fail when a Ticket has no
+open Actions, so it is not passing on an attribute that is always there.
+
+**The captures now cover every state `ui-spec.md` §13 names**, which they did not before:
+
+| Directory | Was | Now |
+|---|---|---|
+| `staff-dashboard/` | default, empty, forbidden | **+ loading, failure** |
+| `requester-dashboard/` | default, empty | **+ attention-required** |
+| `actions-taken/` | **the directory did not exist** | list, create, validation, validation-follow-up, edit, cancel-dialog, resolution-conflict, requester-view |
+
+Forty-eight files at three widths. `loading` is caught by holding the response until the shot is taken;
+`attention-required` is an element capture, because a second full-page shot would only repeat `default`;
+and `resolution-conflict` is a real 409 — another writer's save lands through the API while the page holds
+the old version, and then the page writes.
+
+**`e2e-cleanup.ts` could not remove an Action, and that ended six tests rather than one.** The script dates
+from Lab 3, before `ActionTaken` existed, and nothing in the suite had created one until this issue's
+captures did. `Ticket.id` is referenced by `ActionTaken.ticketId` with no cascade, so the delete failed —
+and because `resetE2eData()` runs in `beforeEach`, the failure fell on every test after the one that made
+the row. It now removes Actions by Ticket and by performer and assignee, since the e2e staff account is the
+one recording them. This would have bitten E2E-01, E2E-03 and E2E-05 in turn; it happened to be found by a
+screenshot.
+
+**Four cases failed on the first run and all four were the test, not the product.** Worth recording because
+three of them were the suite misreading a document it had been written from:
+
+| Case | What the test assumed | What the documents say |
+|---|---|---|
+| `E2E-01` | creating an Action raises the *Ticket's* version | BR-26 gives the Ticket and the Action a version **each**; writing the Action does not write the Ticket. What moves is `openActionCount`, which is what the gate reads - so a staff member holding the Ticket is refused by the gate rather than by a conflict, which is coherent |
+| `E2E-03`, `E2E-02` | Complete with no result, then save the result, completes it | `ui-spec.md` §6.4: the first press opens the form "rather than sending a request". Saving a result is a save; Complete is a second press, and now it has what it needs |
+| `E2E-02` (BR-19) | the terminal confirmation has a generic confirm button | It names the move: "Move to Cancelled". "Cancel" on that dialog is the way *out*, which is exactly the confusion the naming avoids |
+
+**The cancel dialog was captured the wrong way, and it read as a defect.** `fullPage: true` paints a
+`position: fixed` element once, at the height the viewport happened to be, so the dim overlay covered one
+viewport of a 3,700px image and the dialog sat at the foot of it. Nothing was wrong with the dialog: at
+375px it is a full-screen sheet with its actions pinned to the bottom, which is `lab-03/ui-spec.md` §11,
+and at 1440px the desktop capture showed it centred over the dim exactly as specified - the giveaway being
+that the dimmed band was precisely one viewport tall. The capture is now taken at viewport size, which is
+what a person sees and what the figure is about. Recorded because the first reading of that screenshot was
+“this is broken”, and it was not.
+
+**`UI-STYLE-01` settled a checklist line that would otherwise have been read off a screen.** "Zen Green
+tokens only" is now answered with a fact: no component carries a colour literal, and the stylesheet carries
+one that is not a `var()` - `#fff`, fourteen times, for text on dark green. White is in Lab 2 §1.1 as
+`--zg-surface` and `--zg-editable-bg`, and neither names that role, so an `--zg-on-primary` token is what
+would retire it. Recorded in §5 rather than changed, because adding a token is a design-system decision.
 
 ## 8. Known Limitations and Deferred Tests
 
