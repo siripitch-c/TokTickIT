@@ -57,6 +57,22 @@ async function main(): Promise<void> {
     where: { OR: [{ ticketId: { in: ticketIds } }, { authorId: { in: userIds } }] },
   });
   await prisma.attachment.deleteMany({ where: { ticketId: { in: ticketIds } } });
+  // Lab 4, Issue #52: Actions Taken point at their Ticket, their performer and
+  // their assignee, and none of the three cascades. Until the visual spec began
+  // recording Actions nothing in the suite created one, so this script - written
+  // in Lab 3, before the table existed - had never been asked to remove one. The
+  // first run that did failed here, and because `resetE2eData` runs in
+  // `beforeEach`, one unremovable row ended every test after it rather than the
+  // one that made it.
+  await prisma.actionTaken.deleteMany({
+    where: {
+      OR: [
+        { ticketId: { in: ticketIds } },
+        { performedById: { in: userIds } },
+        { assignedToId: { in: userIds } },
+      ],
+    },
+  });
   await prisma.ticket.deleteMany({ where: { id: { in: ticketIds } } });
 
   // The suite only claims its own tickets, which are gone by now. A surviving
