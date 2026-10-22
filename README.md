@@ -302,6 +302,18 @@ feedback states made consistent across every screen, duplicate-submit
 protection proven on all four create forms, the performance smoke tests, and
 the migration and regression suites.
 
+Issue #52 — end-to-end, responsive, accessibility and visual QA. Three new
+Playwright specs cover the work log, the resolution gate and both dashboards in
+a real browser, including the check that each dashboard card opens a list
+holding exactly the number it showed. The accessibility rules in
+`docs/lab-04/ui-spec.md` §11 each gained a test, and the visual spec now writes
+every state §13 names — forty-eight screenshots across the three directories,
+each one preceded by assertions that nothing is clipped, overlapping or
+scrolling sideways.
+
+Issue #53 — the release: this README, the peer review record, the AI-use
+reflection, and the Pull Request that merges `lab4-staging` into `main`.
+
 ### Lab 4 schema changes, and how to roll them back
 
 Three additive migrations. No existing row is read, rewritten or deleted by any
@@ -352,9 +364,9 @@ With the app running and the database seeded, signed in from
 
 ```bash
 npm test --prefix server     # 305 passing, 27 files
-npm test --prefix client     # 185 passing, 19 files
+npm test --prefix client     # 193 passing, 20 files
 npm run typecheck            # the e2e workspace
-npx playwright test e2e/lab-04/visual.spec.ts
+npx playwright test e2e/lab-04     # 18 cases across four specs
 ```
 
 The performance smoke tests print their measurements, so the output says how
