@@ -25,6 +25,8 @@ All into `lab4-staging`, in `siripitch-c/TokTickIT`.
 | [#59](https://github.com/siripitch-c/TokTickIT/pull/59) | `feature/6-lab4-requester-dashboard` | #50 Requester dashboard | 20 Oct | Approved |
 | [#60](https://github.com/siripitch-c/TokTickIT/pull/60) | `feature/7-lab4-hardening` | #51 Final hardening and regression | 21 Oct | Approved |
 | [#61](https://github.com/siripitch-c/TokTickIT/pull/61) | `feature/8-lab4-e2e-qa` | #52 E2E, responsive, accessibility and visual QA | 22 Oct | Approved |
+| [#62](https://github.com/siripitch-c/TokTickIT/pull/62) | `feature/9-lab4-release` | #53 Lab 4 release integration | 23 Oct | Approved |
+| [#63](https://github.com/siripitch-c/TokTickIT/pull/63) | `feature/10-lab4-reviewer-record` | #53 Lab 4 release integration | — | — |
 
 ### Comments received, and how I responded
 
@@ -55,13 +57,14 @@ request on any of them.
 
 ## 3. Note on coverage
 
-This file also records the Pull Request that carries it — the documentation
-Pull Request for Issue #53. Documentation goes through a branch, a Pull Request
-and a peer review exactly as code does, so the documentation Pull Request
-belongs in the record too. Its review is given first and written into §1
-afterwards, in a further commit on the same branch; the approval itself is on
-the Pull Request page.
+This file also records the Pull Requests that carry it — #62 and #63, both for
+Issue #53. Documentation goes through a branch, a Pull Request and a peer
+review exactly as code does, so a documentation Pull Request belongs in the
+record too. #63 is listed without a verdict, because no record can contain the
+outcome of its own review; its approval, like every other in this file, is read
+from its Pull Request page on GitHub, which is where the evidence of a review
+lives.
 
-The one Pull Request this file cannot list is the final `lab4-staging` → `main`
-release PR: it is opened after everything above is in `lab4-staging`, and a
-record cannot contain the outcome of its own review.
+The one Pull Request this file cannot list at all is the final `lab4-staging`
+→ `main` release PR, for the same reason: it is opened once everything above
+is in `lab4-staging`.
