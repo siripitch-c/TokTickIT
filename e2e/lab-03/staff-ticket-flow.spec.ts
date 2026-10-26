@@ -32,10 +32,11 @@ test.describe("Lab 3 — Requester regression and IT Staff ticket work", () => {
     await signIn(page, ACCOUNTS.requester);
 
     // AC-25: the Lab 2 selector is gone — no control, and its address leads
-    // nowhere but the Requester's own screen.
+    // nowhere but the Requester's own landing screen, which lab-04 FR-25 makes
+    // the Dashboard.
     await expect(page.getByRole("button", { name: /change requester/i })).toHaveCount(0);
     await page.goto("/select-requester");
-    await expect(page).toHaveURL(/\/my-tickets$/);
+    await expect(page).toHaveURL(/\/dashboard$/);
 
     const summary = uniqueSummary("Docking station stops charging the laptop");
     const ticketNumber = await createTicket(page, summary);
@@ -72,6 +73,10 @@ test.describe("Lab 3 — Requester regression and IT Staff ticket work", () => {
     await requester.context.close();
 
     await signIn(page, ACCOUNTS.staff);
+    // lab-04 FR-25: staff land on the Dashboard now, and the Queue is one
+    // click further on. This case is about the Queue, so it goes straight
+    // there; E2E-01 is where the navigation itself is exercised.
+    await page.goto("/staff/tickets");
     const table = page.getByTestId("queue-table");
     await expect(table).toBeVisible();
 
@@ -238,6 +243,9 @@ test.describe("Lab 3 — Requester regression and IT Staff ticket work", () => {
     await page.goto("/login");
     await expectNoHorizontalOverflow(page, "Login");
     await signIn(page, ACCOUNTS.staff);
+    // lab-04 FR-25: the Dashboard is the landing screen; the Queue is where
+    // this case works.
+    await page.goto("/staff/tickets");
 
     // §7.3: below 768px the queue is cards, never the table.
     await expect(page.getByTestId("queue-cards")).toBeVisible();

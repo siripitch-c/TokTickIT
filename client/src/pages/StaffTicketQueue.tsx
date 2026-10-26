@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useOutletContext, useSearchParams } from "react-router-dom";
 import {
+  ActionStatus,
   ActorSummary,
   ApiError,
   AuthUser,
@@ -44,8 +45,29 @@ const PRIORITIES: { value: RequestedPriority; label: string }[] = [
   { value: "HIGH", label: "High" },
 ];
 
-type FilterName = "category" | "requestedPriority" | "itPriority" | "status" | "owner";
-const FILTER_NAMES: FilterName[] = ["category", "requestedPriority", "itPriority", "status", "owner"];
+// Lab 4, Issue #49 — `actionsAssignedTo` and `actionStatus` join the filters
+// the address can carry. They have no control of their own: they exist so the
+// dashboard's "My open actions" card can open the Tickets behind its number
+// (lab-04/ui-spec.md §4.5). Clear removes them like any other filter, which is
+// the only way a person who arrived through that card gets back to the whole
+// queue without editing the address.
+type FilterName =
+  | "category"
+  | "requestedPriority"
+  | "itPriority"
+  | "status"
+  | "owner"
+  | "actionsAssignedTo"
+  | "actionStatus";
+const FILTER_NAMES: FilterName[] = [
+  "category",
+  "requestedPriority",
+  "itPriority",
+  "status",
+  "owner",
+  "actionsAssignedTo",
+  "actionStatus",
+];
 
 interface QueueState extends Record<FilterName, string> {
   search: string;
@@ -56,6 +78,7 @@ interface QueueState extends Record<FilterName, string> {
 }
 
 const positiveInteger = (raw: string | null) => (raw !== null && /^[1-9]\d*$/.test(raw) ? raw : "");
+const ACTION_STATUSES: ActionStatus[] = ["PLANNED", "IN_PROGRESS", "COMPLETED", "CANCELLED"];
 const priority = (raw: string | null) => (PRIORITIES.some((p) => p.value === raw) ? (raw as string) : "");
 
 /**
@@ -67,18 +90,43 @@ const priority = (raw: string | null) => (PRIORITIES.some((p) => p.value === raw
 function readState(params: URLSearchParams): QueueState {
   const owner = params.get("owner");
   const status = params.get("status");
+  const actionsAssignedTo = params.get("actionsAssignedTo");
+  const actionStatus = params.get("actionStatus");
   const size = Number(params.get("pageSize"));
   return {
     search: (params.get("search") ?? "").trim(),
     category: positiveInteger(params.get("category")),
     requestedPriority: priority(params.get("requestedPriority")),
     itPriority: priority(params.get("itPriority")),
-    status: CURRENT_STATUSES.includes(status as CurrentStatus) ? (status as string) : "",
-    owner: owner === "unassigned" ? "unassigned" : positiveInteger(owner),
+    status: status === "open" || CURRENT_STATUSES.includes(status as CurrentStatus) ? (status as string) : "",
+    // `me` survives the read and is resolved to the signed-in user below. The
+    // server deliberately ignores `owner=me` (Lab 3 API-QUEUE-09), so the
+    // screen is the one that knows who "me" is.
+    owner: owner === "unassigned" || owner === "me" ? owner : positiveInteger(owner),
+    actionsAssignedTo: actionsAssignedTo === "me" ? "me" : positiveInteger(actionsAssignedTo),
+    actionStatus: actionStatus === "open" || ACTION_STATUSES.includes(actionStatus as ActionStatus)
+      ? (actionStatus as string)
+      : "",
     sortBy: SORT_FIELDS.find((f) => f === params.get("sortBy")) ?? DEFAULT_SORT,
     sortDir: params.get("sortDir") === "asc" ? "asc" : "desc",
     page: Number(positiveInteger(params.get("page")) || 1),
     pageSize: PAGE_SIZES.includes(size) ? size : DEFAULT_PAGE_SIZE,
+  };
+}
+
+/**
+ * Lab 4, Issue #49 — the dashboard's cards link with `me` so the address stays
+ * readable and shareable (lab-04/ui-spec.md §4.5). The screen is where "me" is
+ * known, so it is resolved here and the address corrects itself to the id, the
+ * same way §7.4 already corrects anything else it falls back on. The server
+ * never sees `owner=me`, which is what Lab 3's API-QUEUE-09 requires of it.
+ */
+function resolveMe(state: QueueState, userId: number): QueueState {
+  const mine = String(userId);
+  return {
+    ...state,
+    owner: state.owner === "me" ? mine : state.owner,
+    actionsAssignedTo: state.actionsAssignedTo === "me" ? mine : state.actionsAssignedTo,
   };
 }
 
@@ -104,7 +152,7 @@ export default function StaffTicketQueue() {
   const isMobile = useMediaQuery(MOBILE_QUERY);
 
   const [params, setParams] = useSearchParams();
-  const query = useMemo(() => readState(params), [params]);
+  const query = useMemo(() => resolveMe(readState(params), user.id), [params, user.id]);
   const canonical = writeState(query).toString();
 
   // §7.4: "the corresponding control shows the default it fell back to, so the
@@ -122,10 +170,10 @@ export default function StaffTicketQueue() {
       // Built from the current address rather than a captured copy, so a
       // debounced search landing just after a filter change keeps that filter.
       setParams((current) =>
-        writeState({ ...readState(current), ...changes, ...(resetPage ? { page: 1 } : {}) }),
+        writeState({ ...resolveMe(readState(current), user.id), ...changes, ...(resetPage ? { page: 1 } : {}) }),
       );
     },
-    [setParams],
+    [setParams, user.id],
   );
 
   const [searchInput, setSearchInput] = useState(query.search);
@@ -182,8 +230,13 @@ export default function StaffTicketQueue() {
         category: query.category ? Number(query.category) : undefined,
         requestedPriority: (query.requestedPriority || undefined) as RequestedPriority | undefined,
         itPriority: (query.itPriority || undefined) as RequestedPriority | undefined,
-        status: (query.status || undefined) as CurrentStatus | undefined,
+        // `open` travels to the server as itself: the five open statuses are
+        // one filter there, and spelling them out here would be a second copy
+        // of BR-21 to keep honest (lab-04/api-spec.md §6).
+        status: (query.status || undefined) as CurrentStatus | "open" | undefined,
         owner: query.owner === "unassigned" ? "unassigned" : query.owner ? Number(query.owner) : undefined,
+        actionsAssignedTo: query.actionsAssignedTo ? Number(query.actionsAssignedTo) : undefined,
+        actionStatus: (query.actionStatus || undefined) as ActionStatus | "open" | undefined,
         sortBy: query.sortBy,
         sortDir: query.sortDir,
         page: query.page,
@@ -211,7 +264,10 @@ export default function StaffTicketQueue() {
 
   function clearFilters() {
     setSearchInput("");
-    update({ search: "", category: "", requestedPriority: "", itPriority: "", status: "", owner: "" });
+    update({
+      search: "",
+      ...Object.fromEntries(FILTER_NAMES.map((name) => [name, ""])),
+    });
     setSheetOpen(false);
   }
 
@@ -341,7 +397,7 @@ export default function StaffTicketQueue() {
                 <li key={ticket.id}>
                   {/* §7.3: the whole card is a link, because the same action
                       must not become a button because the viewport narrowed. */}
-                  <Link className="zg-ticket-card zg-queue-card" to={`/tickets/${ticket.id}`}>
+                  <Link className="zg-ticket-card" to={`/tickets/${ticket.id}`}>
                     <span className="zg-text-sm zg-text-muted">
                       {ticket.ticketNumber} · Updated {formatDate(ticket.updatedAt)}
                     </span>
@@ -524,7 +580,15 @@ function FilterSelects({
         label="Current Status"
         allLabel="All Statuses"
         value={query.status}
-        options={CURRENT_STATUSES.map((status) => ({ value: status, label: STATUS_LABEL[status] }))}
+        // Lab 4, Issue #49: "Open tickets" joins the eight statuses as the one
+        // the dashboard's cards link with (lab-04/ui-spec.md §4.5). Without it
+        // the queue could be filtered to the open set by URL and the control
+        // would show nothing — and a card that counts open work would open a
+        // list containing closed work, which AC-17 forbids.
+        options={[
+          { value: "open", label: "Open tickets" },
+          ...CURRENT_STATUSES.map((status) => ({ value: status, label: STATUS_LABEL[status] })),
+        ]}
         onChange={onChange}
       />
       <Select name="owner" label="Owner" allLabel="All owners" value={query.owner} options={ownerOptions} onChange={onChange} />

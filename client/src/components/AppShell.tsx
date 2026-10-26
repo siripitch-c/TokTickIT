@@ -32,14 +32,23 @@ interface NavItem {
 // this list is what a person sees, never what protects the data.
 const NAV_BY_ROLE: Record<Role, NavItem[]> = {
   REQUESTER: [
+    { to: "/dashboard", label: "Dashboard" },
     { to: "/my-tickets", label: "My Tickets" },
     { to: "/tickets/new", label: "Create Ticket" },
   ],
-  IT_STAFF: [{ to: "/staff/tickets", label: "Ticket Queue" }],
-  // ui-spec.md §3 lists User Management first for the Administrator and the
-  // Queue second, so account management reads as their job and the queue as
-  // somewhere they go deliberately.
+  // lab-04/ui-spec.md §3 — Dashboard comes first for every role: it is where
+  // the day starts, and every card leads into the list below it. Issue #50
+  // made it the *landing* destination for all three roles as well (FR-25), so
+  // `LANDING` in lib/landing.ts now names it for everybody.
+  IT_STAFF: [
+    { to: "/dashboard", label: "Dashboard" },
+    { to: "/staff/tickets", label: "Ticket Queue" },
+  ],
+  // After the Dashboard, ui-spec.md §3 keeps User Management ahead of the
+  // Queue for the Administrator, so account management reads as their job and
+  // the queue as somewhere they go deliberately.
   ADMINISTRATOR: [
+    { to: "/dashboard", label: "Dashboard" },
     { to: "/admin/users", label: "User Management" },
     { to: "/staff/tickets", label: "Ticket Queue" },
   ],

@@ -156,6 +156,9 @@ describe("GET /api/staff/tickets", () => {
     const row = res.body.data.find((t: { ticketNumber: string }) => t.ticketNumber === num(2));
     // api-spec.md §5's Ticket object without `attachments` (§7). Exhaustive on
     // purpose, so a field that starts leaking fails here rather than shipping.
+    // Lab 4, Issue #46: `version` joins the Ticket shape for optimistic
+    // concurrency (lab-04 BR-26, api-spec.md §6). This list is deliberately
+    // exact, so the field is added here rather than loosening the assertion.
     expect(Object.keys(row).sort()).toEqual([
       "categoryId",
       "createdAt",
@@ -173,6 +176,7 @@ describe("GET /api/staff/tickets", () => {
       "summary",
       "ticketNumber",
       "updatedAt",
+      "version",
     ]);
     // People are actor summaries: no email address for anyone (api-spec.md §5).
     expect(row.requester).toEqual({ id: requesterTwoId, name: "Queue Requester Two", role: "REQUESTER" });

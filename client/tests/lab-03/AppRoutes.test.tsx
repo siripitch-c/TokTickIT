@@ -27,6 +27,11 @@ const fetchTicket = vi.fn();
 const fetchRelatedSystems = vi.fn();
 const fetchUsers = vi.fn();
 const changePassword = vi.fn();
+// Lab 4, Issue #50 — FR-25 makes `/dashboard` the landing route for all three
+// roles, so every "where does this person land" case now passes through a
+// dashboard and needs its data mocked like any other screen here.
+const fetchStaffDashboard = vi.fn();
+const fetchRequesterDashboard = vi.fn();
 
 vi.mock("../../src/api.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../src/api.js")>()),
@@ -39,6 +44,8 @@ vi.mock("../../src/api.js", async (importOriginal) => ({
   fetchRelatedSystems: (...args: unknown[]) => fetchRelatedSystems(...args),
   fetchUsers: (...args: unknown[]) => fetchUsers(...args),
   changePassword: (...args: unknown[]) => changePassword(...args),
+  fetchStaffDashboard: (...args: unknown[]) => fetchStaffDashboard(...args),
+  fetchRequesterDashboard: (...args: unknown[]) => fetchRequesterDashboard(...args),
 }));
 
 const { AppRoutes } = await import("../../src/App.js");
@@ -76,6 +83,36 @@ beforeEach(() => {
     pagination: { page: 1, pageSize: 25, totalItems: 0, totalPages: 0 },
   });
   fetchAssignees.mockResolvedValue([]);
+  // Lab 4, Issue #50: the landing screen for every role. Empty payloads — these
+  // cases are about which screen renders, not what is on it.
+  fetchStaffDashboard.mockResolvedValue({
+    metrics: {
+      unassigned: 0,
+      assignedToMe: 0,
+      myOpenActions: 0,
+      waitingForRequester: 0,
+      highItPriority: 0,
+      resolvedLast7Days: 0,
+      byStatus: {
+        NEW: 0,
+        OPEN: 0,
+        IN_PROGRESS: 0,
+        WAITING_FOR_REQUESTER: 0,
+        RESOLVED: 0,
+        CLOSED: 0,
+        REOPENED: 0,
+        CANCELLED: 0,
+      },
+    },
+    recentlyUpdated: [],
+    needsAttention: [],
+  });
+  fetchRequesterDashboard.mockResolvedValue({
+    metrics: { openTickets: 0, waitingForMe: 0, resolvedAwaitingConfirmation: 0 },
+    attention: [],
+    recentlyUpdated: [],
+    recentlyResolved: [],
+  });
   // Left pending: these cases are about which screen renders, not its content.
   fetchTicket.mockReturnValue(new Promise(() => {}));
   fetchRelatedSystems.mockResolvedValue([]);
@@ -134,12 +171,17 @@ describe("Application routing", () => {
     expect(screen.queryByRole("menuitem", { name: /change password/i })).not.toBeInTheDocument();
   });
 
-  it("UI-ROUTE-05 / AC-01: a signed-in Requester at the root lands on their own screen", async () => {
+  it("UI-ROUTE-05 / AC-01, lab-04 FR-25: a signed-in Requester at the root lands on the Dashboard", async () => {
+    // Lab 4, Issue #50: every role lands on `/dashboard` now
+    // (lab-04/ui-spec.md §3). One route, two screens — which one a person gets
+    // is their role's, not the address's, so a link shared between colleagues
+    // always opens somewhere the recipient is allowed to be.
     fetchCurrentUser.mockResolvedValue(userWith("REQUESTER"));
     renderAt("/");
 
-    expect(await screen.findByRole("link", { name: "My Tickets" })).toBeInTheDocument();
-    await waitFor(() => expect(fetchTickets).toHaveBeenCalled());
+    expect(await screen.findByRole("heading", { name: "Dashboard" })).toBeInTheDocument();
+    await waitFor(() => expect(fetchRequesterDashboard).toHaveBeenCalled());
+    expect(fetchStaffDashboard).not.toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: /sign in/i })).not.toBeInTheDocument();
   });
 
@@ -147,7 +189,7 @@ describe("Application routing", () => {
     fetchCurrentUser.mockResolvedValue(userWith("REQUESTER"));
     renderAt("/login");
 
-    expect(await screen.findByRole("link", { name: "My Tickets" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Dashboard" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /sign in/i })).not.toBeInTheDocument();
   });
 
@@ -166,25 +208,29 @@ describe("Application routing", () => {
     // ui-spec.md §5: the confirmation, then the application. The address was
     // /change-password, which for a signed-in user is the voluntary form — so
     // without the navigation this person would be shown the form a second time.
-    expect(await screen.findByRole("heading", { name: "My Tickets" }, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Dashboard" }, { timeout: 3000 })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: /change your password/i })).not.toBeInTheDocument();
   });
 
-  it("UI-ROUTE-05 / AC-01: IT Staff at the root land on the Ticket Queue", async () => {
+  it("UI-ROUTE-05 / AC-01, lab-04 FR-25: IT Staff at the root land on the staff Dashboard", async () => {
     fetchCurrentUser.mockResolvedValue(userWith("IT_STAFF"));
     renderAt("/");
 
-    expect(await screen.findByRole("heading", { name: "Ticket Queue" })).toBeInTheDocument();
-    await waitFor(() => expect(fetchStaffTickets).toHaveBeenCalled());
+    expect(await screen.findByRole("heading", { name: "Dashboard" })).toBeInTheDocument();
+    await waitFor(() => expect(fetchStaffDashboard).toHaveBeenCalled());
+    expect(fetchRequesterDashboard).not.toHaveBeenCalled();
     expect(fetchTickets).not.toHaveBeenCalled();
   });
 
-  it("UI-ROUTE-05 / AC-01: an Administrator at the root lands on User Management", async () => {
+  it("UI-ROUTE-05 / AC-01, lab-04 FR-25: an Administrator lands on the same Dashboard as IT Staff", async () => {
     fetchCurrentUser.mockResolvedValue(userWith("ADMINISTRATOR"));
     renderAt("/");
 
-    expect(await screen.findByRole("heading", { name: "User Management" })).toBeInTheDocument();
-    await waitFor(() => expect(fetchUsers).toHaveBeenCalled());
+    expect(await screen.findByRole("heading", { name: "Dashboard" })).toBeInTheDocument();
+    await waitFor(() => expect(fetchStaffDashboard).toHaveBeenCalled());
+    // The Administrator's two extra numbers come from the API, not a second
+    // screen (FR-16), so User Management is no longer where they start.
+    expect(fetchUsers).not.toHaveBeenCalled();
   });
 
   it("UI-USER-09 / AC-21: IT Staff typing the User Management address are refused, and no account is requested", async () => {
@@ -192,9 +238,11 @@ describe("Application routing", () => {
     renderAt("/admin/users");
 
     const forbidden = await screen.findByTestId("zg-state-forbidden");
-    expect(within(forbidden).getByRole("link", { name: /back to ticket queue/i })).toHaveAttribute(
+    // lab-04 FR-25: the way back from a refusal is the Dashboard for every
+    // role now, so the sentence is the same whoever reads it.
+    expect(within(forbidden).getByRole("link", { name: /back to dashboard/i })).toHaveAttribute(
       "href",
-      "/staff/tickets",
+      "/dashboard",
     );
     expect(screen.queryByRole("heading", { name: "User Management" })).not.toBeInTheDocument();
     // The client half of AC-21. The server half is API-AUTHZ-04 and API-AUTHZ-05.
@@ -208,9 +256,11 @@ describe("Application routing", () => {
     // ui-spec.md §2.4 and tests.md E2E-04: a refusal the person can read, not a
     // silent redirect. Changed in Issue #31 — Issue #30 redirected instead.
     const forbidden = await screen.findByTestId("zg-state-forbidden");
-    expect(within(forbidden).getByRole("link", { name: /back to ticket queue/i })).toHaveAttribute(
+    // lab-04 FR-25: the way back from a refusal is the Dashboard for every
+    // role now, so the sentence is the same whoever reads it.
+    expect(within(forbidden).getByRole("link", { name: /back to dashboard/i })).toHaveAttribute(
       "href",
-      "/staff/tickets",
+      "/dashboard",
     );
     // Signed in, so the shell is there; the guarded screen is not, and nothing
     // is requested on the other role's behalf.
@@ -223,9 +273,9 @@ describe("Application routing", () => {
     renderAt("/staff/tickets");
 
     const forbidden = await screen.findByTestId("zg-state-forbidden");
-    expect(within(forbidden).getByRole("link", { name: /back to my tickets/i })).toHaveAttribute(
+    expect(within(forbidden).getByRole("link", { name: /back to dashboard/i })).toHaveAttribute(
       "href",
-      "/my-tickets",
+      "/dashboard",
     );
     expect(screen.queryByRole("heading", { name: "Ticket Queue" })).not.toBeInTheDocument();
     // The client half of AC-07. The server half is API-AUTHZ-02.

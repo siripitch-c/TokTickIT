@@ -105,6 +105,9 @@ for (const viewport of VIEWPORTS) {
 
     // --- staff-queue/ -----------------------------------------------------------
     await signIn(page, ACCOUNTS.staff);
+    // lab-04 FR-25: staff land on the Dashboard now; the Queue is what this
+    // block photographs, so it goes there itself.
+    await page.goto("/staff/tickets");
     const queue = page.getByTestId(mobile ? "queue-cards" : "queue-table");
     await expect(queue).toBeVisible();
     if (mobile) {
@@ -211,6 +214,8 @@ for (const viewport of VIEWPORTS) {
     // --- user-management/ -------------------------------------------------------
     await signOut(page);
     await signIn(page, ADMINISTRATOR);
+    // lab-04 FR-25: the Administrator lands on the Dashboard as well.
+    await page.goto("/admin/users");
     await expect(page.getByTestId(mobile ? "user-cards" : "user-table")).toBeVisible();
     // VIS-03: cards replace the user table too; tablet keeps all five columns (§9.2).
     if (mobile) await expect(page.getByTestId("user-table")).toHaveCount(0);

@@ -251,6 +251,136 @@ they now run against the authenticated session instead, which is why a Lab 2
 Ticket is still owned by, and still readable only by, the same person after
 migration.
 
+## Lab 4
+
+Issue #45 — the sprint specification and test plan in `docs/lab-04/`, written
+before any code: FR-01–FR-26, BR-01–BR-34, AC-01–AC-30 and every planned test
+id, with the traceability closed in both directions.
+
+Issue #46 — Actions Taken foundation:
+
+* New `ActionTaken` table and `ActionStatus` enum (`PLANNED`, `IN_PROGRESS`,
+  `COMPLETED`, `CANCELLED`). Each Action records what was done, when, by whom,
+  who it is assigned to, its result, whether it needs follow-up, and a note of
+  any attachment.
+* `Ticket` gains `version`, an integer that every write must send back, so two
+  people editing the same Ticket cannot silently overwrite each other.
+* `GET`, `POST` and `PATCH` under `/api/tickets/:id/actions`, staff only.
+
+Issue #47 — the Actions Taken panel on Ticket Detail: the log, an inline create
+and edit form, Complete and Cancel with their confirmations, the stale-write
+conflict with Reload, and a read-only view for the Requester.
+
+Issue #48 — Ticket workflow and resolution:
+
+* The transition matrix is enforced in the backend, so a move the matrix does
+  not permit is refused with **409** `INVALID_STATUS_TRANSITION` whether it
+  comes from the screen or from `curl`.
+* **The resolution gate**: a Ticket may move to Resolved only when every one of
+  its Actions is Completed or Cancelled. A refusal names how many are still
+  open. Cancelling a Ticket is never gated this way.
+* Every Ticket write carries `version`; a stale one answers **409**
+  `STALE_UPDATE` and the screen offers Reload rather than guessing.
+
+Issue #49 — the IT Staff Dashboard. `GET /api/dashboard/staff` answers six
+metrics, the by-status strip and two short lists, each number calculated in the
+backend at request time from the authoritative tables. Every card links into
+the Ticket Queue with the query that produced it, so the card and the list it
+opens always agree. `Ticket.resolvedAt` is added here, written only by the
+status transition, because `updatedAt` cannot say when a Ticket *became*
+resolved.
+
+Issue #50 — the Requester Dashboard. `GET /api/dashboard/requester` answers
+three counts, an attention panel and two short lists, all of them the caller's
+own. The identity comes from the session: a `requesterId` in the query string
+is ignored rather than refused, because a refusal would confirm that the person
+asked about exists. Every role now lands on `/dashboard` — one route, two
+screens, chosen by the caller's role.
+
+Issue #51 — final hardening and regression: leftover class names removed,
+feedback states made consistent across every screen, duplicate-submit
+protection proven on all four create forms, the performance smoke tests, and
+the migration and regression suites.
+
+Issue #52 — end-to-end, responsive, accessibility and visual QA. Three new
+Playwright specs cover the work log, the resolution gate and both dashboards in
+a real browser, including the check that each dashboard card opens a list
+holding exactly the number it showed. The accessibility rules in
+`docs/lab-04/ui-spec.md` §11 each gained a test, and the visual spec now writes
+every state §13 names — forty-eight screenshots across the three directories,
+each one preceded by assertions that nothing is clipped, overlapping or
+scrolling sideways.
+
+Issue #53 — the release: this README, the peer review record, the AI-use
+reflection, and the Pull Request that merges `lab4-staging` into `main`.
+
+### Lab 4 schema changes, and how to roll them back
+
+Three additive migrations. No existing row is read, rewritten or deleted by any
+of them, so a Lab 3 database gains the Lab 4 schema with every id intact:
+
+| Migration | What it adds |
+|---|---|
+| `20261012114801_lab4_actions_taken` | `ActionStatus` enum, `ActionTaken` table, `Ticket.version` with `DEFAULT 1` |
+| `20261015094458_lab4_ticket_resolved_at` | `Ticket.resolvedAt`, backfilled from `updatedAt` for Tickets already Resolved, and its index |
+
+Tickets created in Labs 2 and 3 simply have no Actions. That is a valid state:
+their detail screen shows the empty log, the resolution gate passes trivially,
+and both dashboards count them as zero contributions rather than skipping them.
+
+Each migration file carries its own rollback SQL in its header. Together, and in
+this order:
+
+```sql
+DROP INDEX "Ticket_currentStatus_resolvedAt_idx";
+ALTER TABLE "Ticket" DROP COLUMN "resolvedAt";
+DROP TABLE "ActionTaken";
+DROP TYPE "ActionStatus";
+ALTER TABLE "Ticket" DROP COLUMN "version";
+```
+
+This is reversible without loss for everything that existed before Lab 4; only
+Lab 4's own Actions go, which is what rolling the sprint back means. `MIG-04` in
+`server/tests/lab-04/migration.api.test.ts` runs exactly these statements
+against the live schema inside a transaction and then aborts it, so the
+rollback is proven rather than described, and the database is unchanged.
+
+### Demonstrating Lab 4 locally
+
+With the app running and the database seeded, signed in from
+`http://localhost:5173`:
+
+| To see | Sign in as | Then |
+|---|---|---|
+| The Actions Taken log, and the panel's create/edit form | `somsak.wattana@example.edu` (IT Staff) | Ticket Queue → the VPN hotspot Ticket, which carries five Actions across all four statuses by three staff members |
+| The resolution gate refusing | the same | on that Ticket, set Current Status to **Resolved** — it is refused and names how many Actions are still open |
+| A normal resolution | the same | complete or cancel the remaining Actions first, then Resolved is accepted |
+| The stale-write conflict | the same | open one Ticket in two windows, save in one, then save in the other |
+| The IT Staff Dashboard, and drill-down | the same | **Dashboard**, then press any card — the Queue opens filtered and its total matches the number on the card |
+| The Requester Dashboard | `michael.brown@example.edu` (Requester) | **Dashboard** — three counts, the attention panel, and the two recent lists; pressing a card opens My Tickets already filtered |
+| Ownership protection | the same | `GET /api/dashboard/requester?requesterId=<another user's id>` answers with your own data, not a refusal |
+
+### Lab 4 test commands
+
+```bash
+npm test --prefix server     # 305 passing, 27 files
+npm test --prefix client     # 193 passing, 20 files
+npm run typecheck            # the e2e workspace
+npx playwright test e2e/lab-04     # 18 cases across four specs
+```
+
+The performance smoke tests print their measurements, so the output says how
+close to the 500 ms budget the dashboards actually are rather than only that
+they passed. The Lab 4 migration suite needs the database seeded: `MIG-04` and
+`MIG-06` both read the seeded Actions.
+
+### Lab 4 credentials
+
+Unchanged from Lab 3: every seeded account uses the local-development password
+documented above, no secret is committed, and nothing in `docs/lab-04/` or the
+test suites contains a production credential. The Lab 4 suites create their own
+throwaway accounts at `*.test.invalid` addresses and remove them afterwards.
+
 ## Documentation
 
 The Lab 3 sprint documents live under `docs/lab-03/`:
@@ -268,6 +398,16 @@ Test evidence sits alongside them: `server/tests/lab-03/`,
 `client/tests/lab-03/`, `e2e/lab-03/`, and the screenshots in
 `artifacts/lab-03/screenshots/` (`authentication/`, `staff-queue/`,
 `staff-ticket-detail/`, `user-management/`).
+
+The Lab 4 sprint documents live under `docs/lab-04/`, in the same four files:
+`specification.md` (FR-01–FR-26, BR-01–BR-34, AC-01–AC-30, the data and
+migration changes and the definition of done), `api-spec.md` (Actions Taken,
+the status transition, both dashboard endpoints and the widened list filters),
+`ui-spec.md` (the Actions panel, both dashboards, the state matrix and the
+responsive rules) and `tests.md` (every planned test, both traceability tables,
+and the recorded result of each issue). Its test evidence sits in
+`server/tests/lab-04/`, `client/tests/lab-04/`, `e2e/lab-04/` and
+`artifacts/lab-04/screenshots/` (`staff-dashboard/`, `requester-dashboard/`).
 
 The earlier sprints keep their own records, unchanged: `docs/lab-01/` and
 `docs/lab-02/`, with the Lab 2 test evidence in `server/tests/lab-02/`,

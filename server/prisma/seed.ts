@@ -1,4 +1,4 @@
-import type { CurrentStatus, Role } from "@prisma/client";
+import type { ActionStatus, CurrentStatus, Role } from "@prisma/client";
 import { hashPassword, normaliseEmail } from "../src/password.js";
 import { getPrisma } from "../src/prisma.js";
 import { nextTicketNumber } from "../src/ticketNumber.js";
@@ -214,6 +214,12 @@ async function main() {
           // Spread out so the queue's default order — Last Updated, newest
           // first — reads like a working desk rather than one burst of rows.
           updatedAt: new Date(now - t.updatedDaysAgo * DAY_MS),
+          // Lab 4, Issue #49 — a Ticket that is Resolved now was resolved when
+          // it was last touched. One of the two seeded Resolved Tickets falls
+          // inside the dashboard's seven-day window and the other outside it,
+          // so "Resolved in the last 7 days" demonstrates a non-zero count and
+          // a boundary that actually excludes something (handout §5.3).
+          resolvedAt: t.status === "RESOLVED" ? new Date(now - t.updatedDaysAgo * DAY_MS) : null,
         },
       });
     });
@@ -267,6 +273,124 @@ async function main() {
       const present = await prisma.internalNote.count({ where: { ticketId, body: entry.body } });
       if (present === 0) await prisma.internalNote.create({ data });
     }
+  }
+
+  // -------------------------------------------------------------------------
+  // Lab 4, Issue #46 — Actions Taken (lab-04/specification.md §7).
+  //
+  // The handout's §5.3 asks for Tickets with zero, one and several Actions, and
+  // for data that makes every dashboard metric demonstrable both non-zero and
+  // zero. So: one Ticket carries four Actions by two different staff members,
+  // two carry exactly one, and every other seeded Ticket deliberately carries
+  // none. All four statuses appear, one Action is assigned to somebody other
+  // than its performer (BR-02, BR-04), and one requires follow-up with its note
+  // (BR-07).
+  //
+  // Idempotent like the threads above: an Action already present is left as it
+  // is, so a status someone changed while trying the screen is not reset.
+  //
+  // Which is how the In Progress coverage was quietly lost. Issue #47's
+  // hand-testing completed the one In Progress Action on 14 October, the seed
+  // then had nothing to restore - by design - and no test looked, so the badge
+  // became undemonstrable from seeded data while §7 still promised it. Issue
+  // #51's MIG-06 found it. There are now two, on purpose: the status survives
+  // somebody working through the screen on one of them, which is the normal
+  // thing to do with an Action that is in progress.
+  // -------------------------------------------------------------------------
+  const actions: {
+    ticket: string;
+    performedBy: string;
+    assignedTo: string;
+    description: string;
+    result: string | null;
+    status: ActionStatus;
+    followUpRequired: boolean;
+    followUpNote: string | null;
+    attachmentNotes: string | null;
+    daysAgo: number;
+  }[] = [
+    // Several Actions on one Ticket, by two staff members.
+    {
+      ticket: "VPN drops when switching to mobile hotspot",
+      performedBy: "nattapong.sri@example.edu", assignedTo: "nattapong.sri@example.edu",
+      description: "Collected the VPN client logs from the laptop and read the reconnect section.",
+      result: "Client is two versions behind; the reconnect handler is the known faulty one.",
+      status: "COMPLETED", followUpRequired: false, followUpNote: null,
+      attachmentNotes: "vpn-client-log.txt on this ticket.", daysAgo: 3.2,
+    },
+    {
+      ticket: "VPN drops when switching to mobile hotspot",
+      performedBy: "nattapong.sri@example.edu", assignedTo: "somsak.wattana@example.edu",
+      description: "Asked the network team to confirm the hotspot subnet is allowed through the new gateway.",
+      result: null,
+      status: "IN_PROGRESS", followUpRequired: true,
+      followUpNote: "Chase the network team if there is no answer by Friday.",
+      attachmentNotes: null, daysAgo: 2.1,
+    },
+    {
+      ticket: "VPN drops when switching to mobile hotspot",
+      performedBy: "somsak.wattana@example.edu", assignedTo: "somsak.wattana@example.edu",
+      description: "Scheduled the client upgrade with the user for the next maintenance window.",
+      result: null,
+      status: "PLANNED", followUpRequired: false, followUpNote: null,
+      attachmentNotes: null, daysAgo: 1.2,
+    },
+    {
+      ticket: "VPN drops when switching to mobile hotspot",
+      performedBy: "somsak.wattana@example.edu", assignedTo: "somsak.wattana@example.edu",
+      description: "Considered reimaging the laptop before the upgrade.",
+      result: null,
+      status: "CANCELLED", followUpRequired: false, followUpNote: null,
+      attachmentNotes: null, daysAgo: 1.1,
+    },
+    {
+      ticket: "VPN drops when switching to mobile hotspot",
+      performedBy: "preecha.thongchai@example.edu", assignedTo: "preecha.thongchai@example.edu",
+      description: "Running the upgraded client against the hotspot for a full teaching day.",
+      result: null,
+      status: "IN_PROGRESS", followUpRequired: false, followUpNote: null,
+      attachmentNotes: null, daysAgo: 0.4,
+    },
+    // Exactly one Action.
+    {
+      ticket: "Grade submission rejects decimal scores",
+      performedBy: "somsak.wattana@example.edu", assignedTo: "somsak.wattana@example.edu",
+      description: "Reproduced the rejection with 7.5 and captured the request the browser sends.",
+      result: "The form posts the value with a comma separator; raised with the vendor.",
+      status: "COMPLETED", followUpRequired: true,
+      followUpNote: "Re-test once the vendor confirms the fix is deployed.",
+      attachmentNotes: "grade-submit-request.har on this ticket.", daysAgo: 1.0,
+    },
+    {
+      ticket: "LEB2 quiz timer resets on page refresh",
+      performedBy: "somsak.wattana@example.edu", assignedTo: "somsak.wattana@example.edu",
+      description: "Deployed the timer fix to the LEB2 staging and production instances.",
+      result: "Timer now survives a refresh; confirmed with two test accounts.",
+      status: "COMPLETED", followUpRequired: false, followUpNote: null,
+      attachmentNotes: null, daysAgo: 4.1,
+    },
+  ];
+
+  for (const entry of actions) {
+    const ticketId = seededTickets.get(entry.ticket);
+    if (ticketId === undefined) continue; // the Ticket was removed by hand
+    const present = await prisma.actionTaken.count({ where: { ticketId, description: entry.description } });
+    if (present > 0) continue;
+
+    await prisma.actionTaken.create({
+      data: {
+        ticketId,
+        performedById: idOf(seededUserIds, entry.performedBy),
+        assignedToId: idOf(seededUserIds, entry.assignedTo),
+        actionAt: new Date(now - entry.daysAgo * DAY_MS),
+        description: entry.description,
+        result: entry.result,
+        status: entry.status,
+        followUpRequired: entry.followUpRequired,
+        followUpNote: entry.followUpNote,
+        attachmentNotes: entry.attachmentNotes,
+      },
+    });
   }
 
   console.log("Seeding finished.");

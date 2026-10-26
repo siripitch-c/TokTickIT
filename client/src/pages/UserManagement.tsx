@@ -282,7 +282,7 @@ export default function UserManagement({ onOwnAccountChanged }: Props) {
 /** §9.1: text with a dot glyph rather than a badge, so it never reads as a ticket status. */
 function UserStatus({ active }: { active: boolean }) {
   return (
-    <span className={active ? "zg-user-status zg-user-status--active" : "zg-user-status zg-user-status--inactive"}>
+    <span className={active ? "zg-user-status--active" : "zg-user-status--inactive"}>
       <span aria-hidden="true">&#9679; </span>
       {active ? "Active" : "Inactive"}
     </span>

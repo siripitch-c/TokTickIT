@@ -22,6 +22,11 @@ import {
 //
 // One screen, two roles. What these prove is what a person on each side sees
 // and can do; that the API refuses the rest is proven separately, at the API.
+//
+// Lab 4, Issue #48: every Ticket write now carries the version the screen is
+// showing (lab-04 BR-26, BR-28), so the four request bodies asserted below
+// gained `version: 1` — the fixture Ticket's version. What the version does
+// when it is stale is asserted in `lab-04/TicketWorkflow.test.tsx` (UI-FLOW-04).
 
 const loaded = () => screen.findByTestId("detail-ticket-number");
 
@@ -113,14 +118,17 @@ describe("Operations panel", () => {
     await user.click(screen.getByRole("button", { name: "Claim" }));
     await waitFor(() => expect(owner).toHaveValue(String(STAFF.id)));
     expect(lastPatch(server)?.url).toMatch(/\/api\/tickets\/118\/owner$/);
-    expect(lastPatch(server)?.body).toEqual({ ownerId: STAFF.id });
+    expect(lastPatch(server)?.body).toEqual({ version: 1, ownerId: STAFF.id });
     expect(await screen.findByText(/saved/i)).toBeInTheDocument();
     // Already the owner: there is nothing left to claim.
     expect(screen.getByRole("button", { name: "Claim" })).toBeDisabled();
 
     await user.selectOptions(owner, "9");
     await waitFor(() => expect(owner).toHaveValue("9"));
-    expect(lastPatch(server)?.body).toEqual({ ownerId: 9 });
+    // Version 2, not 1: the claim above was a successful write, so the Ticket
+    // the screen now holds is the one that write returned (lab-04 BR-26). A
+    // second change in a row must not resend the version of the first.
+    expect(lastPatch(server)?.body).toEqual({ version: 2, ownerId: 9 });
   });
 
   it("UI-DETAIL-03 / BR-26: an owner deactivated since assignment is shown truthfully, as a disabled \"(inactive)\" option", async () => {
@@ -156,7 +164,7 @@ describe("Operations panel", () => {
 
     await waitFor(() => expect(priority).toHaveValue("HIGH"));
     expect(lastPatch(server)?.url).toMatch(/\/it-priority$/);
-    expect(lastPatch(server)?.body).toEqual({ itPriority: "HIGH" });
+    expect(lastPatch(server)?.body).toEqual({ version: 1, itPriority: "HIGH" });
     expect(requestedValue).toHaveTextContent("Low");
   });
 
@@ -251,7 +259,7 @@ describe("Operations panel", () => {
     await user.click(within(dialog).getByRole("button", { name: "Move to Cancelled" }));
 
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-    expect(lastPatch(server)?.body).toEqual({ currentStatus: "CANCELLED" });
+    expect(lastPatch(server)?.body).toEqual({ version: 1, currentStatus: "CANCELLED" });
     await waitFor(() => expect(status).toHaveValue("CANCELLED"));
     // Terminal: nowhere left to move to.
     expect(status).toBeDisabled();

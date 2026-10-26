@@ -57,6 +57,10 @@ function makeTickets(count: number): StaffTicket[] {
       requesterResolvedAt: null,
       createdAt: "2026-05-12T09:14:00.000Z",
       updatedAt: "2026-05-13T09:14:00.000Z",
+      // Lab 4, Issue #46: the queue returns each Ticket's version so a row can
+      // be opened and written without a second read (lab-04/api-spec.md §6).
+      // `openActionCount` is not part of a queue row and so is not here.
+      version: 1,
     };
   });
 }
@@ -249,9 +253,31 @@ describe("IT Staff Ticket Queue", () => {
     expect(screen.getByTestId("location")).toHaveTextContent(/^$/);
   });
 
+  it("UI-QUEUE-02 / lab-04 AC-17: `owner=me` is resolved to the signed-in user rather than discarded", async () => {
+    // Lab 4, Issue #49 changed this one value's meaning. The dashboard's cards
+    // link with `me` so the address stays readable, and the screen is where
+    // "me" is known — so it resolves to an id and the address corrects itself,
+    // which is the same §7.4 rule that corrects everything else here. The
+    // server still ignores `owner=me` (API-QUEUE-09 asserts that); it never
+    // sees the word.
+    const { calls } = mockFetch(() => ({ tickets: makeTickets(2) }));
+    renderQueue("/staff/tickets?owner=me&status=open");
+    await screen.findByTestId("queue-table");
+
+    await waitFor(() => expect(screen.getByLabelText(/^Owner$/)).toHaveValue(String(STAFF.id)));
+    expect(screen.getByLabelText(/^Current Status$/)).toHaveValue("open");
+    await waitFor(() =>
+      expect(screen.getByTestId("location")).toHaveTextContent(`?status=open&owner=${STAFF.id}`),
+    );
+
+    const query = lastQuery(calls);
+    expect(query.get("owner")).toBe(String(STAFF.id));
+    expect(query.get("status")).toBe("open");
+  });
+
   it("UI-QUEUE-02 / AC-28, BR-40: a hand-edited address falls back to its defaults, and the address is corrected to match", async () => {
     const { calls } = mockFetch(() => ({ tickets: makeTickets(2) }));
-    renderQueue("/staff/tickets?status=ESCALATED&pageSize=11&sortBy=summary&owner=me&category=2");
+    renderQueue("/staff/tickets?status=ESCALATED&pageSize=11&sortBy=summary&owner=nobody&category=2");
     await screen.findByTestId("queue-table");
 
     // The invalid values are shown as the defaults they fell back to...
@@ -351,10 +377,11 @@ describe("IT Staff Ticket Queue", () => {
     // §12: the refusal takes focus, so a keyboard user hears it.
     const heading = within(forbidden).getByRole("heading", { name: /you do not have access to this page/i });
     await waitFor(() => expect(heading).toHaveFocus());
-    // §2.4: one way out — back to the person's own landing screen.
-    expect(within(forbidden).getByRole("link", { name: /back to ticket queue/i })).toHaveAttribute(
+    // §2.4: one way out — back to the person's own landing screen, which
+    // lab-04 FR-25 makes the Dashboard for every role.
+    expect(within(forbidden).getByRole("link", { name: /back to dashboard/i })).toHaveAttribute(
       "href",
-      "/staff/tickets",
+      "/dashboard",
     );
     // And nothing about what was behind the refusal.
     expect(forbidden.textContent).not.toMatch(/TKT-|Requester/);

@@ -3,6 +3,10 @@ import cors from "cors";
 import { requesterOnly, signedIn, staffOnly } from "./auth.js";
 import { authRoutes } from "./authRoutes.js";
 import { userRoutes } from "./userRoutes.js";
+import { actionRoutes } from "./actionRoutes.js";
+import { openActionCount } from "./actionRules.js";
+import { dashboardRoutes } from "./dashboardRoutes.js";
+import { OPEN_STATUSES } from "./dashboardMetrics.js";
 import { getPrisma } from "./prisma.js";
 import { CURRENT_STATUSES, STATUS_LABEL, canTransition } from "./statusTransitions.js";
 import { nextTicketNumber } from "./ticketNumber.js";
@@ -17,7 +21,7 @@ import {
   storedFilePath,
   toDisplayFilename,
 } from "./uploads.js";
-import type { Attachment, CurrentStatus, Prisma, User } from "@prisma/client";
+import type { ActionStatus, Attachment, CurrentStatus, Prisma, User } from "@prisma/client";
 import type { NextFunction } from "express";
 import { MulterError } from "multer";
 // getPrisma() is your lazy database handle. Call it INSIDE a route when you
@@ -46,6 +50,17 @@ app.use("/api/auth", authRoutes);
 // such as DELETE is still refused to other roles and falls through to the 404
 // handler for an Administrator (BR-39: there is no delete).
 app.use("/api/users", userRoutes);
+
+// Lab 4, Issue #46 — Actions Taken (lab-04/api-spec.md §5). Mounted under /api
+// rather than one prefix, because the log is read through its Ticket
+// (/api/tickets/:id/actions) and written to through itself (/api/actions/:id).
+app.use("/api", actionRoutes);
+
+// Lab 4, Issue #49 — the dashboards (lab-04/api-spec.md §7). Its own prefix,
+// because a dashboard is not a collection: nothing under it is a Ticket you can
+// address, and the two paths differ by who is asking rather than by what is
+// asked for.
+app.use("/api/dashboard", dashboardRoutes);
 
 // ---------------------------------------------------------------------------
 // Issue 2 — API health check
@@ -118,6 +133,21 @@ const ACTOR_SUMMARY = { select: { id: true, name: true, role: true } } as const;
 // mistake. Every endpoint that returns a Ticket includes its people this way.
 const TICKET_PEOPLE = { requester: ACTOR_SUMMARY, owner: ACTOR_SUMMARY } as const;
 
+/** The four an `actionStatus` query parameter may name (lab-04/api-spec.md §6). */
+const ACTION_STATUSES: readonly ActionStatus[] = ["PLANNED", "IN_PROGRESS", "COMPLETED", "CANCELLED"];
+
+/**
+ * Lab 4, Issue #49 — api-spec.md §4 and §7 list a Ticket's fields exactly, and
+ * `resolvedAt` is not among them: it is a column the dashboard reads (BR-21),
+ * never something a screen shows. Every endpoint that answers with a Ticket
+ * goes through here, so the field cannot reach a client by being forgotten in
+ * one place while being stripped in another.
+ */
+function publicTicket<T extends { resolvedAt: Date | null }>(ticket: T): Omit<T, "resolvedAt"> {
+  const { resolvedAt: _resolvedAt, ...rest } = ticket;
+  return rest;
+}
+
 /**
  * The Tickets this caller may read (api-spec.md §6): a Requester their own, IT
  * Staff and Administrators any (BR-16, BR-17). A where-clause rather than a
@@ -141,11 +171,21 @@ async function loadTicket(where: Prisma.TicketWhereInput) {
       // ticket's history; only the file behind them becomes unavailable.
       // Oldest first, so the list reads in the order they were added.
       attachments: { orderBy: { uploadedAt: "asc" } },
+      // Lab 4, Issue #48 — the statuses only, to count the Actions that block
+      // a resolution (lab-04 BR-18). The screen uses the number to explain
+      // itself before anybody presses Resolve; the server still decides
+      // (lab-04/api-spec.md §6).
+      actions: { select: { status: true } },
     },
   });
   if (!ticket) return null;
-  const { attachments, ...fields } = ticket;
-  return { ...fields, attachments: attachments.map(toAttachmentResponse) };
+  const { attachments, actions, ...rest } = ticket;
+  const fields = publicTicket(rest);
+  return {
+    ...fields,
+    attachments: attachments.map(toAttachmentResponse),
+    openActionCount: openActionCount(actions.map((action) => action.status)),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -234,7 +274,7 @@ app.post("/api/tickets", requesterOnly, async (req: Request, res: Response) => {
     };
     const ticket = await createTicketWithNumber(prisma, data);
 
-    res.status(201).json({ data: { ...ticket, attachments: [] } });
+    res.status(201).json({ data: { ...publicTicket(ticket), attachments: [] } });
   } catch (error) {
     console.error("Error creating ticket:", error);
     sendInternalError(res);
@@ -297,7 +337,18 @@ app.get("/api/tickets", requesterOnly, async (req: Request, res: Response) => {
   const categoryId = readId(query.category);
   const requestedPriority = REQUESTED_PRIORITIES.find((p) => p === query.requestedPriority);
   const itPriority = REQUESTED_PRIORITIES.find((p) => p === query.itPriority);
-  const currentStatus = query.status === "NEW" ? ("NEW" as const) : undefined;
+  // Lab 4, Issue #50 - the Requester dashboard's cards link into this list
+  // with the filter that produced their number (FR-19, ui-spec.md 5.3), so the
+  // filter has to understand the eight statuses and `open`, exactly as the
+  // staff queue does. Lab 2 accepted only `NEW` because that was the only
+  // status there was; Lab 3 added the rest and this was never widened, which
+  // left every card opening an unfiltered list.
+  const ownStatus = CURRENT_STATUSES.find((value) => value === query.status);
+  const ownStatusFilter: Prisma.TicketWhereInput = ownStatus
+    ? { currentStatus: ownStatus }
+    : query.status === "open"
+      ? { currentStatus: { in: [...OPEN_STATUSES] } }
+      : {};
 
   const sortBy = SORT_FIELDS.find((f) => f === query.sortBy) ?? "createdAt";
   const sortDir = query.sortDir === "asc" ? "asc" : "desc";
@@ -313,7 +364,7 @@ app.get("/api/tickets", requesterOnly, async (req: Request, res: Response) => {
       ...(categoryId !== null ? { categoryId } : {}),
       ...(requestedPriority ? { requestedPriority } : {}),
       ...(itPriority ? { itPriority } : {}),
-      ...(currentStatus ? { currentStatus } : {}),
+      ...ownStatusFilter,
       // BR-13: Ticket Number or Summary, partial and case-insensitive.
       // Description is deliberately not searched (specification.md §11).
       ...(search
@@ -350,7 +401,7 @@ app.get("/api/tickets", requesterOnly, async (req: Request, res: Response) => {
       include: TICKET_PEOPLE,
     });
 
-    res.json({ data, pagination });
+    res.json({ data: data.map(publicTicket), pagination });
   } catch (error) {
     console.error("Error listing tickets:", error);
     sendInternalError(res);
@@ -666,6 +717,35 @@ function writeBody(req: Request): Record<string, unknown> {
   return (req.body ?? {}) as Record<string, unknown>;
 }
 
+// Lab 4, Issue #48 — the version precondition (lab-04 BR-26, BR-28). Every
+// write that changes an existing Ticket carries the version its caller read.
+// A missing one is refused rather than treated as "no opinion", because an
+// unconditional write is exactly the overwrite the rule exists to prevent; a
+// version that no longer matches is refused and changes nothing.
+//
+// The guard is identical in all three operations, so it lives here once. Each
+// of them then writes through `updateMany` with the version in its WHERE, so
+// the check and the write are one database operation and two callers racing
+// between them cannot both win.
+const TICKET_WRITE = {
+  versionRequired: "Send the version you read so a concurrent change is not overwritten.",
+  stale: "This ticket changed after you opened it. Reload to see the current version.",
+} as const;
+
+/** The version from the body, or `null` when it is absent or not an integer. */
+function readVersion(req: Request): number | null {
+  const value = writeBody(req).version;
+  return Number.isInteger(value) ? (value as number) : null;
+}
+
+function versionRequired(res: Response): void {
+  sendError(res, 400, "VERSION_REQUIRED", TICKET_WRITE.versionRequired, "version");
+}
+
+function staleTicket(res: Response): void {
+  sendError(res, 409, "STALE_UPDATE", TICKET_WRITE.stale, "version");
+}
+
 // PATCH /api/tickets/:id/owner — FR-15, AC-10, AC-11, BR-25..BR-28.
 // A claim is this same call with the caller's own id: one state change, one
 // set of rules.
@@ -673,7 +753,13 @@ app.patch("/api/tickets/:id/owner", staffOnly, async (req: Request, res: Respons
   const ticketId = readId(req.params.id);
   if (ticketId === null) return ticketNotFound(res);
 
-  // A number that could name a user, or `null` to release the Ticket (BR-28).
+  // Lab 4 BR-28, first of everything in the body: a write with no version is
+  // not a write this endpoint will consider at all.
+  const version = readVersion(req);
+  if (version === null) return versionRequired(res);
+
+  // A number that could name a user, or `null` to release the Ticket (Lab 3
+  // BR-28 — not the version rule above, which Lab 4 numbers BR-28 as well).
   // A string such as "7" is refused rather than coerced: request bodies are
   // validated strictly (BR-42).
   const raw = writeBody(req).ownerId;
@@ -684,7 +770,11 @@ app.patch("/api/tickets/:id/owner", staffOnly, async (req: Request, res: Respons
 
   try {
     const prisma = getPrisma();
-    if (!(await ticketExists({ id: ticketId }))) return ticketNotFound(res);
+    const current = await prisma.ticket.findUnique({ where: { id: ticketId }, select: { version: true } });
+    if (!current) return ticketNotFound(res);
+    // Answered before the owner is validated, so a caller holding a stale copy
+    // is told that rather than being sent to fix a field they already fixed.
+    if (current.version !== version) return staleTicket(res);
 
     if (ownerId !== null) {
       // BR-25 is checked on the incoming owner only. Someone deactivated after
@@ -700,7 +790,11 @@ app.patch("/api/tickets/:id/owner", staffOnly, async (req: Request, res: Respons
     }
 
     // BR-28: any IT Staff or Administrator may do this, not only the owner.
-    await prisma.ticket.update({ where: { id: ticketId }, data: { ownerId } });
+    const written = await prisma.ticket.updateMany({
+      where: { id: ticketId, version },
+      data: { ownerId, version: { increment: 1 } },
+    });
+    if (written.count === 0) return staleTicket(res);
     res.json({ data: await loadTicket({ id: ticketId }) });
   } catch (error) {
     console.error("Error changing the ticket owner:", error);
@@ -713,6 +807,9 @@ app.patch("/api/tickets/:id/it-priority", staffOnly, async (req: Request, res: R
   const ticketId = readId(req.params.id);
   if (ticketId === null) return ticketNotFound(res);
 
+  const version = readVersion(req);
+  if (version === null) return versionRequired(res);
+
   // `null` is refused along with anything else: once set, a Ticket always has
   // an IT Priority (api-spec.md §7).
   const itPriority = REQUESTED_PRIORITIES.find((p) => p === writeBody(req).itPriority);
@@ -721,10 +818,18 @@ app.patch("/api/tickets/:id/it-priority", staffOnly, async (req: Request, res: R
   }
 
   try {
-    if (!(await ticketExists({ id: ticketId }))) return ticketNotFound(res);
+    const prisma = getPrisma();
+    const current = await prisma.ticket.findUnique({ where: { id: ticketId }, select: { version: true } });
+    if (!current) return ticketNotFound(res);
+    if (current.version !== version) return staleTicket(res);
+
     // Only IT Priority is written. Requested Priority is what the Requester
     // said, and it never changes after creation (BR-29, AC-12).
-    await getPrisma().ticket.update({ where: { id: ticketId }, data: { itPriority } });
+    const written = await prisma.ticket.updateMany({
+      where: { id: ticketId, version },
+      data: { itPriority, version: { increment: 1 } },
+    });
+    if (written.count === 0) return staleTicket(res);
     res.json({ data: await loadTicket({ id: ticketId }) });
   } catch (error) {
     console.error("Error changing the IT priority:", error);
@@ -736,6 +841,9 @@ app.patch("/api/tickets/:id/it-priority", staffOnly, async (req: Request, res: R
 app.patch("/api/tickets/:id/status", staffOnly, async (req: Request, res: Response) => {
   const ticketId = readId(req.params.id);
   if (ticketId === null) return ticketNotFound(res);
+
+  const version = readVersion(req);
+  if (version === null) return versionRequired(res);
 
   const next = CURRENT_STATUSES.find((s) => s === writeBody(req).currentStatus);
   if (!next) {
@@ -754,8 +862,16 @@ app.patch("/api/tickets/:id/status", staffOnly, async (req: Request, res: Respon
 
   try {
     const prisma = getPrisma();
-    const ticket = await prisma.ticket.findUnique({ where: { id: ticketId }, select: { currentStatus: true } });
+    const ticket = await prisma.ticket.findUnique({
+      where: { id: ticketId },
+      select: { currentStatus: true, version: true },
+    });
     if (!ticket) return ticketNotFound(res);
+
+    // Lab 4 BR-26, before the matrix: somebody working from a stale copy is
+    // told their copy is stale, not that a move is illegal — the move may well
+    // be legal from the status they were looking at.
+    if (ticket.version !== version) return staleTicket(res);
 
     // BR-31 — including its lack of self-transitions, so setting the status a
     // Ticket already has is a conflict rather than a silent success. The
@@ -763,18 +879,42 @@ app.patch("/api/tickets/:id/status", staffOnly, async (req: Request, res: Respon
     // unconditionally would not be a safeguard.
     if (!canTransition(ticket.currentStatus, next)) return conflict(ticket.currentStatus);
 
-    // Conditional on the status just read. Of two people moving the same Ticket
-    // at the same moment, the second gets a 409 describing the state the first
-    // left behind, instead of overwriting it with a move the matrix might not
-    // allow from there.
-    const moved = await prisma.ticket.updateMany({
-      where: { id: ticketId, currentStatus: ticket.currentStatus },
-      data: { currentStatus: next },
-    });
-    if (moved.count === 0) {
-      const now = await prisma.ticket.findUnique({ where: { id: ticketId }, select: { currentStatus: true } });
-      return conflict(now?.currentStatus ?? ticket.currentStatus);
+    // Lab 4 BR-18 — the resolution gate Lab 3 deferred, enforced here rather
+    // than on the screen so a request made outside the screen meets it too.
+    // Cancelling is deliberately not gated (BR-19): making someone tidy the
+    // log of work they are abandoning would only produce fictional entries.
+    if (next === "RESOLVED") {
+      const actions = await prisma.actionTaken.findMany({ where: { ticketId }, select: { status: true } });
+      const open = openActionCount(actions.map((action) => action.status));
+      if (open > 0) {
+        return sendError(
+          res,
+          409,
+          "OPEN_ACTIONS_REMAIN",
+          open === 1
+            ? "1 action on this ticket is still open. Complete or cancel it before resolving it."
+            : `${open} actions on this ticket are still open. Complete or cancel them before resolving it.`,
+          "status",
+        );
+      }
     }
+
+    // Conditional on the version just read, so the check above and this write
+    // are one operation: of two people moving the same Ticket at the same
+    // moment, the second is refused instead of overwriting the first.
+    const moved = await prisma.ticket.updateMany({
+      where: { id: ticketId, version },
+      data: {
+        currentStatus: next,
+        version: { increment: 1 },
+        // Lab 4 BR-21: the one moment the dashboard's seven-day window needs.
+        // Written only on the way in to Resolved, and never cleared on the way
+        // out — a reopened Ticket keeps the time it was last resolved, which is
+        // history, and the metric reads it only beside `currentStatus`.
+        ...(next === "RESOLVED" ? { resolvedAt: new Date() } : {}),
+      },
+    });
+    if (moved.count === 0) return staleTicket(res);
 
     res.json({ data: await loadTicket({ id: ticketId }) });
   } catch (error) {
@@ -821,9 +961,15 @@ app.post("/api/tickets/:id/appears-resolved", signedIn, async (req: Request, res
     // BR-05: the status is not touched — formally resolving stays with staff.
     // Conditional, so a double submission cannot rewrite when the Requester
     // first said it: the signal is a fact with a time, not a toggle.
+    // Lab 4 BR-26 says the version rises on every successful write, and this is
+    // one: a staff member holding the Ticket on screen should learn that the
+    // Requester has spoken. The signal carries no version of its own, because
+    // it is not an edit of anything a second person could be editing — it is
+    // one fact only its owner can state, and `requesterResolvedAt: null` in the
+    // WHERE already makes it exactly-once (lab-04/api-spec.md §6).
     const marked = await prisma.ticket.updateMany({
       where: { ...own, requesterResolvedAt: null, currentStatus: { notIn: PAST_RESOLUTION } },
-      data: { requesterResolvedAt: new Date() },
+      data: { requesterResolvedAt: new Date(), version: { increment: 1 } },
     });
     if (marked.count === 0) {
       const now = await prisma.ticket.findFirst({ where: own, select: { requesterResolvedAt: true } });
@@ -987,10 +1133,38 @@ app.get("/api/staff/tickets", staffOnly, async (req: Request, res: Response) => 
   const categoryId = readId(query.category);
   const requestedPriority = REQUESTED_PRIORITIES.find((p) => p === query.requestedPriority);
   const itPriority = REQUESTED_PRIORITIES.find((p) => p === query.itPriority);
+  // Lab 4, Issue #49 — `open` joins the status filter as the shorthand the
+  // dashboard's cards link with (lab-04/ui-spec.md §4.5). Without it, the card
+  // that counts open Unassigned Tickets would open a queue listing the closed
+  // ones too, and the number on the card would not match the list it opened
+  // (AC-17). Lenient like the rest: any other unknown value is still ignored.
   const currentStatus = CURRENT_STATUSES.find((s) => s === query.status);
+  const statusFilter: Prisma.TicketWhereInput = currentStatus
+    ? { currentStatus }
+    : query.status === "open"
+      ? { currentStatus: { in: [...OPEN_STATUSES] } }
+      : {};
+
+  // Lab 4, Issue #49 — the Tickets carrying somebody's Actions
+  // (lab-04/api-spec.md §6). `me` is the caller; a number is that user. The
+  // status defaults to the unfinished ones, because the card this serves counts
+  // work still to do.
+  const actionsAssignedToId = query.actionsAssignedTo === "me" ? req.user!.id : readId(query.actionsAssignedTo);
+  const chosenActionStatus = ACTION_STATUSES.find((value) => value === query.actionStatus);
+  const actionStatuses: ActionStatus[] = chosenActionStatus
+    ? [chosenActionStatus]
+    : ["PLANNED", "IN_PROGRESS"];
+  const actionFilter: Prisma.TicketWhereInput =
+    actionsAssignedToId === null
+      ? {}
+      : { actions: { some: { assignedToId: actionsAssignedToId, status: { in: [...actionStatuses] } } } };
 
   // `unassigned` or a User id. Anything else — `me` included — is ignored and
-  // the filter simply does not apply (api-spec.md §7).
+  // the filter simply does not apply (api-spec.md §7). Unlike
+  // `actionsAssignedTo` directly above, which does accept `me`: that parameter
+  // is new in Lab 4 and could be defined either way, while this one shipped in
+  // Lab 3 and API-QUEUE-09 asserts that the word means nothing to it. The
+  // screen resolves `owner=me` to an id before asking.
   const ownerId = query.owner === "unassigned" ? null : readId(query.owner);
   const ownerFilter =
     query.owner === "unassigned" ? { ownerId: null } : ownerId !== null ? { ownerId } : {};
@@ -1008,7 +1182,8 @@ app.get("/api/staff/tickets", staffOnly, async (req: Request, res: Response) => 
       ...(categoryId !== null ? { categoryId } : {}),
       ...(requestedPriority ? { requestedPriority } : {}),
       ...(itPriority ? { itPriority } : {}),
-      ...(currentStatus ? { currentStatus } : {}),
+      ...statusFilter,
+      ...actionFilter,
       ...ownerFilter,
       ...(search
         ? {
@@ -1052,7 +1227,7 @@ app.get("/api/staff/tickets", staffOnly, async (req: Request, res: Response) => 
       include: TICKET_PEOPLE,
     });
 
-    res.json({ data, pagination });
+    res.json({ data: data.map(publicTicket), pagination });
   } catch (error) {
     console.error("Error listing the staff ticket queue:", error);
     sendInternalError(res);

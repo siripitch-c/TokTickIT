@@ -49,6 +49,13 @@ export interface Ticket {
   ownerId: number | null;
   owner: ActorSummary | null;
   requesterResolvedAt: string | null;
+  // Lab 4, Issue #46 — the version the caller is holding. Every write that
+  // changes this Ticket sends it back, and a mismatch is refused (BR-26, BR-28).
+  version: number;
+  // Lab 4, Issue #48 — how many of its Actions are still Planned or In
+  // Progress. The screen uses it to explain a refused resolution before
+  // anybody presses Resolve; the server still decides (BR-18, AC-09).
+  openActionCount: number;
 }
 
 export interface NewTicket {
@@ -190,8 +197,11 @@ export async function uploadAttachment(
 // Issue #14 — My Tickets
 // ---------------------------------------------------------------------------
 
-/** A row in the ticket list: the Ticket fields without its attachments (api-spec.md §4). */
-export type TicketSummary = Omit<Ticket, "attachments">;
+/** A row in the ticket list: the Ticket fields without its attachments
+ *  (api-spec.md §4). Lab 4, Issue #48: `openActionCount` is dropped too — it
+ *  is counted for one Ticket on its own screen, never for a page of rows
+ *  nobody is resolving (lab-04/api-spec.md §6). */
+export type TicketSummary = Omit<Ticket, "attachments" | "openActionCount">;
 
 export interface Pagination {
   page: number;
@@ -208,7 +218,9 @@ export interface TicketListQuery {
   category?: number | "";
   requestedPriority?: RequestedPriority | "";
   itPriority?: RequestedPriority | "";
-  status?: "NEW" | "";
+  // Lab 4, Issue #50: the eight statuses, or `open` - the Requester dashboard
+  // links here with the filter behind each card (FR-19).
+  status?: CurrentStatus | "open" | "";
   sortBy?: TicketSortField;
   sortDir?: SortDirection;
   page?: number;
@@ -413,7 +425,7 @@ export interface ActorSummary {
 }
 
 /** A queue row: the §5 Ticket object without `attachments` (§7). */
-export type StaffTicket = Omit<Ticket, "attachments">;
+export type StaffTicket = Omit<Ticket, "attachments" | "openActionCount">;
 
 export type QueueSortField = "ticketNumber" | "createdAt" | "updatedAt" | "itPriority";
 
@@ -422,8 +434,14 @@ export interface StaffQueueQuery {
   category?: number;
   requestedPriority?: RequestedPriority;
   itPriority?: RequestedPriority;
-  status?: CurrentStatus;
+  // Lab 4, Issue #49: `open` is the shorthand the dashboard's cards link with —
+  // the five statuses that are still somebody's problem (lab-04/api-spec.md §6).
+  status?: CurrentStatus | "open";
   owner?: number | "unassigned";
+  /** Lab 4, Issue #49 — Tickets carrying an Action assigned to this person. */
+  actionsAssignedTo?: number | "me";
+  /** Which of those Actions count; the unfinished ones by default. */
+  actionStatus?: ActionStatus | "open";
   sortBy?: QueueSortField;
   sortDir?: SortDirection;
   page?: number;
@@ -473,19 +491,33 @@ async function patchTicket(ticketId: number, operation: string, body: object): P
   return (await res.json()).data as Ticket;
 }
 
+// Lab 4, Issue #48 — all three writes carry the version the screen is showing
+// (lab-04 BR-26, BR-28). It is a required argument rather than something read
+// from the Ticket inside these functions, so a caller cannot accidentally send
+// a version it never displayed.
+
 /** FR-15: claim (the caller's own id), reassign, or release with `null`. */
-export function setTicketOwner(ticketId: number, ownerId: number | null): Promise<Ticket> {
-  return patchTicket(ticketId, "owner", { ownerId });
+export function setTicketOwner(ticketId: number, version: number, ownerId: number | null): Promise<Ticket> {
+  return patchTicket(ticketId, "owner", { version, ownerId });
 }
 
 /** FR-17: IT Priority only; Requested Priority never changes (BR-29). */
-export function setItPriority(ticketId: number, itPriority: RequestedPriority): Promise<Ticket> {
-  return patchTicket(ticketId, "it-priority", { itPriority });
+export function setItPriority(
+  ticketId: number,
+  version: number,
+  itPriority: RequestedPriority,
+): Promise<Ticket> {
+  return patchTicket(ticketId, "it-priority", { version, itPriority });
 }
 
-/** FR-18: the server answers 409 for any move BR-31 does not permit. */
-export function setTicketStatus(ticketId: number, currentStatus: CurrentStatus): Promise<Ticket> {
-  return patchTicket(ticketId, "status", { currentStatus });
+/** FR-18: the server answers 409 for any move BR-31 does not permit, and for a
+ *  move to Resolved while the Ticket still has open Actions (lab-04 BR-18). */
+export function setTicketStatus(
+  ticketId: number,
+  version: number,
+  currentStatus: CurrentStatus,
+): Promise<Ticket> {
+  return patchTicket(ticketId, "status", { version, currentStatus });
 }
 
 /** FR-12, BR-34: the Requester's signal; it does not change the status. */
@@ -524,6 +556,76 @@ export async function postToThread(ticketId: number, kind: ThreadKind, body: str
   });
   if (!res.ok) throw await toApiError(res);
   return (await res.json()).data as ThreadEntry;
+}
+
+// ---------------------------------------------------------------------------
+// Lab 4, Issue #46/#47 — Actions Taken (lab-04/api-spec.md §5)
+// ---------------------------------------------------------------------------
+
+export type ActionStatus = "PLANNED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
+
+/** lab-04/api-spec.md §4 — one Action, as every endpoint returns it. */
+export interface ActionTaken {
+  id: number;
+  ticketId: number;
+  actionAt: string;
+  description: string;
+  result: string | null;
+  status: ActionStatus;
+  performedBy: ActorSummary;
+  assignedTo: ActorSummary;
+  followUpRequired: boolean;
+  followUpNote: string | null;
+  attachmentNotes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  /** BR-26: sent back on every write so a concurrent change cannot be overwritten. */
+  version: number;
+}
+
+export interface NewAction {
+  actionAt?: string;
+  description: string;
+  result?: string;
+  assignedToId?: number;
+  status?: ActionStatus;
+  followUpRequired: boolean;
+  followUpNote?: string;
+  attachmentNotes?: string;
+}
+
+/** Every field is optional except `version`, which BR-28 makes mandatory. */
+export type ActionChanges = Partial<Omit<NewAction, "followUpRequired">> & {
+  followUpRequired?: boolean;
+  version: number;
+};
+
+export async function fetchActions(ticketId: number): Promise<ActionTaken[]> {
+  const res = await fetch(`${API_URL}/api/tickets/${ticketId}/actions`, { ...withSession });
+  if (!res.ok) throw await toApiError(res);
+  return (await res.json()).data as ActionTaken[];
+}
+
+export async function createAction(ticketId: number, action: NewAction): Promise<ActionTaken> {
+  const res = await fetch(`${API_URL}/api/tickets/${ticketId}/actions`, {
+    method: "POST",
+    ...withSession,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(action),
+  });
+  if (!res.ok) throw await toApiError(res);
+  return (await res.json()).data as ActionTaken;
+}
+
+export async function updateAction(actionId: number, changes: ActionChanges): Promise<ActionTaken> {
+  const res = await fetch(`${API_URL}/api/actions/${actionId}`, {
+    method: "PATCH",
+    ...withSession,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(changes),
+  });
+  if (!res.ok) throw await toApiError(res);
+  return (await res.json()).data as ActionTaken;
 }
 
 // ---------------------------------------------------------------------------
@@ -584,4 +686,79 @@ export function updateUser(userId: number, changes: UserChanges): Promise<AdminU
 /** FR-26: the password is sent once and never returned (BR-07). */
 export function setInitialPassword(userId: number, initialPassword: string): Promise<AdminUser> {
   return writeUser(`/api/users/${userId}/initial-password`, "POST", { initialPassword });
+}
+
+// ---------------------------------------------------------------------------
+// Lab 4, Issue #49 — the dashboards (lab-04/api-spec.md §7)
+// ---------------------------------------------------------------------------
+
+/** A row in one of the dashboard's short lists: enough to read it and open it. */
+export interface DashboardTicketRow {
+  id: number;
+  ticketNumber: string;
+  summary: string;
+  currentStatus: CurrentStatus;
+  itPriority: RequestedPriority | null;
+  owner: ActorSummary | null;
+  updatedAt: string;
+}
+
+export interface StaffDashboard {
+  metrics: {
+    unassigned: number;
+    assignedToMe: number;
+    myOpenActions: number;
+    waitingForRequester: number;
+    highItPriority: number;
+    resolvedLast7Days: number;
+    byStatus: Record<CurrentStatus, number>;
+  };
+  /** Present only for an Administrator (FR-16, AC-18) — absent, not null. */
+  administratorMetrics?: { activeUsers: number; inactiveUsers: number };
+  recentlyUpdated: DashboardTicketRow[];
+  needsAttention: DashboardTicketRow[];
+}
+
+/**
+ * BR-24: every number comes from here, computed server-side at request time.
+ * Nothing on the screen adds, filters or re-counts anything, because a number
+ * the client derived could disagree with the queue the card links to.
+ */
+export async function fetchStaffDashboard(): Promise<StaffDashboard> {
+  const res = await fetch(`${API_URL}/api/dashboard/staff`, { ...withSession });
+  if (!res.ok) throw await toApiError(res);
+  return (await res.json()) as StaffDashboard;
+}
+
+/** A row in the Requester's dashboard lists (lab-04/api-spec.md §7). */
+export interface RequesterTicketRow {
+  id: number;
+  ticketNumber: string;
+  summary: string;
+  currentStatus: CurrentStatus;
+  requestedPriority: RequestedPriority;
+  updatedAt: string;
+}
+
+export interface RequesterDashboard {
+  metrics: {
+    openTickets: number;
+    waitingForMe: number;
+    resolvedAwaitingConfirmation: number;
+  };
+  /** The Tickets behind the second and third cards; the row's status says why. */
+  attention: RequesterTicketRow[];
+  recentlyUpdated: RequesterTicketRow[];
+  recentlyResolved: RequesterTicketRow[];
+}
+
+/**
+ * FR-20: the caller's identity comes from the session. There is deliberately no
+ * argument for whose dashboard to fetch — the server would ignore one anyway,
+ * and offering one here would suggest otherwise.
+ */
+export async function fetchRequesterDashboard(): Promise<RequesterDashboard> {
+  const res = await fetch(`${API_URL}/api/dashboard/requester`, { ...withSession });
+  if (!res.ok) throw await toApiError(res);
+  return (await res.json()) as RequesterDashboard;
 }

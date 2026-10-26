@@ -5,6 +5,8 @@ import ChangePassword from "./pages/ChangePassword.js";
 import CreateTicket from "./pages/CreateTicket.js";
 import Login from "./pages/Login.js";
 import MyTickets from "./pages/MyTickets.js";
+import RequesterDashboard from "./pages/RequesterDashboard.js";
+import StaffDashboard from "./pages/StaffDashboard.js";
 import StaffTicketQueue from "./pages/StaffTicketQueue.js";
 import TicketDetail from "./pages/TicketDetail.js";
 import UserManagement from "./pages/UserManagement.js";
@@ -94,6 +96,14 @@ export function AppRoutes() {
           path="/change-password"
           element={<VoluntaryChangePassword session={session} landing={landing} />}
         />
+
+        {/* lab-04/ui-spec.md §3 — one route, two screens. Every role has the
+            same `/dashboard`, so the navigation is identical for everyone and a
+            shared link always lands somewhere the recipient is allowed to be.
+            Which screen it renders is the role's, not the address's (FR-25).
+            No role guard: every signed-in role has a dashboard, and the server
+            refuses whichever endpoint is not theirs. */}
+        <Route path="/dashboard" element={user.role === "REQUESTER" ? <RequesterDashboard /> : <StaffDashboard />} />
 
         <Route element={<RoleGuard user={user} allow={["IT_STAFF", "ADMINISTRATOR"]} />}>
           <Route path="/staff/tickets" element={<StaffTicketQueue />} />

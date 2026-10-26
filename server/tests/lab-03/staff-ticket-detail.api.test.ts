@@ -82,9 +82,31 @@ async function makeTicket(
   });
 }
 
+/**
+ * Lab 4, Issue #48 — the version a Ticket currently holds, or 1 when the URL
+ * names no Ticket that exists (the 404 cases, which must still reach the 404).
+ */
+async function versionIn(url: string): Promise<number> {
+  const id = Number(url.match(/\/api\/tickets\/(\d+)\//)?.[1]);
+  if (!Number.isInteger(id)) return 1;
+  const ticket = await prisma.ticket.findUnique({ where: { id }, select: { version: true } });
+  return ticket?.version ?? 1;
+}
+
 const as = (cookie: string) => ({
   get: (url: string) => request(app).get(url).set("Cookie", cookie),
-  patch: (url: string, body: object) => request(app).patch(url).set("Cookie", cookie).send(body),
+  // Lab 4, Issue #48: every Ticket write now carries the version its caller
+  // read (lab-04 BR-26, BR-28). This suite is about Lab 3's ownership, priority
+  // and transition rules, not about concurrency, so the helper reads the
+  // current version and sends it — the cases stay about what they were written
+  // to be about. A case that needs a *wrong* or absent version passes its own
+  // `version`, and the version rules themselves are asserted end to end in
+  // `lab-04/ticket-workflow.api.test.ts` (API-FLOW-09, API-FLOW-10, API-FLOW-11).
+  patch: async (url: string, body: object): Promise<SupertestResponse> =>
+    request(app)
+      .patch(url)
+      .set("Cookie", cookie)
+      .send({ version: await versionIn(url), ...body }),
   post: (url: string) => request(app).post(url).set("Cookie", cookie),
 });
 
@@ -149,6 +171,12 @@ describe("Reading any Ticket", () => {
 
       expect(res.status).toBe(200);
       // api-spec.md §5, exhaustively: one object for every role.
+      // Lab 4, Issue #46: `version` joins the Ticket shape for optimistic
+      // concurrency (lab-04 BR-26, api-spec.md §6). Issue #48 adds
+      // `openActionCount`, so the screen can explain a refused resolution
+      // before anybody presses Resolve (lab-04 BR-18, AC-09). This list is
+      // deliberately exact, so both are added here rather than loosening the
+      // assertion.
       expect(Object.keys(res.body.data).sort()).toEqual([
         "attachments",
         "categoryId",
@@ -157,6 +185,7 @@ describe("Reading any Ticket", () => {
         "description",
         "id",
         "itPriority",
+        "openActionCount",
         "owner",
         "ownerId",
         "relatedSystemId",
@@ -167,6 +196,7 @@ describe("Reading any Ticket", () => {
         "summary",
         "ticketNumber",
         "updatedAt",
+        "version",
       ]);
       expect(res.body.data.requester).toEqual({ id: requesterId, name: "Ops Requester", role: "REQUESTER" });
       expect(res.body.data.owner).toBeNull();
@@ -344,14 +374,26 @@ describe("PATCH /api/tickets/:id/status", () => {
   it("API-TICKET-10 / AC-13: of two simultaneous moves on one Ticket, exactly one wins and the other is a conflict", async () => {
     const ticket = await makeTicket({ currentStatus: "NEW" });
 
-    const results = await Promise.all([
-      as(staffACookie).patch(`/api/tickets/${ticket.id}/status`, { currentStatus: "OPEN" }),
-      as(staffBCookie).patch(`/api/tickets/${ticket.id}/status`, { currentStatus: "OPEN" }),
-    ]);
+    // Both read the Ticket, both decide to open it, and both send the version
+    // they read — which is what two people with the screen open actually do.
+    const { version } = await prisma.ticket.findUniqueOrThrow({
+      where: { id: ticket.id },
+      select: { version: true },
+    });
+    const move = (cookie: string) =>
+      request(app)
+        .patch(`/api/tickets/${ticket.id}/status`)
+        .set("Cookie", cookie)
+        .send({ version, currentStatus: "OPEN" });
 
-    // Whichever lands second finds the Ticket already Open, and Open -> Open is
-    // not a move — it must not report a success it did not perform.
+    const results = await Promise.all([move(staffACookie), move(staffBCookie)]);
+
+    // Exactly one wins, as it did in Lab 3. Lab 4 changes only the reason the
+    // loser is given: the version it held is no longer current (lab-04 BR-26),
+    // which is a truer answer than "Open to Open is not a move" — it names the
+    // Ticket having changed underneath, rather than the move being illegal.
     expect(results.map((r) => r.status).sort()).toEqual([200, 409]);
+    expect(results.find((r) => r.status === 409)!.body.error.code).toBe("STALE_UPDATE");
     const stored = await prisma.ticket.findUniqueOrThrow({ where: { id: ticket.id } });
     expect(stored.currentStatus).toBe("OPEN");
   });

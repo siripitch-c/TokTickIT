@@ -75,8 +75,11 @@ describe("The user list", () => {
     const retired = within(list).getAllByRole("row")[4];
     expect(within(retired).getByText("IT Staff")).toHaveClass("zg-badge--role");
     // §9.1: status is text, not a badge, so it never reads as a ticket status.
-    const status = retired.querySelector(".zg-user-status");
-    expect(status).toHaveClass("zg-user-status--inactive");
+    // Queried by the modifier since Issue #51: `zg-user-status` was a base
+    // class no rule in the stylesheet ever matched, and UI-STYLE-01 now fails
+    // the build for one of those rather than letting it render unstyled.
+    const status = retired.querySelector(".zg-user-status--inactive");
+    expect(status).toBeInTheDocument();
     expect(status).toHaveTextContent("Inactive");
     expect(status).not.toHaveClass("zg-badge");
     expect(within(retired).getByRole("button", { name: "Edit Retired Technician" })).toBeInTheDocument();
@@ -564,9 +567,9 @@ describe("Refusal", () => {
     renderUsers(STAFF);
 
     const forbidden = await screen.findByTestId("zg-state-forbidden");
-    expect(within(forbidden).getByRole("link", { name: /back to ticket queue/i })).toHaveAttribute(
+    expect(within(forbidden).getByRole("link", { name: /back to dashboard/i })).toHaveAttribute(
       "href",
-      "/staff/tickets",
+      "/dashboard",
     );
     expect(screen.queryByTestId("user-table")).not.toBeInTheDocument();
     expect(screen.queryByTestId("zg-state-error")).not.toBeInTheDocument();
